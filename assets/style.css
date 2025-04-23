@@ -18,7 +18,7 @@ a {
 
 /* Navigation Bar */
 nav {
-  background-color: #ffffff;
+  background-color: #001f3f; /* dark navy blue */
   padding: 15px 30px;
   display: flex;
   justify-content: space-between;
@@ -31,7 +31,7 @@ nav {
 nav h1 {
   margin: 0;
   font-size: 1.5em;
-  color: #007bff;
+  color: white;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -41,7 +41,7 @@ nav .menu-toggle {
   display: none;
   cursor: pointer;
   font-size: 1.8em;
-  color: #333;
+  color: white;
 }
 
 nav ul {
@@ -55,7 +55,7 @@ nav ul {
 }
 
 nav ul li a {
-  color: #333;
+  color: white;
   font-weight: 500;
   padding: 5px 10px;
   transition: color 0.3s ease;
@@ -63,7 +63,7 @@ nav ul li a {
 
 nav ul li a:hover,
 nav ul li a.active {
-  color: #007bff;
+  color: #1e90ff; /* dodger blue hover */
 }
 
 /* Hero Section */
@@ -214,7 +214,7 @@ footer {
     display: none;
     flex-direction: column;
     width: 100%;
-    background-color: #fff;
+    background-color: #001f3f;
     padding: 15px 0;
   }
 
