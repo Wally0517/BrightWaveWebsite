@@ -4,22 +4,24 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Allow multiple variants of your frontend domain
-allowed_origins = [
-    "https://www.brightwaveenterprises.online",
-    "http://www.brightwaveenterprises.online",
-    "https://brightwaveenterprises.online",
-    "http://brightwaveenterprises.online"
-]
-
-CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
+# Allow specific origins or wildcard "*"
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 @app.route('/')
 def home():
     return jsonify({"message": "BrightWave Backend is Live ✅"})
 
-@app.route('/api/contact', methods=['POST'])
+@app.route('/api/contact', methods=['POST', 'OPTIONS'])
 def contact():
+    if request.method == 'OPTIONS':
+        # Properly handle preflight CORS request
+        response = jsonify({'message': 'CORS preflight passed'})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    # Handle actual POST request
     data = request.get_json()
     name = data.get('name')
     email = data.get('email')
@@ -27,7 +29,9 @@ def contact():
 
     print(f"Message from {name} ({email}): {message}")
 
-    return jsonify({"success": True, "message": "Message received!"})
+    response = jsonify({"success": True, "message": "Message received!"})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
