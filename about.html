@@ -6,13 +6,6 @@
   <title>About Us | BrightWave Enterprises</title>
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="icon" type="image/png" href="assets/images/brightwave-logo.png" />
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.querySelector('.menu-toggle');
-      const navLinks = document.querySelector('nav ul');
-      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
-    });
-  </script>
 </head>
 <body>
 
@@ -32,7 +25,7 @@
     </nav>
   </header>
 
-  <!-- About Us Content -->
+  <!-- About Content -->
   <main class="about">
     <section class="intro">
       <h2>About BrightWave</h2>
@@ -47,7 +40,7 @@
       <img src="assets/images/who-we-are.jpg" alt="About BrightWave" class="about-img" />
     </section>
 
-    <!-- Meet the Team -->
+    <!-- Team Section -->
     <section class="team">
       <h3>Meet the Team 👥</h3>
       <div class="team-grid">
@@ -79,6 +72,15 @@
   <footer>
     <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
   </footer>
+
+  <!-- Mobile Menu Script -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
 
 </body>
 </html>
