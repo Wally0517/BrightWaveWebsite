@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# Allow only your frontend domain for security
+# ✅ Allow specific origins for CORS
 CORS(app, resources={r"/api/*": {"origins": "https://www.brightwaveenterprises.online"}})
 
 @app.route('/')
@@ -14,20 +14,13 @@ def home():
 @app.route('/api/contact', methods=['POST'])
 def contact():
     data = request.get_json()
-
     name = data.get('name')
     email = data.get('email')
     message = data.get('message')
-
-    # Simulate message handling (print to console/log)
-    print(f"📬 New Contact Message:\nFrom: {name} <{email}>\nMessage: {message}")
-
-    # TODO: Add email or WhatsApp integration here later
-
-    return jsonify({
-        "success": True,
-        "message": "Message received! We'll get back to you soon."
-    })
+    
+    print(f"Message from {name} ({email}): {message}")
+    
+    return jsonify({"success": True, "message": "Message received!"})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
