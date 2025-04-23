@@ -6,14 +6,24 @@
   <title>About Us | BrightWave Enterprises</title>
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="icon" type="image/png" href="assets/images/brightwave-logo.png" />
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
 </head>
 <body>
 
   <!-- Navigation -->
   <header>
     <nav>
-      <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 50px; vertical-align: middle;" />
-      <h1>BrightWave Enterprises</h1>
+      <h1>
+        <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;" />
+        BrightWave Enterprises
+      </h1>
+      <div class="menu-toggle">☰</div>
       <ul>
         <li><a href="index.html">Home</a></li>
         <li><a href="about.html" class="active">About</a></li>
@@ -22,7 +32,7 @@
     </nav>
   </header>
 
-  <!-- Intro Section -->
+  <!-- About Us Content -->
   <main class="about">
     <section class="intro">
       <h2>About BrightWave</h2>
@@ -31,12 +41,13 @@
         We focus on building affordable, stylish, and secure accommodations that help students thrive academically while living comfortably and safely.
       </p>
       <p>
-        Our journey began with a mission to provide dignified spaces where young people can dream, study, and grow. Every hostel we design is guided by our values of integrity, functionality, and excellence.
+        Our journey began with a mission to provide dignified spaces where young people can dream, study, and grow. 
+        Every hostel we design is guided by our values of integrity, functionality, and excellence.
       </p>
       <img src="assets/images/who-we-are.jpg" alt="About BrightWave" class="about-img" />
     </section>
 
-    <!-- Team Section -->
+    <!-- Meet the Team -->
     <section class="team">
       <h3>Meet the Team 👥</h3>
       <div class="team-grid">
