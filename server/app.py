@@ -15,7 +15,10 @@ def contact():
     name = data.get('name')
     email = data.get('email')
     message = data.get('message')
+    
+    # Print to server log (replace with email sending later)
     print(f"Message from {name} ({email}): {message}")
+    
     return jsonify({"success": True, "message": "Message received!"})
 
 if __name__ == '__main__':
