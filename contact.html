@@ -49,7 +49,7 @@
 
         <button type="submit">Send Message</button>
       </form>
-      <div id="statusMessage" style="margin-top: 20px;"></div>
+      <div id="statusMessage" style="margin-top: 20px; font-weight: bold;"></div>
     </section>
   </main>
 
@@ -71,23 +71,32 @@
   <script>
     document.getElementById("contactForm").addEventListener("submit", async function (e) {
       e.preventDefault();
-      const name = document.getElementById("name").value;
-      const email = document.getElementById("email").value;
-      const message = document.getElementById("message").value;
 
-      const response = await fetch("https://brightwaveenterprises.online/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message })
-      });
-
-      const result = await response.json();
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const message = document.getElementById("message").value.trim();
       const statusDiv = document.getElementById("statusMessage");
-      statusDiv.textContent = result.message;
-      statusDiv.style.color = result.success ? "green" : "red";
 
-      if (result.success) {
-        document.getElementById("contactForm").reset();
+      try {
+        const response = await fetch("https://brightwaveenterprises.online/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, message })
+        });
+
+        const result = await response.json();
+
+        statusDiv.textContent = result.message;
+        statusDiv.style.color = result.success ? "green" : "red";
+
+        if (result.success) {
+          document.getElementById("contactForm").reset();
+        }
+
+      } catch (error) {
+        statusDiv.textContent = "Something went wrong. Please try again.";
+        statusDiv.style.color = "red";
+        console.error("Error:", error);
       }
     });
   </script>
