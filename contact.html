@@ -6,14 +6,24 @@
   <title>Contact Us | BrightWave Enterprises</title>
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="icon" type="image/png" href="assets/images/brightwave-logo.png" />
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
 </head>
 <body>
 
   <!-- Navigation -->
   <header>
     <nav>
-      <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 50px; vertical-align: middle;" />
-      <h1>BrightWave Enterprises</h1>
+      <h1>
+        <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;" />
+        BrightWave Enterprises
+      </h1>
+      <div class="menu-toggle">☰</div>
       <ul>
         <li><a href="index.html">Home</a></li>
         <li><a href="about.html">About</a></li>
@@ -22,7 +32,7 @@
     </nav>
   </header>
 
-  <!-- Contact Page Content -->
+  <!-- Contact Content -->
   <main class="contact">
     <section class="contact-intro">
       <h2>Contact Us 📬</h2>
@@ -55,7 +65,7 @@
     <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
   </footer>
 
-  <!-- JavaScript -->
+  <!-- Contact Script -->
   <script>
     document.getElementById("contactForm").addEventListener("submit", async function (e) {
       e.preventDefault();
