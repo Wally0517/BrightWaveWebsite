@@ -1,3 +1,5 @@
 Flask
 flask-cors
 gunicorn
+flask-mail
+twilio
