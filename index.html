@@ -7,6 +7,14 @@
   <title>BrightWave Enterprises</title>
   <link rel="stylesheet" href="/assets/style.css" />
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
+  <script>
+    // Mobile Menu Toggle Script
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
 </head>
 <body>
 
@@ -14,9 +22,10 @@
   <header>
     <nav>
       <h1>
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px; vertical-align: middle;" />
+        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;" />
         BrightWave Enterprises
       </h1>
+      <div class="menu-toggle">☰</div>
       <ul>
         <li><a href="index.html" class="active">Home</a></li>
         <li><a href="about.html">About</a></li>
