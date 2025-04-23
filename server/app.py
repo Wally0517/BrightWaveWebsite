@@ -4,8 +4,15 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Allow specific origins for CORS
-CORS(app, resources={r"/api/*": {"origins": "https://www.brightwaveenterprises.online"}})
+# ✅ Allow multiple variants of your frontend domain
+allowed_origins = [
+    "https://www.brightwaveenterprises.online",
+    "http://www.brightwaveenterprises.online",
+    "https://brightwaveenterprises.online",
+    "http://brightwaveenterprises.online"
+]
+
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 @app.route('/')
 def home():
@@ -17,9 +24,9 @@ def contact():
     name = data.get('name')
     email = data.get('email')
     message = data.get('message')
-    
+
     print(f"Message from {name} ({email}): {message}")
-    
+
     return jsonify({"success": True, "message": "Message received!"})
 
 if __name__ == '__main__':
