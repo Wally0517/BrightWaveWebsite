@@ -7,14 +7,6 @@
   <title>BrightWave Enterprises</title>
   <link rel="stylesheet" href="/assets/style.css" />
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
-  <script>
-    // Mobile Menu Toggle Script
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.querySelector('.menu-toggle');
-      const navLinks = document.querySelector('nav ul');
-      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
-    });
-  </script>
 </head>
 <body>
 
@@ -84,6 +76,15 @@
   <footer>
     <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
   </footer>
+
+  <!-- Mobile Menu Script -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
 
 </body>
 </html>
