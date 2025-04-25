@@ -1,7 +1,7 @@
 /* Import Tailwind CSS Reset & Utilities */
 @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
 
-/* Global Base Styles */
+/* Base Styles */
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
@@ -16,16 +16,15 @@ a {
   color: inherit;
 }
 
-/* Navigation Bar */
+/* Navigation */
 nav {
-  background-color: #001f3f; /* dark navy blue */
+  background-color: #001f3f;
   padding: 15px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex-wrap: wrap;
-  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 nav h1 {
@@ -39,9 +38,9 @@ nav h1 {
 
 nav .menu-toggle {
   display: none;
-  cursor: pointer;
   font-size: 1.8em;
   color: white;
+  cursor: pointer;
 }
 
 nav ul {
@@ -51,27 +50,25 @@ nav ul {
   margin: 0;
   padding: 0;
   flex-wrap: wrap;
-  transition: all 0.3s ease;
 }
 
 nav ul li a {
   color: white;
   font-weight: 500;
   padding: 5px 10px;
-  transition: color 0.3s ease;
 }
 
 nav ul li a:hover,
 nav ul li a.active {
-  color: #1e90ff; /* dodger blue hover */
+  color: #1e90ff;
 }
 
-/* Hero Section */
+/* Hero Image for Home */
 .hero-image {
   background-image: url('../assets/images/who-we-are.jpg');
-  height: 100vh;
   background-size: cover;
   background-position: center;
+  height: 100vh;
   position: relative;
 }
 
@@ -81,141 +78,169 @@ nav ul li a.active {
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  text-align: center;
   background-color: rgba(0, 0, 0, 0.5);
   padding: 40px;
   border-radius: 10px;
   width: 90%;
   max-width: 700px;
-  animation: fadeIn 1s ease-out;
+  text-align: center;
 }
 
 .hero-overlay h1 {
   font-size: 3em;
-  margin-bottom: 10px;
 }
 
 .hero-overlay p {
   font-size: 1.3em;
-  margin-bottom: 20px;
 }
 
-.btn {
+/* Buttons */
+.btn,
+.contact button {
   background-color: #007bff;
   color: white;
   padding: 12px 20px;
   border: none;
   border-radius: 6px;
-  text-decoration: none;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition: 0.3s ease;
 }
 
-.btn:hover {
+.btn:hover,
+.contact button:hover {
   background-color: #0056b3;
   transform: scale(1.05);
 }
 
-/* Section Styles */
-.about, .projects, .contact, .cta, .team {
+/* Common Section Styling */
+.about, .projects, .contact, .cta, .team, .hostel-detail {
   padding: 60px 20px;
-  text-align: center;
   animation: fadeInUp 0.8s ease-out;
+  text-align: center;
 }
 
-.about-img, .project-card img, .member img {
+/* Hostel Banner */
+.hostel-banner {
+  background-color: #f0f0f0;
+  padding: 40px 20px;
+}
+
+.hostel-banner h2 {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+}
+
+.hostel-banner p {
+  font-size: 1.2em;
+  color: #555;
+}
+
+/* Hostel Gallery */
+.hostel-gallery .gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.hostel-gallery img {
+  width: 250px;
+  height: 180px;
+  object-fit: cover;
   border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
   transition: transform 0.3s ease;
 }
 
-.project-card:hover img,
-.member:hover img {
+.hostel-gallery img:hover {
   transform: scale(1.05);
 }
 
-.project-gallery {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  flex-wrap: wrap;
-  margin-top: 40px;
+/* Hostel Features */
+.hostel-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto;
+  max-width: 600px;
+  text-align: left;
 }
 
-.project-card {
-  width: 300px;
-  background-color: #fff;
+.hostel-features li {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Map Section */
+.location-map {
+  margin-top: 50px;
+}
+
+.location-map iframe {
+  width: 100%;
+  max-width: 800px;
+  height: 300px;
   border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  transition: transform 0.3s ease;
+  border: 2px solid #ccc;
 }
 
-.project-card:hover {
-  transform: translateY(-5px);
+/* Contact Form Section */
+.hostel-contact-form {
+  margin-top: 50px;
 }
 
-.contact-form form,
-.team-grid {
+.hostel-contact-form form {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 20px;
+  gap: 15px;
+  max-width: 500px;
+  margin: auto;
 }
 
-.contact input,
-.contact textarea {
+.hostel-contact-form input,
+.hostel-contact-form textarea {
   padding: 12px;
   border-radius: 5px;
   border: 1px solid #ccc;
-  font-size: 1em;
-  width: 100%;
-  max-width: 500px;
+  font-size: 1rem;
 }
 
-.contact button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 12px;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 1em;
+#formStatus {
+  font-weight: bold;
+  margin-top: 15px;
 }
 
-.contact button:hover {
-  background-color: #0056b3;
+/* Coming Soon */
+.coming-soon {
+  margin-top: 60px;
+  background-color: #fff9e6;
+  padding: 40px;
+  border-radius: 10px;
+  border-left: 5px solid #ffa500;
 }
 
 /* Footer */
 footer {
-  padding: 20px;
   background-color: #222;
   color: white;
+  padding: 20px;
   text-align: center;
-  font-size: 0.9em;
 }
 
 /* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
   nav ul {
     display: none;
     flex-direction: column;
     width: 100%;
     background-color: #001f3f;
-    padding: 15px 0;
   }
 
   nav ul.active {
@@ -226,47 +251,12 @@ footer {
     display: block;
   }
 
-  .hero-overlay h1 {
-    font-size: 2em;
-  }
-
-  .hero-overlay p {
-    font-size: 1em;
-  }
-
-  .project-card {
-    width: 90%;
-  }
+  .hero-overlay h1 { font-size: 2em; }
+  .hero-overlay p  { font-size: 1em; }
+  .hostel-gallery img { width: 100%; height: auto; }
 }
 
-@media (max-width: 480px) {
-  .hero-overlay {
-    padding: 20px;
-  }
-
-  .hero-overlay h1 {
-    font-size: 1.8em;
-  }
-
-  .hero-overlay p {
-    font-size: 0.9em;
-  }
-
-  .btn {
-    padding: 10px 16px;
-    font-size: 0.9em;
-  }
-
-  .project-gallery {
-    gap: 20px;
-  }
-
-  .about p, .contact p, .cta p {
-    font-size: 0.95em;
-  }
-}
-
-/* Tailwind Utility Reset */
+/* Tailwind Reset (if needed) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
