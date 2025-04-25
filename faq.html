@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQs | BrightWave Enterprises</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <link rel="icon" href="assets/images/brightwave-logo.png" type="image/png" />
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <nav>
+      <h1>
+        <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
+        BrightWave Enterprises
+      </h1>
+      <div class="menu-toggle">☰</div>
+      <ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="hostels.html">Hostels</a></li>
+        <li><a href="faq.html" class="active">FAQs</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- FAQ Content -->
+  <main class="faq">
+    <section class="about">
+      <h2>Frequently Asked Questions</h2>
+      <div class="faq-list">
+
+        <div class="faq-item">
+          <h4>📍 Where is BrightWave Hostel located?</h4>
+          <p>We are located in Osunlade Village, Malete, Kwara State — just minutes from the university area.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>🔐 What security measures are in place?</h4>
+          <p>24/7 security personnel, CCTV surveillance, and gated entrances with restricted access.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>💧 Is water supply available all the time?</h4>
+          <p>Yes. We offer 24/7 water supply supported by a borehole and backup water tank system.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>⚡ What happens during power outages?</h4>
+          <p>We run on solar power, and we also have a general generator to support all rooms when needed.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>🏠 Can I book a hostel room in advance?</h4>
+          <p>Yes, contact us via the form on our hostel detail page or contact page to reserve your space.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>🛠 Is Phase 1 open now?</h4>
+          <p>Phase 1 is under active construction and scheduled to open soon. Bookings will be available once completed.</p>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
+
+</body>
+</html>
