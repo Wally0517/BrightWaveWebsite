@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hostels | BrightWave Enterprises</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="icon" href="assets/images/brightwave-logo.png" type="image/png">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <nav>
+      <h1>
+        <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
+        BrightWave Enterprises
+      </h1>
+      <div class="menu-toggle">☰</div>
+      <ul>
+        <li><a href="homepage.html">Home</a></li>
+        <li><a href="hostels.html" class="active">Hostels</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Hostels Page -->
+  <main class="hostels-listing">
+
+    <section class="intro">
+      <h2>Our Hostels 🏡</h2>
+      <p>Explore our current and upcoming student hostel projects at BrightWave Enterprises.</p>
+    </section>
+
+    <section class="hostel-grid">
+
+      <!-- Phase 1 - Ongoing Construction -->
+      <div class="hostel-card ongoing">
+        <img src="assets/images/hostels/phase1-cover.jpg" alt="BrightWave Phase 1 Hostel">
+        <div class="hostel-info">
+          <h3>BrightWave Phase 1 Hostel</h3>
+          <p>10 Self-Contained Rooms · Private Bathrooms & Kitchens · 24/7 Security · Solar Power</p>
+          <span class="status-label ongoing-label">Ongoing Construction 🚧</span>
+          <a href="hostel-detail.html" class="btn">View Details</a>
+        </div>
+      </div>
+
+      <!-- Phase 2 - Coming Soon -->
+      <div class="hostel-card coming-soon">
+        <img src="assets/images/hostels/phase2-placeholder.jpg" alt="BrightWave Phase 2 Coming Soon">
+        <div class="hostel-info">
+          <h3>BrightWave Phase 2 (Coming Soon)</h3>
+          <p>32-35 Rooms Planned · Extended Amenities · Constructing after Phase 1</p>
+          <span class="status-label coming-soon-label">Coming Soon ⚡</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
+  </footer>
+
+  <!-- Mobile Menu Toggle -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.querySelector('.menu-toggle');
+      const navLinks = document.querySelector('nav ul');
+      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    });
+  </script>
+
+</body>
+</html>
