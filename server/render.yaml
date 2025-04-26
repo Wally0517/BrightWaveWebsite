@@ -2,9 +2,9 @@ services:
   - type: web
     name: brightwave-backend
     env: python
-    buildCommand: ""
-    startCommand: "gunicorn app:app"
     plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
     envVars:
-      - key: PORT
-        value: 10000
+      - key: ALLOWED_ORIGINS
+        value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.online
