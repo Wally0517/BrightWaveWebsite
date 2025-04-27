@@ -136,6 +136,12 @@ nav ul li a.active {
   object-position: top center;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   margin-bottom: 15px;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.team-grid img:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
 }
 
 .team-grid h4 {
