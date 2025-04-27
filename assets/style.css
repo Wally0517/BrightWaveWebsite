@@ -1,7 +1,7 @@
-/* Import Tailwind CSS Reset & Utilities */
+/* Import Tailwind CSS Reset */
 @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
 
-/* Base Styles */
+/* ========== Global Base Styles ========== */
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
@@ -16,7 +16,7 @@ a {
   color: inherit;
 }
 
-/* Navigation */
+/* ========== Navigation Bar ========== */
 nav {
   background-color: #001f3f;
   padding: 15px 30px;
@@ -49,7 +49,6 @@ nav ul {
   gap: 20px;
   margin: 0;
   padding: 0;
-  flex-wrap: wrap;
 }
 
 nav ul li a {
@@ -63,7 +62,7 @@ nav ul li a.active {
   color: #1e90ff;
 }
 
-/* Hero Image for Home */
+/* ========== Hero Section (Homepage Banner) ========== */
 .hero-image {
   background-image: url('../assets/images/who-we-are.jpg');
   background-size: cover;
@@ -94,7 +93,7 @@ nav ul li a.active {
   font-size: 1.3em;
 }
 
-/* Buttons */
+/* ========== Buttons ========== */
 .btn,
 .contact button {
   background-color: #007bff;
@@ -104,7 +103,7 @@ nav ul li a.active {
   border-radius: 6px;
   font-size: 1rem;
   cursor: pointer;
-  transition: 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .btn:hover,
@@ -113,14 +112,14 @@ nav ul li a.active {
   transform: scale(1.05);
 }
 
-/* Common Section Styling */
+/* ========== Section Containers ========== */
 .about, .projects, .contact, .cta, .team, .hostel-detail {
   padding: 60px 20px;
   animation: fadeInUp 0.8s ease-out;
   text-align: center;
 }
 
-/* Hostel Banner */
+/* ========== Hostel Banner ========== */
 .hostel-banner {
   background-color: #f0f0f0;
   padding: 40px 20px;
@@ -136,7 +135,7 @@ nav ul li a.active {
   color: #555;
 }
 
-/* Hostel Gallery */
+/* ========== Hostel Gallery Section ========== */
 .hostel-gallery .gallery-grid {
   display: flex;
   flex-wrap: wrap;
@@ -150,7 +149,7 @@ nav ul li a.active {
   height: 180px;
   object-fit: cover;
   border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   transition: transform 0.3s ease;
 }
 
@@ -158,7 +157,7 @@ nav ul li a.active {
   transform: scale(1.05);
 }
 
-/* Hostel Features */
+/* ========== Hostel Features List ========== */
 .hostel-features ul {
   list-style: none;
   padding: 0;
@@ -172,7 +171,7 @@ nav ul li a.active {
   border-bottom: 1px solid #ddd;
 }
 
-/* Map Section */
+/* ========== Location Map Section ========== */
 .location-map {
   margin-top: 50px;
 }
@@ -185,7 +184,7 @@ nav ul li a.active {
   border: 2px solid #ccc;
 }
 
-/* Contact Form Section */
+/* ========== Hostel Contact Form ========== */
 .hostel-contact-form {
   margin-top: 50px;
 }
@@ -211,7 +210,7 @@ nav ul li a.active {
   margin-top: 15px;
 }
 
-/* Coming Soon */
+/* ========== Coming Soon Section ========== */
 .coming-soon {
   margin-top: 60px;
   background-color: #fff9e6;
@@ -220,21 +219,22 @@ nav ul li a.active {
   border-left: 5px solid #ffa500;
 }
 
-/* Footer */
+/* ========== Footer ========== */
 footer {
   background-color: #222;
   color: white;
   padding: 20px;
   text-align: center;
+  font-size: 0.9em;
 }
 
-/* Animations */
+/* ========== Animations ========== */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive */
+/* ========== Responsive Styling ========== */
 @media (max-width: 768px) {
   nav ul {
     display: none;
@@ -253,10 +253,10 @@ footer {
 
   .hero-overlay h1 { font-size: 2em; }
   .hero-overlay p  { font-size: 1em; }
-  .hostel-gallery img { width: 100%; height: auto; }
+  .hostel-gallery img { width: 90%; height: auto; }
 }
 
-/* Tailwind Reset (if needed) */
+/* ========== Tailwind Base Reset (if needed) ========== */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
