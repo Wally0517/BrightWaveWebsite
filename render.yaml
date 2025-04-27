@@ -7,4 +7,4 @@ services:
     startCommand: gunicorn server.app:app
     envVars:
       - key: ALLOWED_ORIGINS
-        value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.online
+        value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.onlin
