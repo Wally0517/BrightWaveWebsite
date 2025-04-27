@@ -119,6 +119,35 @@ nav ul li a.active {
   text-align: center;
 }
 
+/* ========== Team Member Cards (NEW) ========== */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 30px;
+  justify-items: center;
+  margin-top: 40px;
+}
+
+.team-grid img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+}
+
+.team-grid h4 {
+  margin: 10px 0 5px 0;
+  font-size: 1.1rem;
+  color: #001f3f;
+}
+
+.team-grid p {
+  font-size: 0.9rem;
+  color: #555;
+}
+
 /* ========== Hostel Banner ========== */
 .hostel-banner {
   background-color: #f0f0f0;
