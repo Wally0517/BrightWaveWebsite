@@ -6,139 +6,190 @@
   <title>BrightWave Phase 1 Hostel | BrightWave Enterprises</title>
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png">
+  <style>
+    /* Slideshow styles */
+    .slideshow-container {
+      position: relative;
+      max-width: 1000px;
+      margin: 40px auto;
+      overflow: hidden;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .slide {
+      display: none;
+    }
+    .slide img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .fade {
+      animation: fade 1.5s ease-in-out forwards;
+    }
+    @keyframes fade {
+      from { opacity: .4 } 
+      to { opacity: 1 }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <header>
-    <nav>
-      <h1>
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
-        BrightWave Enterprises
-      </h1>
-      <div class="menu-toggle">☰</div>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/hostels" class="active">Hostels</a></li>
-        <li><a href="/about">About</a></li>
-        <li><a href="/contact">Contact</a></li>
-        <li><a href="/faq">FAQ</a></li>
-      </ul>
-    </nav>
-  </header>
+<!-- Navigation -->
+<header>
+  <nav>
+    <h1>
+      <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
+      BrightWave Enterprises
+    </h1>
+    <div class="menu-toggle">☰</div>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/hostels" class="active">Hostels</a></li>
+      <li><a href="/about">About</a></li>
+      <li><a href="/contact">Contact</a></li>
+      <li><a href="/faq">FAQ</a></li>
+    </ul>
+  </nav>
+</header>
 
-  <!-- Hostel Detail Content -->
-  <main class="hostel-detail">
+<!-- Hostel Detail Content -->
+<main class="hostel-detail">
 
-    <!-- Banner -->
-    <section class="hostel-banner">
-      <h2>BrightWave Phase 1 Hostel</h2>
-      <p>Luxury Student Living. Comfort, Security & Community.</p>
-    </section>
+  <!-- Banner -->
+  <section class="hostel-banner">
+    <h2>BrightWave Phase 1 Hostel</h2>
+    <p>Luxury Student Living. Comfort, Security & Community.</p>
+  </section>
 
-    <!-- Hostel Photos -->
-    <section class="hostel-gallery">
-      <h3>Gallery</h3>
-      <div class="gallery-grid">
-        <img src="/assets/images/phase1-room1.jpg" alt="Room Interior">
-        <img src="/assets/images/phase1-snooker.jpg" alt="Snooker Recreation">
-        <img src="/assets/images/phase1-security.jpg" alt="Security Post">
-        <img src="/assets/images/phase1-water.jpg" alt="Water Supply">
+  <!-- Hostel Slideshow Gallery -->
+  <section class="hostel-gallery">
+    <h3>Gallery</h3>
+    <div class="slideshow-container">
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-aerial-topview.jpg" alt="Aerial Topview">
       </div>
-    </section>
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="Bedroom Interior">
+      </div>
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-bathroom.jpg" alt="Bathroom View">
+      </div>
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-kitchen.jpg" alt="Kitchenette Area">
+      </div>
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="Courtyard and Snooker Recreation">
+      </div>
+      <div class="slide fade">
+        <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="Entrance and Security">
+      </div>
+    </div>
+  </section>
 
-    <!-- Hostel Features -->
-    <section class="hostel-features">
-      <h3>Amenities</h3>
-      <ul>
-        <li>10 Self-contained Rooms (Private Bathrooms + Kitchenette)</li>
-        <li>24/7 Security Personnel</li>
-        <li>Solar Power Backup System</li>
-        <li>General Generator Access</li>
-        <li>360° CCTV Surveillance</li>
-        <li>Snooker Board for Recreation</li>
-        <li>Reliable 24/7 Water Supply</li>
-      </ul>
-    </section>
+  <!-- Hostel Features -->
+  <section class="hostel-features">
+    <h3>Amenities</h3>
+    <ul>
+      <li>10 Self-contained Rooms (Private Bathrooms + Kitchenette)</li>
+      <li>24/7 Security Personnel</li>
+      <li>Solar Power Backup System</li>
+      <li>General Generator Access</li>
+      <li>360° CCTV Surveillance</li>
+      <li>Snooker Board for Recreation</li>
+      <li>Reliable 24/7 Water Supply</li>
+    </ul>
+  </section>
 
-    <!-- Survey & Map -->
-    <section class="location-map">
-      <h3>Verified Location</h3>
-      <p>Surveyed property located at Osunlade Village, Malete — Moro LGA, Kwara State, Nigeria.</p>
-      <img src="/assets/images/who-we-are.jpg" alt="Survey Plan" style="max-width: 300px; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 15px;">
-      <iframe 
-        src="https://maps.google.com/maps?q=8.583498,4.555573&z=15&output=embed" 
-        width="100%" 
-        height="300" 
-        style="border:0;" 
-        allowfullscreen="" 
-        loading="lazy">
-      </iframe>
-    </section>
+  <!-- Location Section -->
+  <section class="location-map">
+    <h3>Verified Location</h3>
+    <p>Surveyed property located at Osunlade Village, Malete — Moro LGA, Kwara State, Nigeria.</p>
+    <img src="/assets/images/who-we-are.jpg" alt="Survey Plan" style="max-width: 300px; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 15px;">
+    <iframe 
+      src="https://maps.google.com/maps?q=8.583498,4.555573&z=15&output=embed" 
+      width="100%" 
+      height="300" 
+      style="border:0;" 
+      allowfullscreen="" 
+      loading="lazy">
+    </iframe>
+  </section>
 
-    <!-- Booking Form -->
-    <section class="hostel-contact-form">
-      <h3>Request More Information</h3>
-      <form id="hostelContactForm">
-        <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required>
-        <input type="email" id="email" name="email" placeholder="Your Email Address" required>
-        <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required>
-        <textarea id="message" name="message" placeholder="Tell us what you need..." rows="5" required></textarea>
-        <button type="submit">Send Request</button>
-      </form>
-      <div id="formStatus" style="margin-top: 20px;"></div>
-    </section>
+  <!-- Contact Section -->
+  <section class="hostel-contact-form">
+    <h3>Request More Information</h3>
+    <form id="hostelContactForm">
+      <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required>
+      <input type="email" id="email" name="email" placeholder="Your Email Address" required>
+      <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required>
+      <textarea id="message" name="message" placeholder="Tell us what you need..." rows="5" required></textarea>
+      <button type="submit">Send Request</button>
+    </form>
+    <div id="formStatus"></div>
+  </section>
 
-    <!-- Phase 2 -->
-    <section class="coming-soon">
-      <h3>Phase 2 - Coming Soon ⚡</h3>
-      <p>We are expanding with 2 more plots to build 32-35 rooms, more amenities, and recreational features.</p>
-    </section>
+  <!-- Phase 2 Promotion -->
+  <section class="coming-soon">
+    <h3>Phase 2 - Coming Soon ⚡</h3>
+    <p>We are expanding with 2 more plots to build 32-35 rooms, more amenities, and recreational features.</p>
+  </section>
 
-  </main>
+</main>
 
-  <!-- Footer -->
-  <footer>
-    <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
-  </footer>
+<!-- Footer -->
+<footer>
+  <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
+</footer>
 
-  <!-- Mobile Menu Toggle -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.querySelector('.menu-toggle');
-      const navLinks = document.querySelector('nav ul');
-      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
-    });
-  </script>
+<!-- Scripts -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.querySelector('.menu-toggle');
+    const navLinks = document.querySelector('nav ul');
+    toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+  });
 
-  <!-- Form Submission -->
-  <script>
-    document.getElementById("hostelContactForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      const fullName = document.getElementById("fullName").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const message = document.getElementById("message").value.trim();
-      const statusDiv = document.getElementById("formStatus");
+  // Slideshow script
+  let slideIndex = 0;
+  function showSlides() {
+    let slides = document.getElementsByClassName("slide");
+    for (let i = 0; i < slides.length; i++) {
+      slides[i].style.display = "none";
+    }
+    slideIndex++;
+    if (slideIndex > slides.length) {slideIndex = 1}
+    slides[slideIndex-1].style.display = "block";
+    setTimeout(showSlides, 3000); // Change every 3 seconds
+  }
+  showSlides();
 
-      try {
-        const response = await fetch("/api/contact", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: fullName, email, message: `Phone: ${phone} | ${message}` })
-        });
+  // Form submission
+  document.getElementById("hostelContactForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const fullName = document.getElementById("fullName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const message = document.getElementById("message").value.trim();
+    const statusDiv = document.getElementById("formStatus");
 
-        const result = await response.json();
-        statusDiv.textContent = result.message;
-        statusDiv.style.color = result.success ? "green" : "red";
-        if (result.success) document.getElementById("hostelContactForm").reset();
-      } catch (error) {
-        statusDiv.textContent = "Something went wrong. Please try again.";
-        statusDiv.style.color = "red";
-        console.error("Error:", error);
-      }
-    });
-  </script>
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: fullName, email, message: `Phone: ${phone} | ${message}` })
+      });
+      const result = await response.json();
+      statusDiv.textContent = result.message;
+      statusDiv.style.color = result.success ? "green" : "red";
+      if (result.success) document.getElementById("hostelContactForm").reset();
+    } catch (error) {
+      statusDiv.textContent = "Something went wrong. Please try again.";
+      statusDiv.style.color = "red";
+      console.error("Error:", error);
+    }
+  });
+</script>
 
 </body>
 </html>
