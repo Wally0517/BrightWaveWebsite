@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BrightWave Phase 1 Hostel | BrightWave Enterprises</title>
-  <link rel="stylesheet" href="assets/style.css">
-  <link rel="icon" href="assets/images/brightwave-logo.png" type="image/png">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png">
 </head>
 <body>
 
@@ -13,15 +13,16 @@
   <header>
     <nav>
       <h1>
-        <img src="assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
+        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
         BrightWave Enterprises
       </h1>
       <div class="menu-toggle">☰</div>
       <ul>
-        <li><a href="homepage.html">Home</a></li>
-        <li><a href="hostels.html" class="active">Hostels</a></li>
-        <li><a href="about.html">About</a></li>
-        <li><a href="contact.html">Contact</a></li>
+        <li><a href="/">Home</a></li>
+        <li><a href="/hostels" class="active">Hostels</a></li>
+        <li><a href="/about">About</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="/faq">FAQ</a></li>
       </ul>
     </nav>
   </header>
@@ -39,10 +40,10 @@
     <section class="hostel-gallery">
       <h3>Gallery</h3>
       <div class="gallery-grid">
-        <img src="assets/images/hostels/phase1-room1.jpg" alt="Room Interior">
-        <img src="assets/images/hostels/phase1-snooker.jpg" alt="Snooker Recreation">
-        <img src="assets/images/hostels/phase1-security.jpg" alt="Security Post">
-        <img src="assets/images/hostels/phase1-water.jpg" alt="Water Supply">
+        <img src="/assets/images/phase1-room1.jpg" alt="Room Interior">
+        <img src="/assets/images/phase1-snooker.jpg" alt="Snooker Recreation">
+        <img src="/assets/images/phase1-security.jpg" alt="Security Post">
+        <img src="/assets/images/phase1-water.jpg" alt="Water Supply">
       </div>
     </section>
 
@@ -64,9 +65,9 @@
     <section class="location-map">
       <h3>Verified Location</h3>
       <p>Surveyed property located at Osunlade Village, Malete — Moro LGA, Kwara State, Nigeria.</p>
-      <img src="assets/images/who-we-are.jpg" alt="Survey Plan" style="max-width: 300px; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 15px;">
+      <img src="/assets/images/who-we-are.jpg" alt="Survey Plan" style="max-width: 300px; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 15px;">
       <iframe 
-        src="https://maps.google.com/maps?q=8.583498,%204.555573&z=15&output=embed" 
+        src="https://maps.google.com/maps?q=8.583498,4.555573&z=15&output=embed" 
         width="100%" 
         height="300" 
         style="border:0;" 
@@ -121,7 +122,7 @@
       const statusDiv = document.getElementById("formStatus");
 
       try {
-        const response = await fetch("https://brightwaveenterprises.online/api/contact", {
+        const response = await fetch("/api/contact", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: fullName, email, message: `Phone: ${phone} | ${message}` })
