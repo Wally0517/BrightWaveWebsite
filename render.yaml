@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: brightwave-website
+    name: brightwave-backend
     env: python
     plan: free
-    buildCommand: pip install -r server/requirements.txt
-    startCommand: gunicorn server.app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
     envVars:
       - key: ALLOWED_ORIGINS
         value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.online
