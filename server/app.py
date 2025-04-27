@@ -4,17 +4,16 @@ import os
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-# Handle allowed CORS origins
+# ========== CORS CONFIGURATION ==========
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 allowed_origins = [origin.strip() for origin in allowed_origins]
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
-# ========== ROOT ENDPOINT ==========
+# ========== STATIC PAGE ROUTES ==========
 @app.route('/')
 def home():
     return send_from_directory('.', 'index.html')
 
-# ========== OTHER PAGES ==========
 @app.route('/about')
 def about():
     return send_from_directory('.', 'about.html')
@@ -35,12 +34,12 @@ def hostels():
 def hostel_detail():
     return send_from_directory('.', 'hostel-detail.html')
 
-# ========== STATIC FILES ==========
+# ========== STATIC FILES (Assets, Images) ==========
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
     return send_from_directory('assets', filename)
 
-# ========== FORM API ==========
+# ========== FORM HANDLER API ==========
 @app.route('/api/contact', methods=['POST'])
 def contact_api():
     data = request.get_json()
@@ -48,8 +47,9 @@ def contact_api():
     email = data.get('email')
     message = data.get('message')
 
-    print(f"Message from {name} ({email}): {message}")
-    return jsonify({"success": True, "message": "Message received!"})
+    print(f"New Contact - Name: {name}, Email: {email}, Message: {message}")
+
+    return jsonify({"success": True, "message": "Thank you! Your message has been received."})
 
 # ========== RUN LOCALLY ==========
 if __name__ == '__main__':
