@@ -131,10 +131,11 @@ nav ul li a.active {
 .team-grid img {
   width: 150px;
   height: 150px;
-  object-fit: cover;
   border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 .team-grid h4 {
