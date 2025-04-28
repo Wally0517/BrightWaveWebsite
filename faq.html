@@ -3,80 +3,97 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Frequently Asked Questions about BrightWave Enterprises' student hostels in Nigeria." />
   <title>FAQs | BrightWave Enterprises</title>
-  <link rel="stylesheet" href="/assets/style.css" />
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png" />
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="font-sans bg-gray-900 text-white">
 
   <!-- Navigation -->
-  <header>
-    <nav>
-      <h1>
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
-        BrightWave Enterprises
-      </h1>
-      <div class="menu-toggle">☰</div>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/hostels">Hostels</a></li>
-        <li><a href="/faq" class="active">FAQs</a></li>
-        <li><a href="/contact">Contact</a></li>
+  <header class="bg-gray-800 shadow-md sticky top-0 z-50">
+    <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
+        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
+      </div>
+      <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
+      <ul class="hidden md:flex space-x-6 text-lg font-semibold">
+        <li><a href="/" class="hover:text-blue-300">Home</a></li>
+        <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
+        <li><a href="/about" class="hover:text-blue-300">About</a></li>
+        <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+        <li><a href="/faq" class="text-blue-400 hover:text-blue-300">FAQ</a></li>
       </ul>
     </nav>
+    <ul class="nav-links hidden bg-gray-800 shadow-md md:hidden flex-col items-center space-y-4 py-4">
+      <li><a href="/" class="hover:text-blue-300 font-semibold">Home</a></li>
+      <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
+      <li><a href="/about" class="hover:text-blue-300">About</a></li>
+      <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+      <li><a href="/faq" class="text-blue-400 font-semibold hover:text-blue-300">FAQ</a></li>
+    </ul>
   </header>
 
   <!-- FAQ Content -->
-  <main class="faq">
+  <main class="faq container mx-auto px-4 py-16">
     <section class="about">
-      <h2>Frequently Asked Questions</h2>
-      <div class="faq-list">
-
-        <div class="faq-item">
-          <h4>📍 Where is BrightWave Hostel located?</h4>
-          <p>We are located in Osunlade Village, Malete, Kwara State — just minutes from the university area.</p>
+      <h2 class="text-4xl font-bold text-center mb-12">Frequently Asked Questions</h2>
+      <div class="faq-list space-y-6 max-w-3xl mx-auto">
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">📍 Where is BrightWave Hostel located?</h4>
+          <p class="font-medium">We are located in Osunlade Village, Malete, Kwara State — just minutes from the university area.</p>
         </div>
 
-        <div class="faq-item">
-          <h4>🔐 What security measures are in place?</h4>
-          <p>24/7 security personnel, CCTV surveillance, and gated entrances with restricted access.</p>
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">🔐 What security measures are in place?</h4>
+          <p class="font-medium">24/7 security personnel, CCTV surveillance, and gated entrances with restricted access.</p>
         </div>
 
-        <div class="faq-item">
-          <h4>💧 Is water supply available all the time?</h4>
-          <p>Yes. We offer 24/7 water supply supported by a borehole and backup water tank system.</p>
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">💧 Is water supply available all the time?</h4>
+          <p class="font-medium">Yes. We offer 24/7 water supply supported by a borehole and backup water tank system.</p>
         </div>
 
-        <div class="faq-item">
-          <h4>⚡ What happens during power outages?</h4>
-          <p>We run on solar power, and we also have a general generator to support all rooms when needed.</p>
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">⚡ What happens during power outages?</h4>
+          <p class="font-medium">We run on solar power, and we also have a general generator to support all rooms when needed.</p>
         </div>
 
-        <div class="faq-item">
-          <h4>🏠 Can I book a hostel room in advance?</h4>
-          <p>Yes, contact us via the form on our hostel detail page or contact page to reserve your space.</p>
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">🏠 Can I book a hostel room in advance?</h4>
+          <p class="font-medium">Yes, contact us via the form on our <a href="/hostels/detail" class="text-blue-400 hover:text-blue-300">hostel detail page</a> or <a href="/contact" class="text-blue-400 hover:text-blue-300">contact page</a> to reserve your space.</p>
         </div>
 
-        <div class="faq-item">
-          <h4>🛠 Is Phase 1 open now?</h4>
-          <p>Phase 1 is under active construction and scheduled to open soon. Bookings will be available once completed.</p>
+        <div class="faq-item bg-gray-700 rounded-lg p-6 shadow-lg">
+          <h4 class="text-xl font-semibold mb-2">🛠 Is Phase 1 open now?</h4>
+          <p class="font-medium">Phase 1 is under active construction and scheduled to open soon. Bookings will be available once completed.</p>
         </div>
-
       </div>
     </section>
   </main>
 
   <!-- Footer -->
-  <footer>
-    <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
+  <footer class="bg-gray-800 text-white py-8">
+    <div class="container mx-auto px-4 text-center">
+      <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
+      <div class="flex justify-center space-x-6">
+        <a href="#" class="hover:text-blue-400 font-semibold">Facebook</a>
+        <a href="#" class="hover:text-blue-400 font-semibold">Twitter</a>
+        <a href="#" class="hover:text-blue-400 font-semibold">Instagram</a>
+      </div>
+    </div>
   </footer>
 
   <!-- Mobile Menu Toggle -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const toggle = document.querySelector('.menu-toggle');
-      const navLinks = document.querySelector('nav ul');
-      toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+      const navLinks = document.querySelector('.nav-links');
+      toggle.addEventListener('click', () => {
+        navLinks.classList.toggle('hidden');
+        toggle.textContent = navLinks.classList.contains('hidden') ? '☰' : '✕';
+      });
     });
   </script>
 
