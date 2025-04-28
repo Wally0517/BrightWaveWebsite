@@ -8,94 +8,103 @@
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="font-sans bg-gray-100 text-gray-800">
+<body class="font-sans bg-gray-900 text-white">
 
   <!-- Navigation Bar -->
-  <header class="bg-white shadow-md sticky top-0 z-50">
+  <header class="bg-gray-800 shadow-md sticky top-0 z-50">
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
-        <h1 class="text-2xl font-bold text-blue-600">BrightWave Enterprises</h1>
+        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
       </div>
-      <button class="md:hidden menu-toggle text-2xl" aria-label="Toggle navigation menu">☰</button>
-      <ul class="hidden md:flex space-x-6 text-lg">
-        <li><a href="/" class="text-blue-600 font-semibold">Home</a></li>
-        <li><a href="/about" class="hover:text-blue-600">About</a></li>
-        <li><a href="/hostels" class="hover:text-blue-600">Hostels</a></li>
-        <li><a href="/contact" class="hover:text-blue-600">Contact</a></li>
-        <li><a href="/faq" class="hover:text-blue-600">FAQ</a></li>
+      <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
+      <ul class="hidden md:flex space-x-6 text-lg font-semibold">
+        <li><a href="/" class="text-blue-400 hover:text-blue-300">Home</a></li>
+        <li><a href="/about" class="hover:text-blue-300">About</a></li>
+        <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
+        <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+        <li><a href="/faq" class="hover:text-blue-300">FAQ</a></li>
       </ul>
     </nav>
-    <ul class="nav-links hidden bg-white shadow-md md:hidden flex-col items-center space-y-4 py-4">
-      <li><a href="/" class="text-blue-600 font-semibold">Home</a></li>
-      <li><a href="/about" class="hover:text-blue-600">About</a></li>
-      <li><a href="/hostels" class="hover:text-blue-600">Hostels</a></li>
-      <li><a href="/contact" class="hover:text-blue-600">Contact</a></li>
-      <li><a href="/faq" class="hover:text-blue-600">FAQ</a></li>
+    <ul class="nav-links hidden bg-gray-800 shadow-md md:hidden flex-col items-center space-y-4 py-4">
+      <li><a href="/" class="text-blue-400 font-semibold hover:text-blue-300">Home</a></li>
+      <li><a href="/about" class="hover:text-blue-300">About</a></li>
+      <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
+      <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+      <li><a href="/faq" class="hover:text-blue-300">FAQ</a></li>
     </ul>
   </header>
 
   <!-- Hero Section -->
-  <section class="hero relative h-[70vh] flex items-center justify-center bg-cover bg-center" style="background-image: url('/assets/images/who-we-are.jpg');">
-    <div class="absolute inset-0 bg-black opacity-50"></div>
+  <section class="hero relative h-[80vh] flex items-center justify-center bg-cover bg-center" style="background-image: url('/assets/images/who-we-are.jpg');">
+    <div class="absolute inset-0 bg-black opacity-60"></div>
     <div class="relative text-center text-white px-4">
-      <h1 class="text-4xl md:text-5xl font-bold mb-4">Modern Housing, Lasting Impact</h1>
-      <p class="text-lg md:text-xl mb-6">Student-centered. Community-driven. Built to last.</p>
-      <a href="#projects" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">Explore Our Projects</a>
+      <h1 class="text-5xl md:text-6xl font-extrabold mb-4 tracking-tight">Modern Hostels for a Brighter Future</h1>
+      <p class="text-xl md:text-2xl mb-6 font-medium">Affordable, Secure, and Student-Centric Housing in Nigeria</p>
+      <div class="flex flex-col md:flex-row justify-center gap-4">
+        <a href="/hostels" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition font-semibold text-lg">View Our Hostels</a>
+        <a href="/contact" class="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-gray-900 transition font-semibold text-lg">Contact Us</a>
+      </div>
     </div>
   </section>
 
   <!-- About Section -->
   <section id="about" class="container mx-auto px-4 py-16">
-    <h2 class="text-3xl font-bold text-center mb-8">Who We Are</h2>
+    <h2 class="text-4xl font-bold text-center mb-8">Who We Are</h2>
     <div class="flex flex-col md:flex-row items-center gap-8">
-      <p class="text-lg md:w-1/2">
+      <p class="text-lg md:w-1/2 font-medium leading-relaxed">
         BrightWave Enterprises is a real estate-driven movement committed to reshaping student accommodation in Nigeria. 
         We create affordable, stylish, and secure hostels that support students’ growth while enriching the communities we build in.
       </p>
       <img src="/assets/images/brightwave-project-1.jpg" alt="Our Vision" class="md:w-1/2 rounded-lg shadow-lg" />
     </div>
+    <div class="text-center mt-8">
+      <a href="/about" class="inline-block text-blue-400 hover:text-blue-300 font-semibold text-lg">Learn More About Us</a>
+    </div>
   </section>
 
   <!-- Projects Section -->
-  <section id="projects" class="bg-gray-200 py-16">
+  <section id="projects" class="bg-gray-800 py-16">
     <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold text-center mb-8">Our Projects</h2>
-      <p class="text-lg text-center mb-12">We're transforming ideas into infrastructure. Here's a look at what we're building.</p>
+      <h2 class="text-4xl font-bold text-center mb-8">Our Projects</h2>
+      <p class="text-lg text-center mb-12 font-medium">We're transforming ideas into infrastructure. Here's a look at what we're building.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden">
           <img src="/assets/images/brightwave-project-1.jpg" alt="BrightWave Hostel Front" class="w-full h-48 object-cover" />
           <div class="p-6">
-            <h3 class="text-xl font-semibold mb-2">Hostel Project – Phase 1</h3>
-            <p>Located in Kwara State, our 10-room hostel is designed for convenience, community, and security.</p>
+            <h3 class="text-2xl font-semibold mb-2">Hostel Project – Phase 1</h3>
+            <p class="font-medium">Located in Kwara State, our 10-room hostel is designed for convenience, community, and security.</p>
           </div>
         </div>
-        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden">
           <img src="/assets/images/brightwave-project-2.jpg" alt="BrightWave Hostel Layout" class="w-full h-48 object-cover" />
           <div class="p-6">
-            <h3 class="text-xl font-semibold mb-2">Architectural Layout</h3>
-            <p>Modern designs that meet comfort and student lifestyle — crafted with purpose and precision.</p>
+            <h3 class="text-2xl font-semibold mb-2">Architectural Layout</h3>
+            <p class="font-medium">Modern designs that meet comfort and student lifestyle — crafted with purpose and precision.</p>
           </div>
         </div>
+      </div>
+      <div class="text-center mt-8">
+        <a href="/hostels" class="inline-block text-blue-400 hover:text-blue-300 font-semibold text-lg">Explore All Projects</a>
       </div>
     </div>
   </section>
 
   <!-- Call to Action -->
-  <section class="cta bg-blue-600 text-white py-16 text-center">
-    <h2 class="text-3xl font-bold mb-4">Interested in Partnering or Investing?</h2>
-    <p class="text-lg mb-6">We’re always open to collaborative ideas that align with our mission.</p>
-    <a href="/contact" class="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-gray-100 transition">Get In Touch</a>
+  <section class="cta bg-blue-700 text-white py-16 text-center">
+    <h2 class="text-4xl font-bold mb-4">Interested in Partnering or Investing?</h2>
+    <p class="text-lg mb-6 font-medium">We’re always open to collaborative ideas that align with our mission.</p>
+    <a href="/contact" class="inline-block bg-white text-blue-700 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-semibold text-lg">Get In Touch</a>
   </section>
 
   <!-- Footer -->
   <footer class="bg-gray-800 text-white py-8">
     <div class="container mx-auto px-4 text-center">
-      <p class="mb-4">© 2025 BrightWave Enterprises. All rights reserved.</p>
+      <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
       <div class="flex justify-center space-x-6">
-        <a href="#" class="hover:text-blue-400">Facebook</a>
-        <a href="#" class="hover:text-blue-400">Twitter</a>
-        <a href="#" class="hover:text-blue-400">Instagram</a>
+        <a href="#" class="hover:text-blue-400 font-semibold">Facebook</a>
+        <a href="#" class="hover:text-blue-400 font-semibold">Twitter</a>
+        <a href="#" class="hover:text-blue-400 font-semibold">Instagram</a>
       </div>
     </div>
   </footer>
