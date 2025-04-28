@@ -3,151 +3,146 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Details of BrightWave Phase 1 Hostel - Affordable student housing in Nigeria.">
   <title>BrightWave Phase 1 Hostel | BrightWave Enterprises</title>
-  <link rel="stylesheet" href="/assets/style.css">
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png">
-  <style>
-    /* Slideshow styles */
-    .slideshow-container {
-      position: relative;
-      max-width: 1000px;
-      margin: 40px auto;
-      overflow: hidden;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .slide {
-      display: none;
-    }
-    .slide img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-    .fade {
-      animation: fade 1.5s ease-in-out forwards;
-    }
-    @keyframes fade {
-      from { opacity: .4 } 
-      to { opacity: 1 }
-    }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="font-sans bg-gray-900 text-white">
 
 <!-- Navigation -->
-<header>
-  <nav>
-    <h1>
-      <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" style="height: 40px;">
-      BrightWave Enterprises
-    </h1>
-    <div class="menu-toggle">☰</div>
-    <ul>
-      <li><a href="/">Home</a></li>
-      <li><a href="/hostels" class="active">Hostels</a></li>
-      <li><a href="/about">About</a></li>
-      <li><a href="/contact">Contact</a></li>
-      <li><a href="/faq">FAQ</a></li>
+<header class="bg-gray-800 shadow-md sticky top-0 z-50">
+  <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
+      <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
+    </div>
+    <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
+    <ul class="hidden md:flex space-x-6 text-lg font-semibold">
+      <li><a href="/" class="hover:text-blue-300">Home</a></li>
+      <li><a href="/hostels" class="text-blue-400 hover:text-blue-300">Hostels</a></li>
+      <li><a href="/about" class="hover:text-blue-300">About</a></li>
+      <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+      <li><a href="/faq" class="hover:text-blue-300">FAQ</a></li>
     </ul>
   </nav>
+  <ul class="nav-links hidden bg-gray-800 shadow-md md:hidden flex-col items-center space-y-4 py-4">
+    <li><a href="/" class="hover:text-blue-300 font-semibold">Home</a></li>
+    <li><a href="/hostels" class="text-blue-400 font-semibold hover:text-blue-300">Hostels</a></li>
+    <li><a href="/about" class="hover:text-blue-300">About</a></li>
+    <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
+    <li><a href="/faq" class="hover:text-blue-300">FAQ</a></li>
+  </ul>
 </header>
 
 <!-- Hostel Detail Content -->
-<main class="hostel-detail">
+<main class="hostel-detail container mx-auto px-4 py-16">
 
   <!-- Banner -->
-  <section class="hostel-banner">
-    <h2>BrightWave Phase 1 Hostel</h2>
-    <p>Luxury Student Living. Comfort, Security & Community.</p>
+  <section class="hostel-banner text-center">
+    <h2 class="text-4xl font-bold mb-4">BrightWave Phase 1 Hostel</h2>
+    <p class="text-xl font-medium mb-8">Luxury Student Living. Comfort, Security & Community.</p>
   </section>
 
   <!-- Hostel Slideshow Gallery -->
   <section class="hostel-gallery">
-    <h3>Gallery</h3>
-    <div class="slideshow-container">
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-aerial-topview.jpg" alt="Aerial Topview">
+    <h3 class="text-3xl font-bold text-center mb-8">Gallery</h3>
+    <div class="slideshow-container relative max-w-4xl mx-auto overflow-hidden rounded-lg shadow-lg">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-aerial-topview.jpg" alt="Aerial Topview" class="w-full h-auto" />
       </div>
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="Bedroom Interior">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="Bedroom Interior" class="w-full h-auto" />
       </div>
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-bathroom.jpg" alt="Bathroom View">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-bathroom.jpg" alt="Bathroom View" class="w-full h-auto" />
       </div>
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-kitchen.jpg" alt="Kitchenette Area">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-kitchen.jpg" alt="Kitchenette Area" class="w-full h-auto" />
       </div>
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="Courtyard and Snooker Recreation">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="Courtyard and Snooker Recreation" class="w-full h-auto" />
       </div>
-      <div class="slide fade">
-        <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="Entrance and Security">
+      <div class="slide hidden">
+        <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="Entrance and Security" class="w-full h-auto" />
       </div>
     </div>
   </section>
 
   <!-- Hostel Features -->
-  <section class="hostel-features">
-    <h3>Amenities</h3>
-    <ul>
-      <li>10 Self-contained Rooms (Private Bathrooms + Kitchenette)</li>
-      <li>24/7 Security Personnel</li>
-      <li>Solar Power Backup System</li>
-      <li>General Generator Access</li>
-      <li>360° CCTV Surveillance</li>
-      <li>Snooker Board for Recreation</li>
-      <li>Reliable 24/7 Water Supply</li>
+  <section class="hostel-features py-16">
+    <h3 class="text-3xl font-bold text-center mb-8">Amenities</h3>
+    <ul class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+      <li class="font-medium text-lg">10 Self-contained Rooms (Private Bathrooms + Kitchenette)</li>
+      <li class="font-medium text-lg">24/7 Security Personnel</li>
+      <li class="font-medium text-lg">Solar Power Backup System</li>
+      <li class="font-medium text-lg">General Generator Access</li>
+      <li class="font-medium text-lg">360° CCTV Surveillance</li>
+      <li class="font-medium text-lg">Snooker Board for Recreation</li>
+      <li class="font-medium text-lg">Reliable 24/7 Water Supply</li>
     </ul>
   </section>
 
   <!-- Location Section -->
-  <section class="location-map">
-    <h3>Verified Location</h3>
-    <p>Surveyed property located at Osunlade Village, Malete — Moro LGA, Kwara State, Nigeria.</p>
-    <img src="/assets/images/who-we-are.jpg" alt="Survey Plan" style="max-width: 300px; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 15px;">
+  <section class="location-map py-16">
+    <h3 class="text-3xl font-bold text-center mb-8">Verified Location</h3>
+    <p class="text-lg font-medium text-center mb-8">Surveyed property located at Osunlade Village, Malete — Moro LGA, Kwara State, Nigeria.</p>
+    <div class="flex justify-center mb-8">
+      <img src="/assets/images/who-we-are.jpg" alt="Survey Plan" class="max-w-xs rounded-lg shadow-lg border-2 border-gray-600" />
+    </div>
     <iframe 
       src="https://maps.google.com/maps?q=8.583498,4.555573&z=15&output=embed" 
       width="100%" 
       height="300" 
-      style="border:0;" 
+      class="rounded-lg shadow-lg" 
       allowfullscreen="" 
       loading="lazy">
     </iframe>
   </section>
 
   <!-- Contact Section -->
-  <section class="hostel-contact-form">
-    <h3>Request More Information</h3>
-    <form id="hostelContactForm">
-      <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required>
-      <input type="email" id="email" name="email" placeholder="Your Email Address" required>
-      <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required>
-      <textarea id="message" name="message" placeholder="Tell us what you need..." rows="5" required></textarea>
-      <button type="submit">Send Request</button>
+  <section class="hostel-contact-form py-16">
+    <h3 class="text-3xl font-bold text-center mb-8">Request More Information</h3>
+    <form id="hostelContactForm" class="max-w-lg mx-auto space-y-4">
+      <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
+      <input type="email" id="email" name="email" placeholder="Your Email Address" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
+      <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
+      <textarea id="message" name="message" placeholder="Tell us what you need..." rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"></textarea>
+      <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold">Send Request</button>
     </form>
-    <div id="formStatus"></div>
+    <div id="formStatus" class="text-center mt-4"></div>
   </section>
 
   <!-- Phase 2 Promotion -->
-  <section class="coming-soon">
-    <h3>Phase 2 - Coming Soon ⚡</h3>
-    <p>We are expanding with 2 more plots to build 32-35 rooms, more amenities, and recreational features.</p>
+  <section class="coming-soon bg-gray-800 py-16 text-center">
+    <h3 class="text-3xl font-bold mb-4">Phase 2 - Coming Soon ⚡</h3>
+    <p class="text-lg font-medium mb-8">We are expanding with 2 more plots to build 32-35 rooms, more amenities, and recreational features.</p>
+    <a href="/hostels" class="inline-block text-blue-400 hover:text-blue-300 font-semibold text-lg">Back to Hostels</a>
   </section>
 
 </main>
 
 <!-- Footer -->
-<footer>
-  <p>&copy; 2025 BrightWave Enterprises. All rights reserved.</p>
+<footer class="bg-gray-800 text-white py-8">
+  <div class="container mx-auto px-4 text-center">
+    <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
+    <div class="flex justify-center space-x-6">
+      <a href="#" class="hover:text-blue-400 font-semibold">Facebook</a>
+      <a href="#" class="hover:text-blue-400 font-semibold">Twitter</a>
+      <a href="#" class="hover:text-blue-400 font-semibold">Instagram</a>
+    </div>
+  </div>
 </footer>
 
 <!-- Scripts -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const toggle = document.querySelector('.menu-toggle');
-    const navLinks = document.querySelector('nav ul');
-    toggle.addEventListener('click', () => navLinks.classList.toggle('active'));
+    const navLinks = document.querySelector('.nav-links');
+    toggle.addEventListener('click', () => {
+      navLinks.classList.toggle('hidden');
+      toggle.textContent = navLinks.classList.contains('hidden') ? '☰' : '✕';
+    });
   });
 
   // Slideshow script
@@ -155,16 +150,18 @@
   function showSlides() {
     let slides = document.getElementsByClassName("slide");
     for (let i = 0; i < slides.length; i++) {
-      slides[i].style.display = "none";
+      slides[i].classList.add('hidden');
     }
     slideIndex++;
-    if (slideIndex > slides.length) {slideIndex = 1}
-    slides[slideIndex-1].style.display = "block";
+    if (slideIndex > slides.length) { slideIndex = 1; }
+    slides[slideIndex - 1].classList.remove('hidden');
+    slides[slideIndex - 1].classList.add('animate-fade');
     setTimeout(showSlides, 3000); // Change every 3 seconds
   }
   showSlides();
 
-  // Form submission
+  // Form submission (commented out due to sandbox restrictions)
+  /*
   document.getElementById("hostelContactForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     const fullName = document.getElementById("fullName").value.trim();
@@ -189,6 +186,8 @@
       console.error("Error:", error);
     }
   });
+  */
+  // Note: Form submission is disabled due to sandbox restrictions. Implement server-side handling for the form at "/api/contact".
 </script>
 
 </body>
