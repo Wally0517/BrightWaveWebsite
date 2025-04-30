@@ -79,6 +79,11 @@ def handle_contact_form():
         logger.warning("Form submission failed: Missing required fields.")
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
+    # Validate NOTIFICATION_EMAILS
+    if not NOTIFICATION_EMAILS:
+        logger.error("Cannot send email: NOTIFICATION_EMAILS is empty.")
+        return jsonify({"success": False, "message": "Server configuration error: No notification emails set."}), 500
+
     # Prepare email content
     email_subject = "New Contact Form Submission - BrightWave Enterprises"
     email_body = f"""
@@ -118,7 +123,8 @@ def handle_contact_form():
         return jsonify({"success": True, "message": "Thank you! Your message has been received."})
     except Exception as e:
         logger.error(f"Error sending email: {str(e)}")
-        return jsonify({"success": False, "message": "Failed to send message. Please try again later."}), 500
+        # For debugging, include the error message in the response (remove in production)
+        return jsonify({"success": False, "message": f"Failed to send message: {str(e)}"}), 500
 
 # ========== LOCAL SERVER RUN ==========
 if __name__ == '__main__':
