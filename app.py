@@ -125,8 +125,7 @@ def handle_contact_form():
         return jsonify({"success": True, "message": "Thank you! Your message has been received."})
     except Exception as e:
         logger.error(f"Error sending email: {str(e)}")
-        # For debugging, include the error message in the response (remove in production)
-        return jsonify({"success": False, "message": f"Failed to send message: {str(e)}"}), 500
+        return jsonify({"success": False, "message": "Failed to send message. Please try again later."}), 500
 
 # ========== LOCAL SERVER RUN ==========
 if __name__ == '__main__':
