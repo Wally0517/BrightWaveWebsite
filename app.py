@@ -84,7 +84,7 @@ def handle_contact_form():
         logger.error("Cannot send email: NOTIFICATION_EMAILS is empty.")
         return jsonify({"success": False, "message": "Server configuration error: No notification emails set."}), 500
 
-    # Prepare email content
+    # Prepare email content for notification to team
     email_subject = "New Contact Form Submission - BrightWave Enterprises"
     email_body = f"""
     New Contact Form Submission:
@@ -94,11 +94,12 @@ def handle_contact_form():
     Message: {message}
     """
 
-    # Create email message
+    # Create email message for notification (with customer's email as Reply-To)
     msg = Message(
         subject=email_subject,
         recipients=NOTIFICATION_EMAILS,
-        body=email_body
+        body=email_body,
+        reply_to=email  # Customer's email as Reply-To
     )
 
     try:
@@ -107,8 +108,9 @@ def handle_contact_form():
 
         # Send confirmation email to the user
         confirmation_subject = "Thank You for Contacting BrightWave Enterprises"
-        confirmation_body = """
+        confirmation_body = f"""
         Thank you for your message! We have received your inquiry and will get back to you soon.
+        If you have any further questions, feel free to reach out to us at {app.config['MAIL_DEFAULT_SENDER']}.
         Regards,
         BrightWave Enterprises Team
         """
