@@ -2,9 +2,14 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_mail import Mail, Message
 import os
+import logging
 
 # ========== APP INITIALIZATION ==========
 app = Flask(__name__, static_folder='.', static_url_path='')
+
+# ========== LOGGING CONFIGURATION ==========
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ========== CORS CONFIGURATION ==========
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
@@ -12,20 +17,23 @@ allowed_origins = [origin.strip() for origin in allowed_origins]
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
 # ========== EMAIL CONFIGURATION ==========
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your-email@gmail.com')  # Replace with your email
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your-app-specific-password')  # Replace with your app-specific password
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'your-email@gmail.com')  # Replace with your email
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT'))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS') == 'True'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 mail = Mail(app)
 
-# List of email addresses to notify (replace with your actual email addresses)
-NOTIFICATION_EMAILS = [
-    'email1@example.com',
-    'email2@example.com',
-    'email3@example.com'
-]
+# List of email addresses to notify (configurable via environment variable)
+NOTIFICATION_EMAILS = os.environ.get('NOTIFICATION_EMAILS', '').split(',')
+NOTIFICATION_EMAILS = [email.strip() for email in NOTIFICATION_EMAILS if email.strip()]
+
+# Validate email configuration
+if not all([app.config['MAIL_SERVER'], app.config['MAIL_PORT'], app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'], app.config['MAIL_DEFAULT_SENDER']]):
+    logger.error("Email configuration is incomplete. Please set MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, and MAIL_DEFAULT_SENDER environment variables.")
+if not NOTIFICATION_EMAILS:
+    logger.error("No notification email addresses provided. Please set NOTIFICATION_EMAILS environment variable (comma-separated list).")
 
 # ========== STATIC PAGE ROUTES ==========
 @app.route('/')
@@ -61,13 +69,14 @@ def serve_static_assets(filename):
 @app.route('/api/contact', methods=['POST'])
 def handle_contact_form():
     data = request.get_json()
-    fullName = data.get('fullName')  # Updated field name to match form
+    fullName = data.get('fullName')
     email = data.get('email')
     phone = data.get('phone')
     message = data.get('message')
 
     # Validate required fields
     if not all([fullName, email, phone, message]):
+        logger.warning("Form submission failed: Missing required fields.")
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
     # Prepare email content
@@ -105,10 +114,10 @@ def handle_contact_form():
         )
         mail.send(confirmation_msg)
 
-        print(f"📬 Email sent to {NOTIFICATION_EMAILS}:\n{email_body}")
+        logger.info(f"Email sent to {NOTIFICATION_EMAILS}:\n{email_body}")
         return jsonify({"success": True, "message": "Thank you! Your message has been received."})
     except Exception as e:
-        print(f"❌ Error sending email: {str(e)}")
+        logger.error(f"Error sending email: {str(e)}")
         return jsonify({"success": False, "message": "Failed to send message. Please try again later."}), 500
 
 # ========== LOCAL SERVER RUN ==========
