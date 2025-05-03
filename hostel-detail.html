@@ -367,7 +367,7 @@
       const message = document.getElementById("message").value.trim();
 
       // Basic validation
-      if (!email.match(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/)) {
+      if (!email.match(/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/)) {
         statusDiv.textContent = "Please enter a valid email address.";
         statusDiv.style.color = "red";
         submitButton.disabled = false;
@@ -386,7 +386,7 @@
         const response = await fetch("/api/contact", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fullName, email, phone, message })
+          body: JSON.stringify({ fullName, email, phone, message, formOrigin: "Hostel Detail Page" })
         });
         const result = await response.json();
         statusDiv.textContent = result.message;
