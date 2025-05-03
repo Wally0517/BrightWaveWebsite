@@ -38,17 +38,58 @@
 
   <!-- Contact Content -->
   <main class="contact container mx-auto px-4 py-16">
-    <section class="contact-form">
+    <!-- Hero-like Banner -->
+    <section class="contact-banner relative h-80 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
+      <!-- Gradient and Pattern Overlay -->
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
+      <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
+      <!-- Parallax Background -->
+      <div class="absolute inset-0 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-fixed bg-center z-0"></div>
+      <!-- Content -->
+      <div class="relative text-center z-20">
+        <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">Contact <span class="text-blue-400">BrightWave</span></h1>
+        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">We're Here to Help You Find Your Perfect Student Home</p>
+      </div>
+    </section>
+
+    <!-- Contact Form -->
+    <section class="contact-form py-12">
       <h2 class="text-4xl font-bold text-center mb-8">Get in Touch</h2>
       <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">Have a question or want to book a tour? Fill out the form below, and we’ll get back to you soon!</p>
       <form id="contactForm" class="max-w-lg mx-auto space-y-4">
-        <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
-        <input type="email" id="email" name="email" placeholder="Your Email Address" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
-        <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
-        <textarea id="message" name="message" placeholder="Your Message" rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"></textarea>
-        <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold">Send Message</button>
+        <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
+        <input type="email" id="email" name="email" placeholder="Your Email Address" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
+        <input type="text" id="phone" name="phone" placeholder="Your Phone Number" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
+        <textarea id="message" name="message" placeholder="Your Message" rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md"></textarea>
+        <button type="submit" id="submitButton" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center">Send Message <i class="fas fa-spinner fa-spin ml-2 hidden"></i></button>
       </form>
       <div id="formStatus" class="text-center mt-4"></div>
+    </section>
+
+    <!-- Contact Information -->
+    <section class="contact-info py-12">
+      <h2 class="text-3xl font-bold text-center mb-8">Other Ways to Reach Us</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
+          <i class="fas fa-envelope text-3xl text-blue-400 mb-4"></i>
+          <h3 class="text-xl font-semibold mb-2">Email</h3>
+          <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprises0@gmail.com" class="hover:text-blue-400">brightwaveenterprises0@gmail.com</a></p>
+        </div>
+        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
+          <i class="fab fa-whatsapp text-3xl text-blue-400 mb-4"></i>
+          <h3 class="text-xl font-semibold mb-2">WhatsApp</h3>
+          <p class="text-sm font-medium break-words">
+            <a href="https://wa.me/+2348037669492" class="hover:text-blue-400">+234 803 766 9492</a><br>
+            <a href="https://wa.me/+2349038402914" class="hover:text-blue-400">+234 903 840 2914</a><br>
+            <a href="https://wa.me/+2349075381905" class="hover:text-blue-400">+234 907 538 1905</a>
+          </p>
+        </div>
+        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
+          <i class="fas fa-map-marker-alt text-3xl text-blue-400 mb-4"></i>
+          <h3 class="text-xl font-semibold mb-2">Address</h3>
+          <p class="text-sm font-medium break-words">Malete, Kwara State, Nigeria</p>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -56,7 +97,7 @@
   <footer class="bg-gray-800 text-white py-8">
     <div class="container mx-auto px-4 text-center">
       <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
-      <div class="flex justify-center space-x-6">
+      <div class="flex justify-center space-x-6 mb-4">
         <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
           <i class="fab fa-facebook-f"></i>
           <span>Facebook</span>
@@ -70,12 +111,16 @@
           <span>Instagram</span>
         </a>
       </div>
+      <button id="open-chat" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-md">
+        <i class="fas fa-comments mr-2"></i>Chat with Us
+      </button>
     </div>
   </footer>
 
-  <!-- Mobile Menu Toggle -->
+  <!-- Scripts -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Mobile Menu Toggle
       const toggle = document.querySelector('.menu-toggle');
       const navLinks = document.querySelector('.nav-links');
       toggle.addEventListener('click', () => {
@@ -86,21 +131,32 @@
       // Form submission handler
       document.getElementById("contactForm").addEventListener("submit", async function(e) {
         e.preventDefault();
+        const submitButton = document.getElementById("submitButton");
+        const spinner = submitButton.querySelector('.fa-spinner');
+        const statusDiv = document.getElementById("formStatus");
+        
+        // Show loading state
+        submitButton.disabled = true;
+        spinner.classList.remove('hidden');
+
         const fullName = document.getElementById("fullName").value.trim();
         const email = document.getElementById("email").value.trim();
         const phone = document.getElementById("phone").value.trim();
         const message = document.getElementById("message").value.trim();
-        const statusDiv = document.getElementById("formStatus");
 
         // Basic validation
         if (!email.match(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/)) {
           statusDiv.textContent = "Please enter a valid email address.";
           statusDiv.style.color = "red";
+          submitButton.disabled = false;
+          spinner.classList.add('hidden');
           return;
         }
         if (!phone.match(/^\+?\d{10,15}$/)) {
           statusDiv.textContent = "Please enter a valid phone number.";
           statusDiv.style.color = "red";
+          submitButton.disabled = false;
+          spinner.classList.add('hidden');
           return;
         }
 
@@ -118,7 +174,42 @@
           statusDiv.textContent = "Something went wrong. Please try again.";
           statusDiv.style.color = "red";
           console.error("Error:", error);
+        } finally {
+          submitButton.disabled = false;
+          spinner.classList.add('hidden');
         }
+      });
+    });
+  </script>
+
+  <!-- Tawk.to Live Chat Script with API Integration -->
+  <script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    Tawk_API.api_key = '98b9a19a5b7bf1d2b6af110875d8f5a3f14d19e1';
+    (function(){
+      var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+      s1.async=true;
+      s1.src='https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
+      s1.charset='UTF-8';
+      s1.setAttribute('crossorigin','*');
+      s0.parentNode.insertBefore(s1,s0);
+    })();
+    // Customize Tawk.to widget appearance and behavior
+    Tawk_API.onLoad = function() {
+      // Set widget colors to match site design
+      Tawk_API.customStyle = {
+        bubbleBackground: '#2563EB', // Tailwind blue-600
+        bubbleTextColor: '#FFFFFF', // White text
+        chatBackground: '#111827' // Tailwind gray-900
+      };
+      // Minimize widget on load
+      Tawk_API.minimize();
+    };
+    // Open chat when "Chat with Us" button is clicked
+    document.addEventListener('DOMContentLoaded', () => {
+      const openChatButton = document.getElementById('open-chat');
+      openChatButton.addEventListener('click', () => {
+        Tawk_API.maximize();
       });
     });
   </script>
