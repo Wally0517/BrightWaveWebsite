@@ -29,7 +29,7 @@ def check_rate_limit(ip):
 
 # ========== CONFIGURATION VALIDATION ==========
 def validate_email(email):
-    return bool(re.match(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$', email))
+    return bool(re.match(r'^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$', email))
 
 def validate_origins(origins):
     return all(origin == '*' or re.match(r'^https?://([\w-]+\.)*[\w-]+(:\d+)?$', origin) for origin in origins)
