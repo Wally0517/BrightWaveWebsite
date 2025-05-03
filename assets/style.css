@@ -12,16 +12,64 @@ a {
   color: inherit;
 }
 
-/* ========== Hero Section (index.html and about.html) ========== */
-.hero, .intro-banner {
+/* ========== Hero and Banner Sections (all pages) ========== */
+.hero, .intro-banner, .hostels-banner, .hostel-banner {
   position: relative;
 }
 
-.hero::before, .intro-banner::before {
+.hero::before, .intro-banner::before, .hostels-banner::before, .hostel-banner::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background: linear-gradient(to bottom right, rgba(29, 78, 216, 0.7), rgba(17, 24, 39, 0.6), rgba(37, 99, 235, 0.7)); /* Matches Tailwind blue-900/70, gray-900/60, blue-600/70 */
+  z-index: 10;
+}
+
+/* ========== Google Maps Iframe (hostel-detail.html) ========== */
+.map-container {
+  position: relative;
+  border: 2px solid #2563EB; /* Tailwind blue-600 */
+  border-radius: 0.5rem; /* Tailwind rounded-lg */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Tailwind shadow-lg */
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.map-container:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); /* Blue-600 glow effect */
+}
+
+.map-container iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.map-container .map-fallback {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #F9FAFB; /* Tailwind gray-100 */
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 1rem;
+  background-color: rgba(17, 24, 39, 0.9); /* Tailwind gray-900/90 */
+  border-radius: 0.5rem;
+}
+
+.map-container .map-fallback[aria-hidden="false"] {
+  display: block;
+}
+
+/* Focus state for accessibility */
+.map-container:focus-within {
+  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline-offset: 2px;
 }
 
 /* ========== Slideshow Animation (hostel-detail.html) ========== */
@@ -34,22 +82,58 @@ a {
   to { opacity: 1; }
 }
 
-/* ========== Status Labels (hostels.html) ========== */
-.status-label {
+/* Slideshow Arrows */
+.prev, .next {
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.prev:hover, .next:hover {
+  background-color: #1F2937; /* Tailwind gray-800 hover state */
+  transform: scale(1.1);
+}
+
+.prev:focus, .next:focus {
+  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline-offset: 2px;
+}
+
+/* ========== Status Labels and Timeline Text (hostels.html, hostel-detail.html) ========== */
+.status-label, .timeline-text {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #111827;
+  font-size: 0.875rem; /* Tailwind text-sm */
+  font-weight: 600; /* Tailwind font-semibold */
+  color: #111827; /* Tailwind gray-900 */
 }
 
 .ongoing-label {
-  background-color: #f59e0b; /* Yellow-500 equivalent */
+  background-color: #F59E0B; /* Tailwind yellow-500 */
 }
 
 .coming-soon-label {
-  background-color: #10b981; /* Green-500 equivalent */
+  background-color: #10B981; /* Tailwind green-500 */
+}
+
+.timeline-text {
+  color: #9CA3AF; /* Tailwind gray-400 */
+  font-weight: 500; /* Tailwind font-medium */
+  padding: 0; /* No padding for timeline text */
+}
+
+/* ========== Hostel Cards and Feature Items (hostels.html, hostel-detail.html) ========== */
+.hostel-card, .feature-item {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hostel-card:hover, .feature-item:hover {
+  transform: scale(1.05); /* Matches Tailwind hover:scale-105 */
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); /* Blue-600 glow effect */
+}
+
+.hostel-card:focus-within, .feature-item:focus-within {
+  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline-offset: 2px;
 }
 
 /* ========== Team Grid (about.html) ========== */
@@ -63,7 +147,7 @@ a {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  background-color: #2563eb; /* Blue-600 equivalent */
+  background-color: #2563EB; /* Tailwind blue-600 */
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -88,7 +172,7 @@ a {
 .timeline-dot {
   width: 1.5rem;
   height: 1.5rem;
-  background-color: #60a5fa; /* Blue-400 equivalent */
+  background-color: #60A5FA; /* Tailwind blue-400 */
   border-radius: 9999px;
   margin-right: 1rem;
 }
@@ -110,13 +194,33 @@ a {
     width: 100%;
   }
 
-  /* Hero and Intro Banner */
-  .hero h1, .intro-banner h1 {
+  /* Hero and Banner */
+  .hero h1, .intro-banner h1, .hostels-banner h1, .hostel-banner h1 {
     font-size: 2.5rem; /* Adjusted for mobile */
   }
 
-  .hero p, .intro-banner p {
+  .hero p, .intro-banner p, .hostels-banner p, .hostel-banner p {
     font-size: 1rem; /* Adjusted for mobile */
+  }
+
+  /* Map Container */
+  .map-container {
+    height: 300px; /* Reduced height for mobile */
+  }
+
+  .map-container .map-fallback {
+    font-size: 0.875rem;
+    padding: 0.75rem;
+  }
+
+  /* Timeline Text */
+  .timeline-text {
+    font-size: 0.75rem; /* Smaller font for mobile */
+  }
+
+  /* Hostel Cards and Feature Items */
+  .hostel-card, .feature-item {
+    padding: 1rem;
   }
 
   /* Team Grid */
@@ -163,20 +267,42 @@ a {
 
 @media (max-width: 480px) {
   /* Further adjustments for smaller screens */
-  .hero h1, .intro-banner h1 {
+  .hero h1, .intro-banner h1, .hostels-banner h1, .hostel-banner h1 {
     font-size: 2rem;
   }
 
-  .hero p, .intro-banner p {
+  .hero p, .intro-banner p, .hostels-banner p, .hostel-banner p {
     font-size: 0.875rem;
   }
 
+  /* Map Container */
+  .map-container {
+    height: 250px; /* Further reduced for smaller screens */
+  }
+
+  .map-container .map-fallback {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  /* Timeline Text */
+  .timeline-text {
+    font-size: 0.6875rem; /* Even smaller for very small screens */
+  }
+
+  /* Hostel Cards and Feature Items */
+  .hostel-card, .feature-item {
+    padding: 0.75rem;
+  }
+
+  /* Team Grid */
   .team-grid img {
     width: 8rem; /* 128px */
     height: 8rem; /* 128px */
   }
 
-  .intro, .mission-values, .team, .journey {
+  /* Page Sections */
+  .intro, .mission-values, .team, .journey, .hostels-listing, .hostel-detail {
     padding: 2rem 1rem; /* Reduced padding for smaller screens */
   }
 }
