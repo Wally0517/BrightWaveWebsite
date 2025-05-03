@@ -49,11 +49,16 @@
   <!-- About Content -->
   <main class="about container mx-auto px-4 py-16">
     <!-- Hero-like Intro Banner -->
-    <section class="intro-banner relative h-96 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12">
-      <div class="absolute inset-0 bg-black opacity-60"></div>
-      <div class="relative text-center z-10">
-        <h1 class="text-5xl font-bold mb-4">About <span class="text-blue-400">BrightWave</span></h1>
-        <p class="text-xl font-semibold text-gray-200">Transforming Student Housing with Integrity and Excellence</p>
+    <section class="intro-banner relative h-96 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
+      <!-- Gradient and Pattern Overlay -->
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
+      <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
+      <!-- Parallax Background -->
+      <div class="absolute inset-0 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-fixed bg-center z-0"></div>
+      <!-- Content -->
+      <div class="relative text-center z-20">
+        <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">About <span class="text-blue-400">BrightWave</span></h1>
+        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Transforming Student Housing with Integrity and Excellence</p>
       </div>
     </section>
 
@@ -190,7 +195,7 @@
   <footer class="bg-gray-800 text-white py-8">
     <div class="container mx-auto px-4 text-center">
       <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
-      <div class="flex justify-center space-x-6">
+      <div class="flex justify-center space-x-6 mb-4">
         <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
           <i class="fab fa-facebook-f"></i>
           <span>Facebook</span>
@@ -204,6 +209,9 @@
           <span>Instagram</span>
         </a>
       </div>
+      <button id="open-chat" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-md">
+        <i class="fas fa-comments mr-2"></i>Chat with Us
+      </button>
     </div>
   </footer>
 
@@ -215,6 +223,38 @@
       toggle.addEventListener('click', () => {
         navLinks.classList.toggle('hidden');
         toggle.textContent = navLinks.classList.contains('hidden') ? '☰' : '✕';
+      });
+    });
+  </script>
+
+  <!-- Tawk.to Live Chat Script with API Integration -->
+  <script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    Tawk_API.api_key = '98b9a19a5b7bf1d2b6af110875d8f5a3f14d19e1';
+    (function(){
+      var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+      s1.async=true;
+      s1.src='https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
+      s1.charset='UTF-8';
+      s1.setAttribute('crossorigin','*');
+      s0.parentNode.insertBefore(s1,s0);
+    })();
+    // Customize Tawk.to widget appearance and behavior
+    Tawk_API.onLoad = function() {
+      // Set widget colors to match site design
+      Tawk_API.customStyle = {
+        bubbleBackground: '#2563EB', // Tailwind blue-600
+        bubbleTextColor: '#FFFFFF', // White text
+        chatBackground: '#111827' // Tailwind gray-900
+      };
+      // Minimize widget on load
+      Tawk_API.minimize();
+    };
+    // Open chat when "Chat with Us" button is clicked
+    document.addEventListener('DOMContentLoaded', () => {
+      const openChatButton = document.getElementById('open-chat');
+      openChatButton.addEventListener('click', () => {
+        Tawk_API.maximize();
       });
     });
   </script>
