@@ -141,5 +141,25 @@
     });
   </script>
 
+  <!-- Tawk.to Live Chat Script -->
+  <script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    (function(){
+      var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+      s1.async=true;
+      s1.src='https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
+      s1.charset='UTF-8';
+      s1.setAttribute('crossorigin','*');
+      s0.parentNode.insertBefore(s1,s0);
+    })();
+    // Customize Tawk.to widget appearance
+    Tawk_API.onLoad = function() {
+      Tawk_API.setAttributes({
+        'widgetColor': '#2563EB', // Matches Tailwind's blue-600
+        'widgetBackgroundColor': '#111827' // Matches Tailwind's gray-900
+      });
+    };
+  </script>
+
 </body>
 </html>
