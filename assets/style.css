@@ -5,16 +5,34 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased; /* Improve text rendering on WebKit browsers */
+  -moz-osx-font-smoothing: grayscale; /* Improve text rendering on Firefox */
+  transition: background-color 0.3s ease; /* Smooth background transitions */
 }
 
 a {
   text-decoration: none;
   color: inherit;
+  transition: color 0.3s ease, background-color 0.3s ease; /* Smooth link hover effects */
+}
+
+/* High-contrast mode support */
+@media (prefers-contrast: high) {
+  body {
+    background-color: #1F2A44;
+    color: #F9FAFB;
+  }
+  a {
+    color: #60A5FA;
+  }
+  .bg-gray-900 { background-color: #1F2A44 !important; }
+  .text-white { color: #F9FAFB !important; }
 }
 
 /* ========== Hero and Banner Sections (all pages) ========== */
 .hero, .intro-banner, .hostels-banner, .hostel-banner {
   position: relative;
+  overflow: hidden; /* Prevent content overflow */
 }
 
 .hero::before, .intro-banner::before, .hostels-banner::before, .hostel-banner::before {
@@ -23,6 +41,11 @@ a {
   inset: 0;
   background: linear-gradient(to bottom right, rgba(29, 78, 216, 0.7), rgba(17, 24, 39, 0.6), rgba(37, 99, 235, 0.7)); /* Matches Tailwind blue-900/70, gray-900/60, blue-600/70 */
   z-index: 10;
+  transition: opacity 0.3s ease; /* Smooth gradient transition on hover */
+}
+
+.hero:hover::before, .intro-banner:hover::before, .hostels-banner:hover::before, .hostel-banner:hover::before {
+  opacity: 0.9;
 }
 
 /* ========== Google Maps Iframe (hostel-detail.html) ========== */
@@ -32,7 +55,7 @@ a {
   border-radius: 0.5rem; /* Tailwind rounded-lg */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Tailwind shadow-lg */
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; /* Smooth scaling and shadow */
 }
 
 .map-container:hover {
@@ -45,6 +68,7 @@ a {
   width: 100%;
   height: 100%;
   border: none;
+  touch-action: manipulation; /* Improve touch scrolling on mobile */
 }
 
 .map-container .map-fallback {
@@ -60,13 +84,18 @@ a {
   padding: 1rem;
   background-color: rgba(17, 24, 39, 0.9); /* Tailwind gray-900/90 */
   border-radius: 0.5rem;
+  transition: opacity 0.3s ease; /* Smooth fade for fallback */
 }
 
 .map-container .map-fallback[aria-hidden="false"] {
   display: block;
+  opacity: 1;
 }
 
-/* Focus state for accessibility */
+.map-container .map-fallback[aria-hidden="true"] {
+  opacity: 0;
+}
+
 .map-container:focus-within {
   outline: 2px solid #60A5FA; /* Tailwind blue-400 */
   outline-offset: 2px;
@@ -85,6 +114,8 @@ a {
 /* Slideshow Arrows */
 .prev, .next {
   transition: background-color 0.3s ease, transform 0.2s ease;
+  cursor: pointer; /* Ensure clickable on all platforms */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
 .prev:hover, .next:hover {
@@ -97,6 +128,16 @@ a {
   outline-offset: 2px;
 }
 
+/* Slideshow Dots */
+.dot {
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.dot:hover, .dot:focus {
+  transform: scale(1.2);
+  background-color: #93C5FD; /* Tailwind blue-300 */
+}
+
 /* ========== Status Labels and Timeline Text (hostels.html, hostel-detail.html) ========== */
 .status-label, .timeline-text {
   display: inline-block;
@@ -105,6 +146,7 @@ a {
   font-size: 0.875rem; /* Tailwind text-sm */
   font-weight: 600; /* Tailwind font-semibold */
   color: #111827; /* Tailwind gray-900 */
+  transition: transform 0.3s ease, background-color 0.3s ease; /* Smooth hover effects */
 }
 
 .ongoing-label {
@@ -115,6 +157,10 @@ a {
   background-color: #10B981; /* Tailwind green-500 */
 }
 
+.status-label:hover, .timeline-text:hover {
+  transform: scale(1.05);
+}
+
 .timeline-text {
   color: #9CA3AF; /* Tailwind gray-400 */
   font-weight: 500; /* Tailwind font-medium */
@@ -123,7 +169,8 @@ a {
 
 /* ========== Hostel Cards and Feature Items (hostels.html, hostel-detail.html) ========== */
 .hostel-card, .feature-item {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; /* Smooth scaling and shadow */
+  will-change: transform, box-shadow; /* Optimize for animation */
 }
 
 .hostel-card:hover, .feature-item:hover {
@@ -134,6 +181,80 @@ a {
 .hostel-card:focus-within, .feature-item:focus-within {
   outline: 2px solid #60A5FA; /* Tailwind blue-400 */
   outline-offset: 2px;
+}
+
+/* ========== Sticky Buttons (hostel-detail.html) ========== */
+.sticky-button {
+  transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform; /* Optimize for animation */
+}
+
+.sticky-button:hover {
+  transform: translateY(-2px) scale(1.05); /* Slight lift and scale */
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); /* Enhanced shadow */
+}
+
+.sticky-button:focus {
+  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline-offset: 2px;
+}
+
+/* ========== WhatsApp Dropdown (hostel-detail.html) ========== */
+#whatsappDropdown {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: bottom right;
+}
+
+#whatsappDropdown.hidden {
+  opacity: 0;
+  transform: scale(0.95);
+  pointer-events: none; /* Prevent clicks on hidden dropdown */
+}
+
+#whatsappDropdown:not(.hidden) {
+  opacity: 1;
+  transform: scale(1);
+}
+
+#whatsappDropdown a {
+  transition: background-color 0.3s ease;
+}
+
+#whatsappDropdown a:hover {
+  background-color: #374151; /* Tailwind gray-700 */
+}
+
+/* ========== Form States (hostel-detail.html) ========== */
+#hostelContactForm input:focus, #hostelContactForm textarea:focus {
+  border-color: #60A5FA; /* Tailwind blue-400 */
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.5); /* Soft glow */
+}
+
+#submitButton {
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#submitButton:hover:not(:disabled) {
+  background-color: #1D4ED8; /* Tailwind blue-700 */
+  transform: translateY(-1px);
+}
+
+#submitButton:disabled {
+  background-color: #4B5563; /* Tailwind gray-600 */
+  cursor: not-allowed;
+}
+
+#formStatus {
+  transition: opacity 0.3s ease;
+}
+
+#formStatus.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 /* ========== Team Grid (about.html) ========== */
@@ -161,12 +282,23 @@ a {
   width: 12rem; /* 192px */
   height: 12rem; /* 192px */
   border-radius: 9999px;
+  object-fit: cover; /* Maintain aspect ratio */
+  transition: transform 0.3s ease; /* Smooth zoom on hover */
+}
+
+.team-grid .group:hover img {
+  transform: scale(1.05);
 }
 
 /* ========== Timeline (about.html) ========== */
 .timeline-item {
   display: flex;
   align-items: center;
+  transition: transform 0.3s ease;
+}
+
+.timeline-item:hover {
+  transform: translateX(10px); /* Slight shift on hover */
 }
 
 .timeline-dot {
@@ -175,6 +307,11 @@ a {
   background-color: #60A5FA; /* Tailwind blue-400 */
   border-radius: 9999px;
   margin-right: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.timeline-item:hover .timeline-dot {
+  transform: scale(1.2);
 }
 
 /* ========== Mobile Menu (all pages) ========== */
@@ -184,6 +321,12 @@ a {
 
 .nav-links:not(.hidden) {
   display: flex;
+  animation: slideDown 0.3s ease-out; /* Smooth slide animation */
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* ========== Responsive Styling ========== */
@@ -192,6 +335,11 @@ a {
   .nav-links {
     flex-direction: column;
     width: 100%;
+    padding: 1rem 0;
+  }
+
+  .nav-links a {
+    padding: 0.75rem 1rem;
   }
 
   /* Hero and Banner */
@@ -263,6 +411,14 @@ a {
     width: 1rem;
     height: 1rem;
   }
+
+  /* Sticky Buttons */
+  .sticky-button {
+    bottom: 1rem;
+    left: 1rem;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -304,5 +460,13 @@ a {
   /* Page Sections */
   .intro, .mission-values, .team, .journey, .hostels-listing, .hostel-detail {
     padding: 2rem 1rem; /* Reduced padding for smaller screens */
+  }
+
+  /* Sticky Buttons */
+  .sticky-button {
+    bottom: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
   }
 }
