@@ -215,9 +215,9 @@
         <i class="fab fa-whatsapp text-3xl text-blue-400 mb-4"></i>
         <h3 class="text-xl font-semibold mb-2">WhatsApp</h3>
         <p class="text-sm font-medium break-words">
-          <a href="https://wa.me/+2348037669492" class="hover:text-blue-400">+234 803 766 9462</a><br>
-          <a href="https://wa.me/+2349038402914" class="hover:text-blue-400">+234 903 840 2914</a><br>
-          <a href="https://wa.me/+2349075381905" class="hover:text-blue-400">+234 907 538 1905</a>
+          <a href="https://wa.me/2348037669462?text=Interested%20in%20Phase%201%20Hostel" class="hover:text-blue-400">+234 803 766 9462 (Property Manager)</a><br>
+          <a href="https://wa.me/2349038402914?text=Interested%20in%20Phase%201%20Hostel" class="hover:text-blue-400">+234 903 840 2914 (Agent)</a><br>
+          <a href="https://wa.me/2349075381905?text=Interested%20in%20Phase%201%20Hostel" class="hover:text-blue-400">+234 907 538 1905 (Agent)</a>
         </p>
       </div>
       <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
@@ -241,13 +241,27 @@
     <a href="/hostels" class="inline-block text-white border-2 border-white px-6 py-3 rounded-lg hover:bg-white hover:text-blue-900 transition font-semibold text-lg">Back to Hostels</a>
   </section>
 
-  <!-- Sticky Join Waitlist Button -->
-  <a href="#contact-form" class="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition font-semibold flex items-center z-50">
+  <!-- Sticky Join Waitlist Button (Moved to bottom-left) -->
+  <a href="#contact-form" class="fixed bottom-6 left-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition font-semibold flex items-center z-50">
     <i class="fas fa-plus mr-2"></i> Join Waitlist
   </a>
 
+  <!-- Sticky WhatsApp Button (Bottom-right with Dropdown) -->
+  <div class="fixed bottom-6 right-6 z-50">
+    <div class="relative">
+      <button id="whatsappButton" class="bg-green-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-green-600 transition font-semibold flex items-center">
+        <i class="fab fa-whatsapp mr-2"></i> WhatsApp
+      </button>
+      <div id="whatsappDropdown" class="hidden absolute bottom-full right-0 mb-2 w-48 bg-gray-800 rounded-lg shadow-lg z-50">
+        <a href="https://wa.me/2348037669462?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">General Inquiries (+234 803 766 9462)</a>
+        <a href="https://wa.me/2349038402914?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700">Property Manager (+234 903 840 2914)</a>
+        <a href="https://wa.me/2349075381905?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-b-lg">Sales Team (+234 907 538 1905)</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Back to Top Button -->
-  <button id="back-to-top" class="fixed bottom-6 left-6 bg-gray-700 text-white px-4 py-3 rounded-full shadow-lg hover:bg-gray-600 transition font-semibold flex items-center z-50 hidden">
+  <button id="back-to-top" class="fixed bottom-20 left-6 bg-gray-700 text-white px-4 py-3 rounded-full shadow-lg hover:bg-gray-600 transition font-semibold flex items-center z-50 hidden">
     <i class="fas fa-arrow-up mr-2"></i> Back to Top
   </button>
 
@@ -421,6 +435,20 @@
     });
     backToTop.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // WhatsApp Dropdown Toggle
+    const whatsappButton = document.getElementById('whatsappButton');
+    const whatsappDropdown = document.getElementById('whatsappDropdown');
+    whatsappButton.addEventListener('click', () => {
+      whatsappDropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!whatsappButton.contains(e.target) && !whatsappDropdown.contains(e.target)) {
+        whatsappDropdown.classList.add('hidden');
+      }
     });
   });
 </script>
