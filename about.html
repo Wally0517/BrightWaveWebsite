@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Learn about BrightWave Enterprises, a Nigerian real estate startup transforming student housing." />
+  <meta name="description" content="Learn about BrightWave Enterprises, a Nigerian real estate leader in student housing, land selling, and estate development." />
   <!-- Open Graph Meta Tags for Previews -->
   <meta property="og:title" content="About BrightWave Enterprises" />
-  <meta property="og:description" content="Learn about BrightWave Enterprises, a Nigerian real estate startup transforming student housing." />
+  <meta property="og:description" content="Learn about BrightWave Enterprises, a Nigerian real estate leader in student housing, land selling, and estate development." />
   <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-logo.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="300" />
@@ -18,6 +18,9 @@
   <!-- Font Awesome for Social Media Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS for Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -47,148 +50,187 @@
   </header>
 
   <!-- About Content -->
-  <main class="about container mx-auto px-4 py-16">
+  <main class="about container mx-auto px-4 py-16 relative">
     <!-- Hero-like Intro Banner -->
-    <section class="intro-banner relative h-96 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
+    <section class="intro-banner relative h-96 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden" data-aos="fade-up" data-aos-duration="1000">
       <!-- Gradient and Pattern Overlay -->
       <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
-      <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
-      <!-- Parallax Background -->
-      <div class="absolute inset-0 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-fixed bg-center z-0"></div>
+      <div class="absolute inset-0 bg-[url('/assets/images/wave-pattern.png')] bg-repeat opacity-5 z-10"></div>
       <!-- Content -->
       <div class="relative text-center z-20">
         <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">About <span class="text-blue-400">BrightWave</span></h1>
-        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Transforming Student Housing with Integrity and Excellence</p>
+        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Transforming Real Estate with Vision and Excellence</p>
       </div>
     </section>
 
     <!-- Intro Text -->
-    <section class="intro bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-xl p-8 md:p-12 text-center">
+    <section class="intro bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-xl p-8 md:p-12 text-center" data-aos="fade-up" data-aos-duration="1000">
       <p class="text-lg font-medium mb-4 max-w-3xl mx-auto">
-        <span class="font-bold">BrightWave Enterprises</span> is a Nigerian-based real estate startup <span class="font-bold">transforming the student housing experience</span>. 
-        We focus on building <span class="font-bold">affordable, stylish, and secure accommodations</span> that help students thrive academically while living comfortably and safely.
+        At <span class="font-bold">BrightWave Enterprises</span>, we’re more than just a real estate company—we’re crafting <span class="font-bold">sanctuaries for dreams</span> and opportunities. Based in Nigeria, we’re dedicated to revolutionizing student housing, land selling, and estate development by delivering affordable, stylish, and secure solutions that empower individuals and communities.
       </p>
-      <p class="text-lg font-medium mb-8 max-w-3xl mx-auto">
-        Our journey began with a mission to provide <span class="font-bold">dignified spaces</span> where young people can dream, study, and grow. 
-        Every hostel we design is guided by our core values of <span class="font-bold">integrity, functionality, and excellence</span>.
+      <p class="text-lg font-medium mb-4 max-w-3xl mx-auto">
+        Our vision is to become a leading force in Nigeria’s real estate landscape, creating sustainable living spaces, accessible land ownership, and thriving estates. Our journey began with a belief that every individual deserves a home or investment that inspires growth. Guided by our core values of <span class="font-bold">integrity, innovation, and excellence</span>, we aim to:
       </p>
-      <!-- Decorative element -->
-      <div class="absolute inset-0 -z-10 opacity-20 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center rounded-lg"></div>
+      <ul class="text-lg font-medium max-w-3xl mx-auto list-disc list-inside space-y-2">
+        <li>Build 50+ modern student hostels by 2030 with top-tier amenities.</li>
+        <li>Facilitate land ownership for 30+ families through affordable sales by 2028.</li>
+        <li>Develop at least 1 sustainable estate communities by 2035, promoting economic growth.</li>
+      </ul>
     </section>
 
     <!-- Decorative Divider -->
-    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
+    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" data-aos="fade-in" data-aos-duration="1000"></div>
 
     <!-- Mission and Values Section -->
-    <section class="mission-values py-16">
+    <section class="mission-values py-16" data-aos="fade-up" data-aos-duration="1000">
       <h3 class="text-3xl font-bold text-center mb-12">Our Mission & Values 🌟</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg">
+        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
           <div class="text-4xl mb-4">🏠</div>
           <h4 class="text-xl font-bold mb-2">Our Mission</h4>
-          <p class="font-medium">To provide dignified, affordable, and secure housing that empowers students to excel.</p>
+          <p class="font-medium">To provide innovative, affordable housing, land, and estate solutions that empower students, families, and communities to thrive.</p>
         </div>
-        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg">
+        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
           <div class="text-4xl mb-4">🤝</div>
           <h4 class="text-xl font-bold mb-2">Integrity</h4>
-          <p class="font-medium">We uphold the highest standards of honesty and transparency in all our dealings.</p>
+          <p class="font-medium">We uphold the highest standards of honesty and transparency in all our real estate dealings.</p>
         </div>
-        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg">
+        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
           <div class="text-4xl mb-4">✨</div>
+          <h4 class="text-xl font-bold mb-2">Innovation</h4>
+          <p class="font-medium">We pioneer creative solutions to meet the evolving needs of housing and land development.</p>
+        </div>
+        <div class="value-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
+          <div class="text-4xl mb-4">🌱</div>
           <h4 class="text-xl font-bold mb-2">Excellence</h4>
-          <p class="font-medium">We strive for perfection in every project, ensuring quality and functionality.</p>
+          <p class="font-medium">We strive for perfection in every project, ensuring quality, sustainability, and functionality.</p>
         </div>
       </div>
     </section>
 
     <!-- Decorative Divider -->
-    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
+    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" data-aos="fade-in" data-aos-duration="1000"></div>
 
     <!-- Team Section -->
-    <section class="team py-16">
+    <section class="team py-16" data-aos="fade-up" data-aos-duration="1000">
       <h3 class="text-3xl font-bold text-center mb-12">Meet the Team 👥</h3>
       <div class="team-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
-        <div class="member text-center">
+        <div class="member text-center" data-aos="zoom-in" data-aos-delay="100">
           <div class="relative group">
             <img src="/assets/images/ceo-wally.jpg" alt="Wally H." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
             <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </div>
           <h4 class="text-xl font-bold mt-4 text-blue-400">Wally H.</h4>
           <p class="font-semibold text-gray-300">Founder & CEO</p>
-          <p class="text-sm font-medium text-gray-400 mt-2">With 3 years in real estate, Wally leads BrightWave with a vision for innovative student housing.</p>
+          <p class="text-sm font-medium text-gray-400 mt-2">With 3 years in real estate, Wally leads BrightWave with a vision for innovative student housing and estates.</p>
           <div class="flex justify-center space-x-4 mt-2">
-            <a href="#" class="text-blue-400 hover:text-blue-300">🔗</a>
+            <a href="https://linkedin.com/in/wallyh" class="text-blue-400 hover:text-blue-300"><i class="fab fa-linkedin"></i></a>
           </div>
         </div>
-        <div class="member text-center">
+        <div class="member text-center" data-aos="zoom-in" data-aos-delay="200">
           <div class="relative group">
             <img src="/assets/images/property-manager-alameen.jpg" alt="Al-Ameen A." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
             <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </div>
           <h4 class="text-xl font-bold mt-4 text-blue-400">Al-Ameen A.</h4>
           <p class="font-semibold text-gray-300">Project/Property Manager</p>
-          <p class="text-sm font-medium text-gray-400 mt-2">Al-Ameen ensures every project meets our high standards of quality and safety.</p>
+          <p class="text-sm font-medium text-gray-400 mt-2">Al-Ameen oversees quality and safety across housing and estate projects.</p>
           <div class="flex justify-center space-x-4 mt-2">
-            <a href="#" class="text-blue-400 hover:text-blue-300">🔗</a>
+            <a href="https://linkedin.com/in/alameena" class="text-blue-400 hover:text-blue-300"><i class="fab fa-linkedin"></i></a>
           </div>
         </div>
-        <div class="member text-center">
+        <div class="member text-center" data-aos="zoom-in" data-aos-delay="300">
           <div class="relative group">
             <img src="/assets/images/realtor-kamal.jpg" alt="Kamal B." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
             <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </div>
           <h4 class="text-xl font-bold mt-4 text-blue-400">Kamal B.</h4>
           <p class="font-semibold text-gray-300">Realtor</p>
-          <p class="text-sm font-medium text-gray-400 mt-2">Kamal connects with clients to find the perfect housing solutions for students.</p>
+          <p class="text-sm font-medium text-gray-400 mt-2">Kamal connects clients with land and housing solutions tailored to their needs.</p>
           <div class="flex justify-center space-x-4 mt-2">
-            <a href="#" class="text-blue-400 hover:text-blue-300">🔗</a>
+            <a href="https://linkedin.com/in/kamalb" class="text-blue-400 hover:text-blue-300"><i class="fab fa-linkedin"></i></a>
           </div>
         </div>
-        <div class="member text-center">
+        <div class="member text-center" data-aos="zoom-in" data-aos-delay="400">
           <div class="relative group">
             <img src="/assets/images/oversight-Realtor-Habeeb.jpg" alt="Habeeb O." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
             <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </div>
           <h4 class="text-xl font-bold mt-4 text-blue-400">Habeeb O.</h4>
           <p class="font-semibold text-gray-300">Site Operations & Oversight</p>
-          <p class="text-sm font-medium text-gray-400 mt-2">Habeeb oversees operations to ensure smooth and efficient project execution.</p>
+          <p class="text-sm font-medium text-gray-400 mt-2">Habeeb ensures efficient execution of land and estate development projects.</p>
           <div class="flex justify-center space-x-4 mt-2">
-            <a href="#" class="text-blue-400 hover:text-blue-300">🔗</a>
+            <a href="https://linkedin.com/in/habeebo" class="text-blue-400 hover:text-blue-300"><i class="fab fa-linkedin"></i></a>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Decorative Divider -->
-    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
+    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" data-aos="fade-in" data-aos-duration="1000"></div>
 
     <!-- Our Journey Section -->
-    <section class="journey py-16">
+    <section class="journey py-16" data-aos="fade-up" data-aos-duration="1000">
       <h3 class="text-3xl font-bold text-center mb-12">Our Journey 🚀</h3>
-      <div class="timeline max-w-3xl mx-auto space-y-8">
-        <div class="timeline-item flex items-center">
-          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4"></div>
+      <div class="timeline max-w-3xl mx-auto space-y-8 relative">
+        <!-- Timeline Vertical Line -->
+        <div class="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-blue-400 opacity-50"></div>
+        <div class="timeline-item flex items-center relative group" data-aos="fade-right" data-aos-delay="100">
+          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4 transition-transform duration-300 group-hover:scale-125"></div>
           <div>
             <h4 class="text-xl font-bold">September 2024 - Founded</h4>
-            <p class="font-medium text-gray-300">BrightWave Enterprises was founded with a vision to transform student housing in Nigeria.</p>
+            <p class="font-medium text-gray-300">BrightWave Enterprises was founded to transform student housing, land sales, and estate development in Nigeria.</p>
           </div>
         </div>
-        <div class="timeline-item flex items-center">
-          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4"></div>
+        <div class="timeline-item flex items-center relative group" data-aos="fade-right" data-aos-delay="200">
+          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4 transition-transform duration-300 group-hover:scale-125"></div>
           <div>
             <h4 class="text-xl font-bold">December 2024 - Phase 1 Construction</h4>
-            <p class="font-medium text-gray-300">Started construction of Phase 1 hostel, focusing on security and comfort.</p>
+            <p class="font-medium text-gray-300">Began construction of Phase 1 hostel, marking our entry into student housing.</p>
           </div>
         </div>
-        <div class="timeline-item flex items-center">
-          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4"></div>
+        <div class="timeline-item flex items-center relative group" data-aos="fade-right" data-aos-delay="300">
+          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4 transition-transform duration-300 group-hover:scale-125"></div>
+          <div>
+            <h4 class="text-xl font-bold">2025 - Land Sales Initiative</h4>
+            <p class="font-medium text-gray-300">Launched affordable land sales to support homeownership and investment.</p>
+          </div>
+        </div>
+        <div class="timeline-item flex items-center relative group" data-aos="fade-right" data-aos-delay="400">
+          <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-4 transition-transform duration-300 group-hover:scale-125"></div>
           <div>
             <h4 class="text-xl font-bold">Phase 2 Expansion - Pending</h4>
-            <p class="font-medium text-gray-300">Plans for 32-35 additional rooms are in progress, awaiting final approval.</p>
+            <p class="font-medium text-gray-300">Plans for 32-35 additional hostel rooms and estate projects are underway.</p>
           </div>
         </div>
       </div>
     </section>
+
+    <!-- Decorative Divider -->
+    <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" data-aos="fade-in" data-aos-duration="1000"></div>
+
+    <!-- Get in Touch Section -->
+    <section id="contact-form" class="get-in-touch py-16" data-aos="fade-up" data-aos-duration="1000">
+      <h3 class="text-3xl font-bold text-center mb-8">Get in Touch 📬</h3>
+      <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">We’d love to hear from you! Whether you’re a student, investor, or partner, reach out to explore opportunities with BrightWave Enterprises.</p>
+      <form id="aboutContactForm" class="max-w-lg mx-auto space-y-4">
+        <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
+        <input type="email" id="email" name="email" placeholder="Your Email Address" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
+        <textarea id="message" name="message" placeholder="Your Message..." rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md"></textarea>
+        <button type="submit" id="submitButton" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center">Send Message <i class="fas fa-spinner fa-spin ml-2 hidden"></i></button>
+      </form>
+      <div id="formStatus" class="text-center mt-4 font-semibold"></div>
+    </section>
+
+    <!-- Sticky Contact Us Button (Moved to bottom-left) -->
+    <a href="#contact-form" class="fixed bottom-6 left-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition font-semibold flex items-center z-50">
+      <i class="fas fa-envelope mr-2"></i> Contact Us
+    </a>
+
+    <!-- Back to Top Button -->
+    <button id="back-to-top" class="fixed bottom-20 left-6 bg-gray-700 text-white px-4 py-3 rounded-full shadow-lg hover:bg-gray-600 transition font-semibold flex items-center z-50 hidden">
+      <i class="fas fa-arrow-up mr-2"></i> Back to Top
+    </button>
   </main>
 
   <!-- Footer -->
@@ -215,14 +257,79 @@
     </div>
   </footer>
 
-  <!-- Mobile Menu Script -->
+  <!-- Scripts -->
   <script>
+    AOS.init();
+
     document.addEventListener('DOMContentLoaded', () => {
+      // Mobile Menu Toggle
       const toggle = document.querySelector('.menu-toggle');
       const navLinks = document.querySelector('.nav-links');
       toggle.addEventListener('click', () => {
         navLinks.classList.toggle('hidden');
         toggle.textContent = navLinks.classList.contains('hidden') ? '☰' : '✕';
+      });
+
+      // Form Submission Handler
+      document.getElementById("aboutContactForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const submitButton = document.getElementById("submitButton");
+        const spinner = submitButton.querySelector('.fa-spinner');
+        const statusDiv = document.getElementById("formStatus");
+        
+        // Show loading state
+        submitButton.disabled = true;
+        spinner.classList.remove('hidden');
+        statusDiv.textContent = '';
+
+        const fullName = document.getElementById("fullName").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const message = document.getElementById("message").value.trim();
+
+        // Basic validation
+        if (!email.match(/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/)) {
+          statusDiv.textContent = "Please enter a valid email address.";
+          statusDiv.classList.add('text-red-500');
+          submitButton.disabled = false;
+          spinner.classList.add('hidden');
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fullName, email, message, formOrigin: "About Page" })
+          });
+          const result = await response.json();
+          statusDiv.textContent = result.message;
+          statusDiv.classList.remove('text-red-500', 'text-green-500');
+          statusDiv.classList.add(result.success ? 'text-green-500' : 'text-red-500');
+          if (result.success) {
+            document.getElementById("aboutContactForm").reset();
+            statusDiv.classList.add('animate-pulse');
+          }
+        } catch (error) {
+          statusDiv.textContent = "Something went wrong. Please try again.";
+          statusDiv.classList.add('text-red-500');
+          console.error("Error:", error);
+        } finally {
+          submitButton.disabled = false;
+          spinner.classList.add('hidden');
+        }
+      });
+
+      // Back to Top Button
+      const backToTop = document.getElementById('back-to-top');
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+          backToTop.classList.remove('hidden');
+        } else {
+          backToTop.classList.add('hidden');
+        }
+      });
+      backToTop.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     });
   </script>
@@ -239,18 +346,14 @@
       s1.setAttribute('crossorigin','*');
       s0.parentNode.insertBefore(s1,s0);
     })();
-    // Customize Tawk.to widget appearance and behavior
     Tawk_API.onLoad = function() {
-      // Set widget colors to match site design
       Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB', // Tailwind blue-600
-        bubbleTextColor: '#FFFFFF', // White text
-        chatBackground: '#111827' // Tailwind gray-900
+        bubbleBackground: '#2563EB',
+        bubbleTextColor: '#FFFFFF',
+        chatBackground: '#111827'
       };
-      // Minimize widget on load
       Tawk_API.minimize();
     };
-    // Open chat when "Chat with Us" button is clicked
     document.addEventListener('DOMContentLoaded', () => {
       const openChatButton = document.getElementById('open-chat');
       openChatButton.addEventListener('click', () => {
@@ -258,6 +361,5 @@
       });
     });
   </script>
-
 </body>
 </html>
