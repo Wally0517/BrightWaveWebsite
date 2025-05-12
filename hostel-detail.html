@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Details of BrightWave Phase 1 Hostel - Affordable student housing in Nigeria.">
   <!-- Open Graph Meta Tags for Previews -->
-  <meta property="og:title" content="BrightWave Phase 1 Hostel | BrightWave Enterprises" />
+  <meta property="og:title" content="BrightWave Phase 1 Hostel | BrightWave Enterprise" />
   <meta property="og:description" content="Explore BrightWave Phase 1 Hostel in Malete, Kwara State, Nigeria. Affordable, secure, and modern student housing with top amenities." />
   <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
   <meta property="og:image:type" content="image/png" />
@@ -13,11 +13,14 @@
   <meta property="og:image:height" content="500" />
   <meta property="og:url" content="https://brightwaveenterprises.online/hostel-detail" />
   <meta property="og:type" content="website" />
-  <title>BrightWave Phase 1 Hostel | BrightWave Enterprises</title>
+  <title>BrightWave Phase 1 Hostel | BrightWave Enterprise</title>
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png">
   <!-- Font Awesome for Social Media Icons and Features -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS for Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -26,7 +29,7 @@
   <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
     <div class="flex items-center space-x-3">
       <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
-      <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
+      <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprise</h1>
     </div>
     <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
     <ul class="hidden md:flex space-x-6 text-lg font-semibold">
@@ -47,15 +50,13 @@
 </header>
 
 <!-- Hostel Detail Content -->
-<main class="hostel-detail container mx-auto px-4 py-16">
+<main class="hostel-detail container mx-auto px-4 py-16 relative">
 
   <!-- Hero Banner -->
-  <section class="hostel-banner relative h-96 bg-[url('/assets/images/phase1/phase1-aerial-topview.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
+  <section class="hostel-banner relative h-96 bg-[url('/assets/images/phase1/phase1-aerial-topview.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden" data-aos="fade-up" data-aos-duration="1000">
     <!-- Gradient and Pattern Overlay -->
     <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
-    <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
-    <!-- Parallax Background -->
-    <div class="absolute inset-0 bg-[url('/assets/images/phase1/phase1-aerial-topview.jpg')] bg-cover bg-fixed bg-center z-0"></div>
+    <div class="absolute inset-0 bg-[url('/assets/images/wave-pattern.png')] bg-repeat opacity-5 z-10"></div>
     <!-- Content -->
     <div class="relative text-center z-20">
       <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">BrightWave Phase 1 <span class="text-blue-400">Hostel</span></h1>
@@ -65,7 +66,7 @@
   </section>
 
   <!-- Overview Section -->
-  <section class="overview bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-xl p-8 md:p-12 text-center mb-12">
+  <section class="overview bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-xl p-8 md:p-12 text-center mb-12" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold mb-6">Welcome to BrightWave Phase 1 Hostel</h2>
     <p class="text-lg font-medium mb-4 max-w-3xl mx-auto">
       Located in Malete, Kwara State, Nigeria, our Phase 1 Hostel offers modern, affordable, and secure accommodation for students. With 10 self-contained rooms, top-notch amenities, and a focus on community, this hostel is designed to support your academic journey while providing a comfortable and stylish living experience.
@@ -78,10 +79,10 @@
   </section>
 
   <!-- Decorative Divider -->
-  <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
+  <div class="divider my-12 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" data-aos="fade-in" data-aos-duration="1000"></div>
 
   <!-- Hostel Slideshow Gallery -->
-  <section class="hostel-gallery py-16">
+  <section class="hostel-gallery py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold text-center mb-8">Explore Our Hostel</h2>
     <div class="slideshow-container relative max-w-4xl mx-auto overflow-hidden rounded-lg shadow-lg">
       <div class="slides flex transition-transform duration-1000 ease-in-out">
@@ -126,7 +127,7 @@
   </section>
 
   <!-- Hostel Features -->
-  <section class="hostel-features py-16">
+  <section class="hostel-features py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold text-center mb-8">Amenities & Features</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
       <div class="feature-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
@@ -145,7 +146,7 @@
         <p class="font-medium">Solar power backup, general generator, and 24/7 water supply.</p>
       </div>
       <div class="feature-item text-center p-6 bg-gray-700 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
-        <i class="fas fa-table-tennis text-4xl mb-4 text-blue-400"></i>
+        <i class="fas fa-gamepad text-4xl mb-4 text-blue-400"></i>
         <h3 class="text-xl font-bold mb-2">Recreation</h3>
         <p class="font-medium">Snooker board and courtyard for relaxation and community bonding.</p>
       </div>
@@ -163,10 +164,10 @@
   </section>
 
   <!-- Location Section -->
-  <section class="location-map py-16">
+  <section class="location-map py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold text-center mb-8">Our Location</h2>
     <p class="text-lg font-medium text-center mb-8">BrightWave Phase 1 Hostel is located in Malete, Kwara State, Nigeria, near major universities. Explore the area with our satellite view map.</p>
-    <div class="relative w-full h-[400px] rounded-lg shadow-lg border-2 border-blue-600">
+    <div class="relative w-full h-[400px] rounded-lg shadow-lg border-2 border-blue-600 overflow-hidden transform transition duration-300 hover:scale-105">
       <iframe 
         src="https://maps.google.com/maps?q=8.583498,4.555573&z=16&t=k&output=embed" 
         width="100%" 
@@ -180,31 +181,15 @@
     </div>
   </section>
 
-  <!-- Testimonials Section -->
-  <section class="testimonials py-16 bg-gray-800">
-    <h2 class="text-3xl font-bold text-center mb-8">What Our Residents Say</h2>
-    <p class="text-center text-gray-400 mb-8">[Placeholder: Real testimonials to be added upon resident feedback post-completion.]</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-      <div class="testimonial p-6 bg-gray-700 rounded-lg shadow-lg">
-        <p class="font-medium mb-4">"The best student housing I’ve ever lived in! The security and amenities make it worth every penny."</p>
-        <p class="font-semibold text-blue-400">— Aisha M., Student</p>
-      </div>
-      <div class="testimonial p-6 bg-gray-700 rounded-lg shadow-lg">
-        <p class="font-medium mb-4">"I love the community here. The courtyard and snooker board are great for relaxing after classes."</p>
-        <p class="font-semibold text-blue-400">— Tunde O., Student</p>
-      </div>
-    </div>
-  </section>
-
   <!-- Call to Action -->
-  <section class="cta bg-blue-700 text-white py-16 text-center">
+  <section class="cta bg-blue-700 text-white py-16 text-center" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-4xl font-bold mb-4">Join Our Waitlist Today!</h2>
     <p class="text-lg mb-6 font-medium">Be the first to secure your spot in BrightWave Phase 1 Hostel. Contact us to learn more or book a tour.</p>
     <a href="#contact-form" class="inline-block bg-white text-blue-700 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-semibold text-lg">Get Started</a>
   </section>
 
   <!-- Contact Form -->
-  <section id="contact-form" class="hostel-contact-form py-16">
+  <section id="contact-form" class="hostel-contact-form py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold text-center mb-8">Get in Touch</h2>
     <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">Ready to make BrightWave Phase 1 your home? Fill out the form below to request more information or book a tour.</p>
     <form id="hostelContactForm" class="max-w-lg mx-auto space-y-4">
@@ -214,11 +199,11 @@
       <textarea id="message" name="message" placeholder="Tell us what you need..." rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md"></textarea>
       <button type="submit" id="submitButton" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center">Send Request <i class="fas fa-spinner fa-spin ml-2 hidden"></i></button>
     </form>
-    <div id="formStatus" class="text-center mt-4"></div>
+    <div id="formStatus" class="text-center mt-4 font-semibold"></div>
   </section>
 
   <!-- Contact Information -->
-  <section class="contact-info py-12">
+  <section class="contact-info py-12" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-3xl font-bold text-center mb-8">Other Ways to Reach Us</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
       <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
@@ -244,18 +229,34 @@
   </section>
 
   <!-- Phase 2 Promotion -->
-  <section class="coming-soon bg-gradient-to-r from-blue-900 to-blue-700 py-16 text-center">
-    <h2 class="text-3xl font-bold mb-4">Phase 2 - Coming Soon ⚡</h2>
+  <section class="coming-soon bg-gradient-to-r from-blue-900 to-blue-700 py-16 text-center relative" data-aos="fade-up" data-aos-duration="1000">
+    <div class="relative max-w-4xl mx-auto h-64">
+      <img src="/assets/images/phase2/phase2-placeholder.jpg" alt="BrightWave Phase 2 Concept" class="w-full h-full object-cover opacity-50 rounded-lg" />
+      <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+        <span class="text-white text-2xl font-bold bg-blue-600 px-4 py-2 rounded">Coming Soon</span>
+      </div>
+    </div>
+    <h2 class="text-3xl font-bold mb-4 mt-6">Phase 2 - Coming Soon ⚡</h2>
     <p class="text-lg font-medium mb-8 max-w-2xl mx-auto">We’re expanding with 32-35 rooms, additional amenities, and recreational features. Expected start: Mid-2026.</p>
     <a href="/hostels" class="inline-block text-white border-2 border-white px-6 py-3 rounded-lg hover:bg-white hover:text-blue-900 transition font-semibold text-lg">Back to Hostels</a>
   </section>
+
+  <!-- Sticky Join Waitlist Button -->
+  <a href="#contact-form" class="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition font-semibold flex items-center z-50">
+    <i class="fas fa-plus mr-2"></i> Join Waitlist
+  </a>
+
+  <!-- Back to Top Button -->
+  <button id="back-to-top" class="fixed bottom-6 left-6 bg-gray-700 text-white px-4 py-3 rounded-full shadow-lg hover:bg-gray-600 transition font-semibold flex items-center z-50 hidden">
+    <i class="fas fa-arrow-up mr-2"></i> Back to Top
+  </button>
 
 </main>
 
 <!-- Footer -->
 <footer class="bg-gray-800 text-white py-8">
   <div class="container mx-auto px-4 text-center">
-    <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
+    <p class="mb-4 font-medium">© 2025 BrightWave Enterprise. All rights reserved.</p>
     <div class="flex justify-center space-x-6 mb-4">
       <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
         <i class="fab fa-facebook-f"></i>
@@ -278,6 +279,8 @@
 
 <!-- Scripts -->
 <script>
+  AOS.init();
+
   document.addEventListener('DOMContentLoaded', () => {
     // Mobile Menu Toggle
     const toggle = document.querySelector('.menu-toggle');
@@ -360,6 +363,7 @@
       // Show loading state
       submitButton.disabled = true;
       spinner.classList.remove('hidden');
+      statusDiv.textContent = '';
 
       const fullName = document.getElementById("fullName").value.trim();
       const email = document.getElementById("email").value.trim();
@@ -369,14 +373,14 @@
       // Basic validation
       if (!email.match(/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/)) {
         statusDiv.textContent = "Please enter a valid email address.";
-        statusDiv.style.color = "red";
+        statusDiv.classList.add('text-red-500');
         submitButton.disabled = false;
         spinner.classList.add('hidden');
         return;
       }
       if (!phone.match(/^\+?\d{10,15}$/)) {
         statusDiv.textContent = "Please enter a valid phone number.";
-        statusDiv.style.color = "red";
+        statusDiv.classList.add('text-red-500');
         submitButton.disabled = false;
         spinner.classList.add('hidden');
         return;
@@ -390,16 +394,33 @@
         });
         const result = await response.json();
         statusDiv.textContent = result.message;
-        statusDiv.style.color = result.success ? "green" : "red";
-        if (result.success) document.getElementById("hostelContactForm").reset();
+        statusDiv.classList.remove('text-red-500', 'text-green-500');
+        statusDiv.classList.add(result.success ? 'text-green-500' : 'text-red-500');
+        if (result.success) {
+          document.getElementById("hostelContactForm").reset();
+          statusDiv.classList.add('animate-pulse');
+        }
       } catch (error) {
         statusDiv.textContent = "Something went wrong. Please try again.";
-        statusDiv.style.color = "red";
+        statusDiv.classList.add('text-red-500');
         console.error("Error:", error);
       } finally {
         submitButton.disabled = false;
         spinner.classList.add('hidden');
       }
+    });
+
+    // Back to Top Button
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.classList.remove('hidden');
+      } else {
+        backToTop.classList.add('hidden');
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
 </script>
@@ -416,18 +437,14 @@
     s1.setAttribute('crossorigin','*');
     s0.parentNode.insertBefore(s1,s0);
   })();
-  // Customize Tawk.to widget appearance and behavior
   Tawk_API.onLoad = function() {
-    // Set widget colors to match site design
     Tawk_API.customStyle = {
-      bubbleBackground: '#2563EB', // Tailwind blue-600
-      bubbleTextColor: '#FFFFFF', // White text
-      chatBackground: '#111827' // Tailwind gray-900
+      bubbleBackground: '#2563EB',
+      bubbleTextColor: '#FFFFFF',
+      chatBackground: '#111827'
     };
-    // Minimize widget on load
     Tawk_API.minimize();
   };
-  // Open chat when "Chat with Us" button is clicked
   document.addEventListener('DOMContentLoaded', () => {
     const openChatButton = document.getElementById('open-chat');
     openChatButton.addEventListener('click', () => {
