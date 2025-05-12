@@ -15,9 +15,12 @@
   <meta property="og:type" content="website" />
   <title>BrightWave Enterprise</title>
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
-  <!-- Font Awesome for Social Media Icons -->
+  <!-- Font Awesome for Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS for Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -47,20 +50,21 @@
   </header>
 
   <!-- Hero Section -->
-  <section class="hero relative h-[80vh] flex items-center justify-center bg-cover bg-center" style="background-image: url('/assets/images/who-we-are.jpg');">
-    <div class="absolute inset-0 bg-black opacity-60"></div>
-    <div class="relative text-center text-white px-4">
+  <section class="hero relative h-[80vh] flex items-center justify-center bg-cover bg-center" style="background-image: url('/assets/images/hero-background.jpg');">
+    <div class="absolute inset-0 bg-gradient-to-b from-blue-900/30 via-blue-600/50 to-blue-400/70 bg-opacity-70"></div>
+    <div class="relative text-center text-white px-4" data-aos="fade-up" data-aos-duration="1000">
       <h1 class="text-5xl md:text-6xl font-extrabold mb-4 tracking-tight">Building a Brighter Future with BrightWave</h1>
       <p class="text-xl md:text-2xl mb-6 font-medium">Student Hostels, Land Sales, Residential Properties, and Estate Development in Nigeria</p>
       <div class="flex flex-col md:flex-row justify-center gap-4">
         <a href="/hostels" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition font-semibold text-lg">Explore Our Services</a>
         <a href="/contact" class="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-gray-900 transition font-semibold text-lg">Get in Touch</a>
       </div>
+      <a href="#about" class="mt-6 inline-block text-white animate-bounce">↓ Scroll Down ↓</a>
     </div>
   </section>
 
   <!-- About Section -->
-  <section id="about" class="container mx-auto px-4 py-16">
+  <section id="about" class="container mx-auto px-4 py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-4xl font-bold text-center mb-8">Who We Are</h2>
     <div class="flex flex-col md:flex-row items-center gap-8">
       <p class="text-lg md:w-1/2 font-medium leading-relaxed">
@@ -74,28 +78,49 @@
     </div>
   </section>
 
+  <!-- Testimonials Section -->
+  <section class="bg-gray-800 py-16" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4 text-center">
+      <h2 class="text-4xl font-bold mb-8">What Our Clients Say</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="bg-gray-700 p-6 rounded-lg shadow-lg">
+          <p class="italic font-medium mb-4">"Great hostel experience! Clean, affordable, and well-managed."</p>
+          <p class="font-semibold">- John Doe, Student</p>
+        </div>
+        <div class="bg-gray-700 p-6 rounded-lg shadow-lg">
+          <p class="italic font-medium mb-4">"Secured a prime land plot with ease. Excellent service!"</p>
+          <p class="font-semibold">- Jane Smith, Investor</p>
+        </div>
+        <div class="bg-gray-700 p-6 rounded-lg shadow-lg">
+          <p class="italic font-medium mb-4">"Professional team with a vision for the future."</p>
+          <p class="font-semibold">- Michael Brown, Developer</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Services Section -->
-  <section id="services" class="bg-gray-800 py-16">
+  <section id="services" class="py-16" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
       <h2 class="text-4xl font-bold text-center mb-8">Our Services</h2>
       <p class="text-lg text-center mb-12 font-medium">Explore our diverse range of real estate solutions tailored to your needs.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center">
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center transition-transform transform hover:scale-105">
           <img src="/assets/images/brightwave-project-1.jpg" alt="Student Hostels" class="w-full h-48 object-cover" />
           <div class="p-6">
             <h3 class="text-2xl font-semibold mb-2">Student Hostels</h3>
             <p class="font-medium">Affordable, secure, and modern hostels designed for students’ comfort and success.</p>
           </div>
         </div>
-        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center relative">
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center transition-transform transform hover:scale-105">
           <img src="/assets/images/land-sale.jpg" alt="Land Sales" class="w-full h-48 object-cover" />
           <div class="p-6">
             <h3 class="text-2xl font-semibold mb-2">Land Sales</h3>
             <p class="font-medium">Prime plots for sale in strategic locations, perfect for investment or development.</p>
           </div>
         </div>
-        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center relative">
-          <img src="/assets/images/residential.jpg" alt="Residential Properties" class="w-full h-48 object-cover" />
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center relative transition-transform transform hover:scale-105">
+          <img src="/assets/images/residential.jpg" alt="Residential Properties" class="w-full h-48 object-cover opacity-50" />
           <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <span class="text-white text-2xl font-bold bg-blue-600 px-4 py-2 rounded">Coming Soon</span>
           </div>
@@ -104,8 +129,8 @@
             <p class="font-medium">Quality homes built for modern living, from apartments to family houses.</p>
           </div>
         </div>
-        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center relative">
-          <img src="/assets/images/estate.jpg" alt="Estate Development" class="w-full h-48 object-cover" />
+        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden text-center relative transition-transform transform hover:scale-105">
+          <img src="/assets/images/estate.jpg" alt="Estate Development" class="w-full h-48 object-cover opacity-50" />
           <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <span class="text-white text-2xl font-bold bg-blue-600 px-4 py-2 rounded">Coming Soon</span>
           </div>
@@ -119,10 +144,10 @@
   </section>
 
   <!-- Featured Project: BrightWave Estate -->
-  <section id="brightwave-estate" class="container mx-auto px-4 py-16">
+  <section id="brightwave-estate" class="container mx-auto px-4 py-16" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-4xl font-bold text-center mb-8">Introducing BrightWave Estate</h2>
     <div class="flex flex-col md:flex-row items-center gap-8">
-      <img src="/assets/images/brightwave-estate-placeholder.jpg" alt="BrightWave Estate" class="md:w-1/2 rounded-lg shadow-lg" />
+      <img src="/assets/images/brightwave-estate-placeholder.jpg" alt="BrightWave Estate" class="md:w-1/2 rounded-lg shadow-lg transition-transform transform hover:scale-105" />
       <div class="md:w-1/2">
         <p class="text-lg font-medium leading-relaxed mb-4">
           We’re excited to announce BrightWave Estate, a future development on 6 acres of prime land at Obada Ikija, Abeokuta. 
@@ -136,7 +161,7 @@
   </section>
 
   <!-- Call to Action -->
-  <section class="cta bg-blue-700 text-white py-16 text-center">
+  <section class="cta bg-blue-700 text-white py-16 text-center" data-aos="fade-up" data-aos-duration="1000">
     <h2 class="text-4xl font-bold mb-4">Partner with BrightWave Enterprise</h2>
     <p class="text-lg mb-6 font-medium">Whether you’re a student, investor, or developer, we’re here to bring your real estate vision to life.</p>
     <a href="/contact" class="inline-block bg-white text-blue-700 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-semibold text-lg">Get Started Today</a>
@@ -166,8 +191,9 @@
     </div>
   </footer>
 
-  <!-- Mobile Menu Script -->
+  <!-- Animation Initialization -->
   <script>
+    AOS.init();
     document.addEventListener('DOMContentLoaded', () => {
       const toggle = document.querySelector('.menu-toggle');
       const navLinks = document.querySelector('.nav-links');
@@ -190,18 +216,14 @@
       s1.setAttribute('crossorigin','*');
       s0.parentNode.insertBefore(s1,s0);
     })();
-    // Customize Tawk.to widget appearance and behavior
     Tawk_API.onLoad = function() {
-      // Set widget colors to match site design
       Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB', // Tailwind blue-600
-        bubbleTextColor: '#FFFFFF', // White text
-        chatBackground: '#111827' // Tailwind gray-900
+        bubbleBackground: '#2563EB',
+        bubbleTextColor: '#FFFFFF',
+        chatBackground: '#111827'
       };
-      // Minimize widget on load
       Tawk_API.minimize();
     };
-    // Open chat when "Chat with Us" button is clicked
     document.addEventListener('DOMContentLoaded', () => {
       const openChatButton = document.getElementById('open-chat');
       openChatButton.addEventListener('click', () => {
