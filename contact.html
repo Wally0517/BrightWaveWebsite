@@ -3,11 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Contact BrightWave Enterprises for inquiries about student hostels in Nigeria." />
-  <title>Contact | BrightWave Enterprises</title>
+  <meta name="description" content="Contact BrightWave Enterprise for inquiries about student hostels, land selling, and estate development in Nigeria." />
+  <!-- Open Graph Meta Tags for Previews -->
+  <meta property="og:title" content="Contact | BrightWave Enterprise" />
+  <meta property="og:description" content="Get in touch with BrightWave Enterprise for student hostels, land selling, and estate development in Nigeria." />
+  <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="500" />
+  <meta property="og:image:height" content="500" />
+  <meta property="og:url" content="https://brightwaveenterprises.online/contact" />
+  <meta property="og:type" content="website" />
+  <title>Contact | BrightWave Enterprise</title>
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS for Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -16,7 +28,7 @@
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
-        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
+        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprise</h1>
       </div>
       <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
       <ul class="hidden md:flex space-x-6 text-lg font-semibold">
@@ -39,7 +51,7 @@
   <!-- Contact Content -->
   <main class="contact container mx-auto px-4 py-16">
     <!-- Hero-like Banner -->
-    <section class="contact-banner relative h-80 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
+    <section class="contact-banner relative h-80 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden" data-aos="fade-up" data-aos-duration="1000">
       <!-- Gradient and Pattern Overlay -->
       <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
       <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
@@ -48,14 +60,14 @@
       <!-- Content -->
       <div class="relative text-center z-20">
         <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">Contact <span class="text-blue-400">BrightWave</span></h1>
-        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">We're Here to Help You Find Your Perfect Student Home</p>
+        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Get in Touch for Hostels, Land, or Estate Inquiries</p>
       </div>
     </section>
 
     <!-- Contact Form -->
-    <section class="contact-form py-12">
+    <section class="contact-form py-12" data-aos="fade-up" data-aos-duration="1000">
       <h2 class="text-4xl font-bold text-center mb-8">Get in Touch</h2>
-      <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">Have a question or want to book a tour? Fill out the form below, and we’ll get back to you soon!</p>
+      <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">Have a question about our hostels, land selling, or estate development? Fill out the form below, and we’ll get back to you soon!</p>
       <form id="contactForm" class="max-w-lg mx-auto space-y-4">
         <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
         <input type="email" id="email" name="email" placeholder="Your Email Address" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md" />
@@ -63,25 +75,25 @@
         <textarea id="message" name="message" placeholder="Your Message" rows="5" required class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300 hover:shadow-md"></textarea>
         <button type="submit" id="submitButton" class="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center">Send Message <i class="fas fa-spinner fa-spin ml-2 hidden"></i></button>
       </form>
-      <div id="formStatus" class="text-center mt-4"></div>
+      <div id="formStatus" class="text-center mt-4 font-semibold"></div>
     </section>
 
     <!-- Contact Information -->
-    <section class="contact-info py-12">
+    <section class="contact-info py-12" data-aos="fade-up" data-aos-duration="1000">
       <h2 class="text-3xl font-bold text-center mb-8">Other Ways to Reach Us</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
         <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
           <i class="fas fa-envelope text-3xl text-blue-400 mb-4"></i>
           <h3 class="text-xl font-semibold mb-2">Email</h3>
-          <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprises0@gmail.com" class="hover:text-blue-400">brightwaveenterprises0@gmail.com</a></p>
+          <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprise0@gmail.com" class="hover:text-blue-400">brightwaveenterprise0@gmail.com</a></p>
         </div>
         <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
           <i class="fab fa-whatsapp text-3xl text-blue-400 mb-4"></i>
           <h3 class="text-xl font-semibold mb-2">WhatsApp</h3>
           <p class="text-sm font-medium break-words">
-            <a href="https://wa.me/+2348037669492" class="hover:text-blue-400">+234 803 766 9462</a><br>
-            <a href="https://wa.me/+2349038402914" class="hover:text-blue-400">+234 903 840 2914</a><br>
-            <a href="https://wa.me/+2349075381905" class="hover:text-blue-400">+234 907 538 1905</a>
+            <a href="https://wa.me/2348037669462?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="hover:text-blue-400">+234 803 766 9462 (Property Manager)</a><br>
+            <a href="https://wa.me/2349038402914?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="hover:text-blue-400">+234 903 840 2914 (Agent)</a><br>
+            <a href="https://wa.me/2349075381905?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="hover:text-blue-400">+234 907 538 1905 (Agent)</a>
           </p>
         </div>
         <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
@@ -96,7 +108,7 @@
   <!-- Footer -->
   <footer class="bg-gray-800 text-white py-8">
     <div class="container mx-auto px-4 text-center">
-      <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
+      <p class="mb-4 font-medium">© 2025 BrightWave Enterprise. All rights reserved.</p>
       <div class="flex justify-center space-x-6 mb-4">
         <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
           <i class="fab fa-facebook-f"></i>
@@ -117,8 +129,42 @@
     </div>
   </footer>
 
+  <!-- Sticky WhatsApp Button (Moved to bottom-28 right-6 with higher z-index) -->
+  <div class="fixed bottom-28 right-6 z-60">
+    <div class="relative">
+      <button id="whatsappButton" class="bg-green-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-green-600 transition font-semibold flex items-center">
+        <i class="fab fa-whatsapp mr-2"></i> WhatsApp
+      </button>
+      <div id="whatsappDropdown" class="hidden absolute bottom-full right-0 mb-2 w-48 bg-gray-800 rounded-lg shadow-lg z-50">
+        <a href="https://wa.me/2348037669462?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">General Inquiries (+234 803 766 9462)</a>
+        <a href="https://wa.me/2349038402914?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700">Property Manager (+234 903 840 2914)</a>
+        <a href="https://wa.me/2349075381905?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-b-lg">Sales Team (+234 907 538 1905)</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back to Top Button -->
+  <button id="back-to-top" class="fixed bottom-20 left-6 bg-gray-700 text-white px-4 py-3 rounded-full shadow-lg hover:bg-gray-600 transition font-semibold flex items-center z-50 hidden">
+    <i class="fas fa-arrow-up mr-2"></i> Back to Top
+  </button>
+
+  <!-- Custom CSS to Prevent Overlap -->
+  <style>
+    .whatsapp-container {
+      position: fixed;
+      bottom: 7rem;
+      right: 1.5rem;
+      z-index: 60000 !important;
+    }
+    #tawkchat-minified-iframe {
+      z-index: 50000 !important;
+    }
+  </style>
+
   <!-- Scripts -->
   <script>
+    AOS.init();
+
     document.addEventListener('DOMContentLoaded', () => {
       // Mobile Menu Toggle
       const toggle = document.querySelector('.menu-toggle');
@@ -138,6 +184,7 @@
         // Show loading state
         submitButton.disabled = true;
         spinner.classList.remove('hidden');
+        statusDiv.textContent = '';
 
         const fullName = document.getElementById("fullName").value.trim();
         const email = document.getElementById("email").value.trim();
@@ -147,14 +194,14 @@
         // Basic validation
         if (!email.match(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/)) {
           statusDiv.textContent = "Please enter a valid email address.";
-          statusDiv.style.color = "red";
+          statusDiv.classList.add('text-red-500');
           submitButton.disabled = false;
           spinner.classList.add('hidden');
           return;
         }
         if (!phone.match(/^\+?\d{10,15}$/)) {
           statusDiv.textContent = "Please enter a valid phone number.";
-          statusDiv.style.color = "red";
+          statusDiv.classList.add('text-red-500');
           submitButton.disabled = false;
           spinner.classList.add('hidden');
           return;
@@ -164,19 +211,47 @@
           const response = await fetch("/api/contact", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fullName, email, phone, message })
+            body: JSON.stringify({ fullName, email, phone, message, formOrigin: "Contact Page" })
           });
           const result = await response.json();
           statusDiv.textContent = result.message;
-          statusDiv.style.color = result.success ? "green" : "red";
+          statusDiv.classList.remove('text-red-500', 'text-green-500');
+          statusDiv.classList.add(result.success ? 'text-green-500' : 'text-red-500');
           if (result.success) document.getElementById("contactForm").reset();
         } catch (error) {
           statusDiv.textContent = "Something went wrong. Please try again.";
-          statusDiv.style.color = "red";
+          statusDiv.classList.add('text-red-500');
           console.error("Error:", error);
         } finally {
           submitButton.disabled = false;
           spinner.classList.add('hidden');
+        }
+      });
+
+      // Back to Top Button
+      const backToTop = document.getElementById('back-to-top');
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+          backToTop.classList.remove('hidden');
+        } else {
+          backToTop.classList.add('hidden');
+        }
+      });
+      backToTop.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // WhatsApp Dropdown Toggle
+      const whatsappButton = document.getElementById('whatsappButton');
+      const whatsappDropdown = document.getElementById('whatsappDropdown');
+      whatsappButton.addEventListener('click', () => {
+        whatsappDropdown.classList.toggle('hidden');
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!whatsappButton.contains(e.target) && !whatsappDropdown.contains(e.target)) {
+          whatsappDropdown.classList.add('hidden');
         }
       });
     });
@@ -194,18 +269,14 @@
       s1.setAttribute('crossorigin','*');
       s0.parentNode.insertBefore(s1,s0);
     })();
-    // Customize Tawk.to widget appearance and behavior
     Tawk_API.onLoad = function() {
-      // Set widget colors to match site design
       Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB', // Tailwind blue-600
-        bubbleTextColor: '#FFFFFF', // White text
-        chatBackground: '#111827' // Tailwind gray-900
+        bubbleBackground: '#2563EB',
+        bubbleTextColor: '#FFFFFF',
+        chatBackground: '#111827'
       };
-      // Minimize widget on load
       Tawk_API.minimize();
     };
-    // Open chat when "Chat with Us" button is clicked
     document.addEventListener('DOMContentLoaded', () => {
       const openChatButton = document.getElementById('open-chat');
       openChatButton.addEventListener('click', () => {
