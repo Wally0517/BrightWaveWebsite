@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Explore student hostels by BrightWave Enterprises in Nigeria." />
-  <title>Hostels | BrightWave Enterprises</title>
+  <meta name="description" content="Explore student hostels by BrightWave Enterprise in Nigeria." />
+  <title>Hostels | BrightWave Enterprise</title>
   <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png" />
   <!-- Font Awesome for Social Media Icons and Amenities -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS for Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -17,7 +20,7 @@
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
-        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprises</h1>
+        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprise</h1>
       </div>
       <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
       <ul class="hidden md:flex space-x-6 text-lg font-semibold">
@@ -40,33 +43,66 @@
   <!-- Hostels Page -->
   <main class="hostels-listing container mx-auto px-4 py-16">
     <!-- Hero-like Banner -->
-    <section class="hostels-banner relative h-80 bg-[url('/assets/images/phase1/phase1-main-entrance.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
-      <!-- Gradient and Pattern Overlay -->
-      <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
-      <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
-      <!-- Parallax Background -->
-      <div class="absolute inset-0 bg-[url('/assets/images/phase1/phase1-main-entrance.jpg')] bg-cover bg-fixed bg-center z-0"></div>
-      <!-- Content -->
-      <div class="relative text-center z-20">
+    <section class="hostels-banner relative h-80 bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden" style="background-image: url('/assets/images/phase1/phase1-main-entrance.jpg');">
+      <div class="absolute inset-0 bg-gradient-to-b from-blue-900/30 via-blue-600/50 to-blue-400/70 bg-opacity-70 z-10"></div>
+      <div class="absolute inset-0 bg-[url('/assets/images/wave-pattern.png')] bg-repeat opacity-5 z-10"></div>
+      <div class="relative text-center z-20" data-aos="fade-up" data-aos-duration="1000">
         <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">Our <span class="text-blue-400">Hostels</span></h1>
         <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Discover Affordable, Secure, and Modern Student Housing in Nigeria</p>
+        <a href="#hostel-grid" class="mt-6 inline-block text-white animate-bounce">↓ Scroll Down ↓</a>
+      </div>
+    </section>
+
+    <!-- Why Choose BrightWave Hostels -->
+    <section class="why-choose bg-gray-800 py-16 text-center" data-aos="fade-up" data-aos-duration="1000">
+      <h2 class="text-4xl font-bold mb-8">Why Choose BrightWave Hostels?</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="feature p-6">
+          <i class="fas fa-money-bill-wave text-4xl text-blue-400 mb-4"></i>
+          <h3 class="text-2xl font-semibold mb-2">Affordable Rates</h3>
+          <p class="font-medium">Competitive pricing tailored for students, with flexible payment plans.</p>
+        </div>
+        <div class="feature p-6">
+          <i class="fas fa-shield-alt text-4xl text-blue-400 mb-4"></i>
+          <h3 class="text-2xl font-semibold mb-2">Top-Notch Security</h3>
+          <p class="font-medium">24/7 security, CCTV, and gated access for peace of mind.</p>
+        </div>
+        <div class="feature p-6">
+          <i class="fas fa-solar-panel text-4xl text-blue-400 mb-4"></i>
+          <h3 class="text-2xl font-semibold mb-2">Sustainable Living</h3>
+          <p class="font-medium">Solar power and eco-friendly designs for a greener future.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Photo Gallery -->
+    <section class="gallery bg-gray-700 py-16" data-aos="fade-up" data-aos-duration="1000">
+      <div class="container mx-auto px-4 text-center">
+        <h2 class="text-4xl font-bold mb-8">Phase 1 Construction Progress</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <img src="/assets/images/phase1/phase1-progress-1.jpg" alt="Phase 1 Progress 1" class="rounded-lg shadow-lg hover:shadow-xl transition" />
+          <img src="/assets/images/phase1/phase1-progress-2.jpg" alt="Phase 1 Progress 2" class="rounded-lg shadow-lg hover:shadow-xl transition" />
+          <img src="/assets/images/phase1/phase1-progress-3.jpg" alt="Phase 1 Progress 3" class="rounded-lg shadow-lg hover:shadow-xl transition" />
+        </div>
+        <a href="/hostels/detail" class="mt-6 inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">View More</a>
       </div>
     </section>
 
     <!-- Hostel Listings -->
-    <section class="hostel-grid grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+    <section id="hostel-grid" class="hostel-grid grid grid-cols-1 md:grid-cols-2 gap-8 mb-16" data-aos="fade-up" data-aos-duration="1000">
       <!-- Phase 1 - Ongoing Construction -->
       <div class="hostel-card bg-gray-700 rounded-lg shadow-lg overflow-hidden transform transition duration-300 hover:scale-105 hover:shadow-xl">
         <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Phase 1 Hostel" class="w-full h-56 object-cover" />
         <div class="hostel-info p-6">
           <h3 class="text-2xl font-semibold mb-2">BrightWave Phase 1 Hostel</h3>
           <p class="text-sm font-medium mb-2 text-gray-300">Malete, Kwara State, Nigeria</p>
-          <p class="font-medium mb-4">
+          <p class="font-medium mb-2">
             <i class="fas fa-bed mr-2 text-blue-400"></i> 10 Self-Contained Rooms<br>
             <i class="fas fa-bath mr-2 text-blue-400"></i> Private Bathrooms & Kitchens<br>
             <i class="fas fa-shield-alt mr-2 text-blue-400"></i> 24/7 Security<br>
             <i class="fas fa-solar-panel mr-2 text-blue-400"></i> Solar Power
           </p>
+          <p class="text-sm font-medium text-gray-400 mb-2">Near Kwara State University (KWASU)</p>
           <p class="text-sm font-medium text-gray-400 mb-4">Estimated Completion: End of 2025</p>
           <span class="inline-block bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-sm font-semibold mb-4">Ongoing Construction 🚧</span>
           <a href="/hostels/detail" class="block text-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">View Details</a>
@@ -74,16 +110,22 @@
       </div>
 
       <!-- Phase 2 - Coming Soon -->
-      <div class="hostel-card bg-gray-700 rounded-lg shadow-lg overflow-hidden transform transition duration-300 hover:scale-105 hover:shadow-xl">
-        <img src="/assets/images/hostels/phase2-placeholder.jpg" alt="BrightWave Phase 2 Coming Soon" class="w-full h-56 object-cover" />
+      <div class="hostel-card bg-gray-700 rounded-lg shadow-lg overflow-hidden transform transition duration-300 hover:scale-105 hover:shadow-xl relative">
+        <div class="relative w-full h-56">
+          <img src="/assets/images/phase2/phase2-placeholder.jpg" alt="BrightWave Phase 2 Concept" class="w-full h-full object-cover opacity-50" />
+          <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+            <span class="text-white text-2xl font-bold bg-blue-600 px-4 py-2 rounded">Coming Soon</span>
+          </div>
+        </div>
         <div class="hostel-info p-6">
           <h3 class="text-2xl font-semibold mb-2">BrightWave Phase 2</h3>
           <p class="text-sm font-medium mb-2 text-gray-300">Malete, Kwara State, Nigeria</p>
-          <p class="font-medium mb-4">
+          <p class="font-medium mb-2">
             <i class="fas fa-bed mr-2 text-blue-400"></i> 32-35 Rooms Planned<br>
             <i class="fas fa-concierge-bell mr-2 text-blue-400"></i> Extended Amenities<br>
             <i class="fas fa-hard-hat mr-2 text-blue-400"></i> Construction Post-Phase 1
           </p>
+          <p class="text-sm font-medium text-gray-400 mb-2">Near Kwara State University (KWASU)</p>
           <p class="text-sm font-medium text-gray-400 mb-4">Expected Start: Mid-2026</p>
           <span class="inline-block bg-green-500 text-gray-900 px-3 py-1 rounded-full text-sm font-semibold mb-4">Coming Soon ⚡</span>
           <a href="/contact" class="block text-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold">Contact for Updates</a>
@@ -91,8 +133,31 @@
       </div>
     </section>
 
+    <!-- FAQ Section -->
+    <section class="faq container mx-auto px-4 py-16" data-aos="fade-up" data-aos-duration="1000">
+      <h2 class="text-4xl font-bold text-center mb-8">Frequently Asked Questions</h2>
+      <div class="space-y-6">
+        <div class="bg-gray-700 p-6 rounded-lg">
+          <h3 class="text-xl font-semibold mb-2">What is the cost of a room in BrightWave Phase 1?</h3>
+          <p class="font-medium">Pricing will be announced closer to completion. Contact us for early bird rates!</p>
+        </div>
+        <div class="bg-gray-700 p-6 rounded-lg">
+          <h3 class="text-xl font-semibold mb-2">Are the hostels only for KWASU students?</h3>
+          <p class="font-medium">No, our hostels are open to all students in the Malete area, but they’re conveniently located near KWASU.</p>
+        </div>
+        <div class="bg-gray-700 p-6 rounded-lg">
+          <h3 class="text-xl font-semibold mb-2">How can I reserve a room?</h3>
+          <p class="font-medium">Reach out via our contact page to join the waitlist for Phase 1 or get updates on Phase 2.</p>
+        </div>
+        <div class="bg-gray-700 p-6 rounded-lg">
+          <h3 class="text-xl font-semibold mb-2">Is there a deposit required?</h3>
+          <p class="font-medium">Details on deposits will be shared during registration. Contact us for more info!</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Call to Action -->
-    <section class="cta bg-blue-700 text-white py-16 text-center">
+    <section class="cta bg-blue-700 text-white py-16 text-center" data-aos="fade-up" data-aos-duration="1000">
       <h2 class="text-4xl font-bold mb-4">Ready to Find Your Student Home?</h2>
       <p class="text-lg mb-6 font-medium">Contact us to learn more about our hostels or to schedule a tour.</p>
       <a href="/contact" class="inline-block bg-white text-blue-700 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-semibold text-lg">Get in Touch</a>
@@ -102,7 +167,7 @@
   <!-- Footer -->
   <footer class="bg-gray-800 text-white py-8">
     <div class="container mx-auto px-4 text-center">
-      <p class="mb-4 font-medium">© 2025 BrightWave Enterprises. All rights reserved.</p>
+      <p class="mb-4 font-medium">© 2025 BrightWave Enterprise. All rights reserved.</p>
       <div class="flex justify-center space-x-6 mb-4">
         <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
           <i class="fab fa-facebook-f"></i>
@@ -123,8 +188,9 @@
     </div>
   </footer>
 
-  <!-- Mobile Menu Toggle -->
+  <!-- Animation Initialization -->
   <script>
+    AOS.init();
     document.addEventListener('DOMContentLoaded', () => {
       const toggle = document.querySelector('.menu-toggle');
       const navLinks = document.querySelector('.nav-links');
@@ -147,18 +213,14 @@
       s1.setAttribute('crossorigin','*');
       s0.parentNode.insertBefore(s1,s0);
     })();
-    // Customize Tawk.to widget appearance and behavior
     Tawk_API.onLoad = function() {
-      // Set widget colors to match site design
       Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB', // Tailwind blue-600
-        bubbleTextColor: '#FFFFFF', // White text
-        chatBackground: '#111827' // Tailwind gray-900
+        bubbleBackground: '#2563EB',
+        bubbleTextColor: '#FFFFFF',
+        chatBackground: '#111827'
       };
-      // Minimize widget on load
       Tawk_API.minimize();
     };
-    // Open chat when "Chat with Us" button is clicked
     document.addEventListener('DOMContentLoaded', () => {
       const openChatButton = document.getElementById('open-chat');
       openChatButton.addEventListener('click', () => {
