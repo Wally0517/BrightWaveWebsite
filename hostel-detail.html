@@ -209,7 +209,7 @@
       <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
         <i class="fas fa-envelope text-3xl text-blue-400 mb-4"></i>
         <h3 class="text-xl font-semibold mb-2">Email</h3>
-        <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprises0@gmail.com" class="hover:text-blue-400">brightwaveenterprises0@gmail.com</a></p>
+        <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprise0@gmail.com" class="hover:text-blue-400">brightwaveenterprise0@gmail.com</a></p>
       </div>
       <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
         <i class="fab fa-whatsapp text-3xl text-blue-400 mb-4"></i>
@@ -246,16 +246,16 @@
     <i class="fas fa-plus mr-2"></i> Join Waitlist
   </a>
 
-  <!-- Sticky WhatsApp Button (Bottom-right with Dropdown) -->
-  <div class="fixed bottom-6 right-6 z-50">
+  <!-- Sticky WhatsApp Button (Moved to bottom-28 right-6 with higher z-index) -->
+  <div class="fixed bottom-28 right-6 z-60">
     <div class="relative">
       <button id="whatsappButton" class="bg-green-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-green-600 transition font-semibold flex items-center">
         <i class="fab fa-whatsapp mr-2"></i> WhatsApp
       </button>
       <div id="whatsappDropdown" class="hidden absolute bottom-full right-0 mb-2 w-48 bg-gray-800 rounded-lg shadow-lg z-50">
-        <a href="https://wa.me/2348037669462?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">General Inquiries (+234 803 766 9462)</a>
-        <a href="https://wa.me/2349038402914?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700">Property Manager (+234 903 840 2914)</a>
-        <a href="https://wa.me/2349075381905?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-b-lg">Sales Team (+234 907 538 1905)</a>
+        <a href="https://wa.me/2348037669462?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">Property Manager (+234 803 766 9462)</a>
+        <a href="https://wa.me/2349038402914?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700">Agent (+234 903 840 2914)</a>
+        <a href="https://wa.me/2349075381905?text=Interested%20in%20Phase%201%20Hostel" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-b-lg">Agent (+234 907 538 1905)</a>
       </div>
     </div>
   </div>
@@ -290,6 +290,19 @@
     </button>
   </div>
 </footer>
+
+<!-- Custom CSS to Prevent Overlap -->
+<style>
+  .whatsapp-container {
+    position: fixed;
+    bottom: 7rem;
+    right: 1.5rem;
+    z-index: 60000 !important;
+  }
+  #tawkchat-minified-iframe {
+    z-index: 50000 !important;
+  }
+</style>
 
 <!-- Scripts -->
 <script>
