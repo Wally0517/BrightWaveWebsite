@@ -20,6 +20,8 @@
   <!-- AOS for Animations -->
   <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
@@ -136,7 +138,7 @@
         <i class="fab fa-whatsapp mr-2"></i> WhatsApp
       </button>
       <div id="whatsappDropdown" class="hidden absolute bottom-full right-0 mb-2 w-48 bg-gray-800 rounded-lg shadow-lg z-50">
-        <a href="https://wa.me/2348037669462?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">Properrty Manager (+234 803 766 9462)</a>
+        <a href="https://wa.me/2348037669462?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-t-lg">Property Manager (+234 803 766 9462)</a>
         <a href="https://wa.me/2349038402914?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700">Agent (+234 903 840 2914)</a>
         <a href="https://wa.me/2349075381905?text=Interested%20in%20BrightWave%20Enterprise%20(Hostels/Land/Estates)" class="block px-4 py-2 text-sm text-white hover:bg-gray-700 rounded-b-lg">Agent (+234 907 538 1905)</a>
       </div>
@@ -208,7 +210,7 @@
         }
 
         try {
-          const response = await fetch("/api/contact", {
+          const response = await fetch("https://api.brightwaveenterprises.online/api/contact", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fullName, email, phone, message, formOrigin: "Contact Page" })
@@ -217,7 +219,10 @@
           statusDiv.textContent = result.message;
           statusDiv.classList.remove('text-red-500', 'text-green-500');
           statusDiv.classList.add(result.success ? 'text-green-500' : 'text-red-500');
-          if (result.success) document.getElementById("contactForm").reset();
+          if (result.success) {
+            document.getElementById("contactForm").reset();
+            statusDiv.classList.add('animate-pulse');
+          }
         } catch (error) {
           statusDiv.textContent = "Something went wrong. Please try again.";
           statusDiv.classList.add('text-red-500');
