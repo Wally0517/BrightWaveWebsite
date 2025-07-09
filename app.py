@@ -18,15 +18,24 @@ import json
 # ========== LOAD ENVIRONMENT VARIABLES ==========
 load_dotenv()
 
+# Validate required environment variables
+required_envs = ['SECRET_KEY', 'DATABASE_URL', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER']
+missing_envs = [env for env in required_envs if not os.environ.get(env)]
+if missing_envs:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing_envs)}")
+
 # ========== APP INITIALIZATION ==========
 app = Flask(__name__, static_folder='.', static_url_path='')
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secure-random-key-1234567890')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+app.config['SESSION_COOKIE_SECURE'] = True  # Secure cookies for HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # ========== DATABASE CONFIGURATION ==========
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///brightwave.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'connect_args': {'sslmode': 'require'}  # Required for Render's PostgreSQL
+    'connect_args': {'sslmode': 'require'} if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else {}
 }
 db = SQLAlchemy(app)
 
@@ -35,8 +44,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ========== CORS CONFIGURATION ==========
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "https://brightwaveenterprises.online").split(",")
-allowed_origins = [origin.strip() for origin in allowed_origins]
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "https://brightwaveproperties.online").split(",")
+allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
+if not allowed_origins:
+    logger.warning("No allowed origins configured for CORS")
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
 # ========== EMAIL CONFIGURATION ==========
@@ -51,6 +62,8 @@ mail = Mail(app)
 # List of email addresses to notify
 NOTIFICATION_EMAILS = os.environ.get('NOTIFICATION_EMAILS', '').split(',')
 NOTIFICATION_EMAILS = [email.strip() for email in NOTIFICATION_EMAILS if email.strip()]
+if not NOTIFICATION_EMAILS:
+    logger.warning("No notification emails configured")
 
 # ========== RATE LIMITING ==========
 limiter = Limiter(
@@ -135,7 +148,7 @@ def create_admin_user():
     if not Admin.query.first():
         admin = Admin(
             username='admin',
-            email='admin@brightwaveenterprises.online',
+            email='admin@brightwaveproperties.online',  # Updated email
             password_hash=generate_password_hash('admin123')
         )
         db.session.add(admin)
@@ -328,13 +341,13 @@ def handle_contact_form():
             email_subject = f"New Contact Form Submission - {subject or 'General Inquiry'}"
             email_body = f"""
             New Contact Form Submission:
-            
+
             Name: {full_name}
             Email: {email}
             Phone: {phone}
             Subject: {subject}
             Message: {message}
-            
+
             Submitted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
             try:
@@ -346,15 +359,15 @@ def handle_contact_form():
                 )
                 mail.send(msg)
                 confirmation_msg = Message(
-                    subject="Thank You for Contacting BrightWave Enterprise",
+                    subject="Thank You for Contacting BrightWave Properties",  # Updated
                     recipients=[email],
                     body=f"""
                     Dear {full_name},
-                    
+
                     Thank you for your message! We have received your inquiry and will get back to you within 24-48 hours.
-                    
+
                     Best regards,
-                    BrightWave Enterprise Team
+                    BrightWave Properties Team  # Updated
                     """
                 )
                 mail.send(confirmation_msg)
@@ -417,7 +430,7 @@ def handle_property_inquiry():
             email_subject = f"New Property Inquiry - {inquiry_type.title()}"
             email_body = f"""
             New Property Inquiry:
-            
+
             {property_info}Name: {full_name}
             Email: {email}
             Phone: {phone}
@@ -426,9 +439,9 @@ def handle_property_inquiry():
             Year of Study: {year_of_study}
             Budget Range: {budget_range}
             Preferred Move Date: {preferred_move_date or 'Not specified'}
-            
+
             Message: {message}
-            
+
             Submitted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
             try:
@@ -440,15 +453,15 @@ def handle_property_inquiry():
                 )
                 mail.send(msg)
                 confirmation_msg = Message(
-                    subject="Thank You for Your Property Inquiry",
+                    subject="Thank You for Your Property Inquiry",  # Updated
                     recipients=[email],
                     body=f"""
                     Dear {full_name},
-                    
+
                     Thank you for your interest in our properties! We have received your inquiry and our team will contact you within 24-48 hours.
-                    
+
                     Best regards,
-                    BrightWave Enterprise Team
+                    BrightWave Properties Team  # Updated
                     """
                 )
                 mail.send(confirmation_msg)
@@ -483,7 +496,7 @@ def upload_image():
 
 # ========== ADMIN AUTHENTICATION ==========
 @app.route('/admin/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")  # Prevent brute-force attacks
+@limiter.limit("5 per minute")
 def admin_login():
     """Handle admin login"""
     if request.method == 'POST':
@@ -765,7 +778,7 @@ LOGIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - BrightWave Enterprise</title>
+    <title>Admin Login - BrightWave Properties</title>  <!-- Updated -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
@@ -829,7 +842,7 @@ ADMIN_DASHBOARD_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - BrightWave Enterprise</title>
+    <title>Admin Dashboard - BrightWave Properties</title>  <!-- Updated -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
@@ -1411,9 +1424,13 @@ ADMIN_DASHBOARD_TEMPLATE = """
 
 # ========== DATABASE INITIALIZATION ==========
 with app.app_context():
-    db.create_all()
-    create_admin_user()
-    init_sample_data()
+    try:
+        db.create_all()
+        create_admin_user()
+        init_sample_data()
+    except Exception as e:
+        logger.error(f"Database initialization error: {str(e)}")
+        raise
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
