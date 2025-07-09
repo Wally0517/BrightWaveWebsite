@@ -1,7 +1,8 @@
 Flask==2.3.3
 Flask-Cors==4.0.1
-gunicorn==23.0.0
 Flask-Mail==0.10.0
+Flask-SQLAlchemy==3.0.5
+gunicorn==23.0.0
 python-dotenv==1.0.1
 Werkzeug==3.0.4
 email-validator==2.2.0
