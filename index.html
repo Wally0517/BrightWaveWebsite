@@ -811,25 +811,202 @@
       fetchProperties('all');
     });
 
-    // Fetch properties function
+    // Fetch properties function with realistic Kwara State data
     async function fetchProperties(filter = 'all') {
       const grid = document.getElementById('propertiesGrid');
       
       // Show loading state
-      grid.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div></div>';
+      grid.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400"></div></div>';
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Mock data for realistic Kwara State properties
+      const mockProperties = [
+        // Student Hostels
+        {
+          id: 'hostel-phase1',
+          title: 'BrightWave Hostel Phase 1',
+          type: 'hostel',
+          location: 'Malete, Kwara State',
+          price: null,
+          price_type: 'Contact for Pricing',
+          description: 'Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
+          construction_status: 'ongoing',
+          featured: true,
+          images: ['images/hostels/brightwave-phase1-exterior.jpg']
+        },
+        {
+          id: 'hostel-phase2',
+          title: 'BrightWave Hostel Phase 2',
+          type: 'hostel',
+          location: 'Malete, Kwara State',
+          price: 480000,
+          price_type: 'per session',
+          description: '20-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
+          construction_status: 'planning',
+          featured: false,
+          images: ['images/hostels/brightwave-phase2-render.jpg']
+        },
+        {
+          id: 'hostel-phase3',
+          title: 'BrightWave Hostel Phase 3',
+          type: 'hostel',
+          location: 'Tanke, Ilorin, Kwara State',
+          price: 520000,
+          price_type: 'per session',
+          description: '40-room premium hostel complex with gym, library, and recreational facilities. Near University of Ilorin.',
+          construction_status: 'planning',
+          featured: false,
+          images: ['images/hostels/brightwave-phase3-concept.jpg']
+        },
+
+        // Land Properties
+        {
+          id: 'land-ilorin-gra',
+          title: 'Premium Land - Ilorin GRA',
+          type: 'land',
+          location: 'GRA, Ilorin, Kwara State',
+          price: 25000000,
+          price_type: 'per plot (600sqm)',
+          description: '600sqm residential plot in prestigious Government Reserved Area. Perfect for luxury residential development.',
+          construction_status: 'completed',
+          featured: true,
+          images: ['images/lands/ilorin-gra-plot.jpg']
+        },
+        {
+          id: 'land-fate-road',
+          title: 'Commercial Land - Fate Road',
+          type: 'land',
+          location: 'Fate Road, Ilorin, Kwara State',
+          price: 15000000,
+          price_type: 'per plot (800sqm)',
+          description: '800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
+          construction_status: 'completed',
+          featured: false,
+          images: ['images/lands/fate-road-commercial.jpg']
+        },
+        {
+          id: 'land-kulende',
+          title: 'Residential Plot - Kulende',
+          type: 'land',
+          location: 'Kulende, Ilorin West, Kwara State',
+          price: 12000000,
+          price_type: 'per plot (700sqm)',
+          description: '700sqm residential land in serene Kulende area. Close to schools and major roads.',
+          construction_status: 'completed',
+          featured: false,
+          images: ['images/lands/kulende-residential.jpg']
+        },
+        {
+          id: 'land-offa-garage',
+          title: 'Investment Land - Offa Garage',
+          type: 'land',
+          location: 'Offa Garage Area, Ilorin, Kwara State',
+          price: 8000000,
+          price_type: 'per plot (500sqm)',
+          description: '500sqm plot in developing area. Great investment opportunity with flexible payment plans.',
+          construction_status: 'completed',
+          featured: false,
+          images: ['images/lands/offa-garage-investment.jpg']
+        },
+
+        // Residential Homes (Future Projects)
+        {
+          id: 'home-gra-duplex',
+          title: '4-Bedroom Duplex - GRA',
+          type: 'residential',
+          location: 'GRA, Ilorin, Kwara State',
+          price: null,
+          price_type: 'Coming 2026',
+          description: 'Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
+          construction_status: 'planning',
+          featured: false,
+          images: ['images/homes/gra-duplex-concept.jpg']
+        },
+        {
+          id: 'home-adewole-estate',
+          title: '3-Bedroom Bungalow - Adewole',
+          type: 'residential',
+          location: 'Adewole Estate, Ilorin, Kwara State',
+          price: null,
+          price_type: 'Coming 2026',
+          description: 'Contemporary 3-bedroom bungalow in planned estate development.',
+          construction_status: 'planning',
+          featured: false,
+          images: ['images/homes/adewole-bungalow-render.jpg']
+        }
+      ];
+
+      // Filter properties based on selected filter
+      let filteredProperties = mockProperties;
+      if (filter !== 'all') {
+        filteredProperties = mockProperties.filter(property => property.type === filter);
+      }
 
       try {
-        const url = filter === 'all' ? '/api/properties' : `/api/properties?type=${filter}`;
-        const response = await fetch(url);
-        
-        if (!response.ok) throw new Error('Failed to fetch properties');
-        
-        const properties = await response.json();
-        
-        if (properties.length === 0) {
+        if (filteredProperties.length === 0) {
           grid.innerHTML = `
             <div class="col-span-full text-center py-12">
               <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
+              <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
+              <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = filteredProperties.map(property => `
+          <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
+            <div class="relative">
+              <img src="/assets/${property.images[0]}" 
+                   alt="${property.title}" class="w-full h-64 object-cover" />
+              ${property.construction_status !== 'completed' ? `
+                <div class="absolute top-4 left-4">
+                  <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
+                    ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
+                      property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
+                  </span>
+                </div>
+              ` : ''}
+              ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
+            </div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xl font-bold text-white">${property.title}</h3>
+                <span class="text-xs px-2 py-1 rounded-full ${
+                  property.type === 'hostel' ? 'bg-blue-500' : 
+                  property.type === 'land' ? 'bg-green-500' : 'bg-purple-500'
+                } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
+              </div>
+              <div class="flex items-center text-gray-400 mb-3">
+                <i class="fas fa-map-marker-alt mr-2"></i>
+                <span class="text-sm">${property.location}</span>
+              </div>
+              <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
+              <div class="flex items-center justify-between">
+                <div class="text-slate-300 font-bold text-lg">
+                  ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type}` : property.price_type}
+                </div>
+                <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}" 
+                   class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
+                  ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
+                </a>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading properties:', error);
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
+            <h3 class="text-2xl font-bold text-red-400 mb-2">Error Loading Properties</h3>
+            <p class="text-gray-500">Please refresh the page or try again later.</p>
+          </div>
+        `;
+      }
+    }-home text-6xl text-gray-600 mb-4"></i>
               <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
               <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
             </div>
