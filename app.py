@@ -161,20 +161,20 @@ def init_sample_data():
     if not Property.query.first():
         # Student Hostels
         phase1 = Property(
-            title='BrightWave Hostel Phase 1',
-            description='Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
-            property_type='hostel',
-            location='Malete, Kwara State',
-            price=None,  # Contact for pricing
-            price_type='Contact for Pricing',
-            total_rooms=10,
-            available_rooms=10,
-            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Private Bathroom', 'Private Kitchen', 'Water Supply', 'Parking Space'],
-            images=['images/hostels/brightwave-phase1-exterior.jpg'],
-            construction_status='ongoing',
-            completion_date=datetime(2025, 12, 31).date(),
-            featured=True
-        )
+    title='BrightWave Phase 1 Hostel',
+    description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
+    property_type='hostel',
+    location='Malete, Kwara State, Nigeria',
+    price=None,
+    price_type='Contact for Pricing',
+    total_rooms=10,
+    available_rooms=10,
+    amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
+    images=['images/brightwave-project-1.jpg'],  # Updated path
+    construction_status='ongoing',
+    completion_date=datetime(2025, 12, 31).date(),
+    featured=True
+)
         
         phase2 = Property(
             title='BrightWave Hostel Phase 2',
