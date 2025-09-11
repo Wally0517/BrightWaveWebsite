@@ -48,57 +48,127 @@
       0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
       50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
     }
+    
+    /* Hero background image animation */
+    .hero-background {
+      background-image: url('/assets/images/brightwave-hero-water-estate.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      animation: subtle-zoom 20s ease-in-out infinite alternate;
+    }
+    
+    @keyframes subtle-zoom {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.05); }
+    }
+    
+    /* Enhanced overlay for better text readability */
+    .hero-overlay {
+      background: linear-gradient(135deg, 
+        rgba(15, 23, 42, 0.85) 0%, 
+        rgba(30, 58, 138, 0.75) 35%, 
+        rgba(15, 23, 42, 0.85) 100%);
+    }
+    
+    /* Animated dots pattern */
+    .hero-pattern {
+      background-image: radial-gradient(circle at 2px 2px, rgba(96, 165, 250, 0.3) 1px, transparent 0);
+      background-size: 30px 30px;
+      animation: pattern-move 30s linear infinite;
+    }
+    
+    @keyframes pattern-move {
+      0% { background-position: 0 0; }
+      100% { background-position: 30px 30px; }
+    }
+    
+    /* Enhanced nav link underline effect */
+    .nav-link {
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -8px;
+      left: 50%;
+      background: linear-gradient(90deg, #60A5FA, #06B6D4);
+      transition: all 0.3s ease;
+      transform: translateX(-50%);
+      border-radius: 1px;
+    }
+    
+    .nav-link:hover::after,
+    .nav-link.active::after {
+      width: 100%;
+    }
+    
+    /* Logo glow effect */
+    .logo-glow {
+      filter: drop-shadow(0 0 10px rgba(96, 165, 250, 0.3));
+    }
   </style>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
   <!-- Navigation Bar -->
-  <header class="bg-gray-800 shadow-lg sticky top-0 z-50 glass-effect">
+  <header class="bg-gradient-to-r from-slate-900/95 via-blue-900/95 to-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-blue-400/20">
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-10 rounded-full" />
+        <div class="relative">
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-blue-400/50 shadow-lg logo-glow" />
+          <div class="absolute -inset-1 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full blur opacity-30 animate-pulse"></div>
+        </div>
         <div>
-          <h1 class="text-xl font-bold text-blue-400">BrightWave</h1>
-          <p class="text-xs text-gray-300">Habitat Enterprise</p>
+          <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent">BrightWave</h1>
+          <p class="text-xs text-slate-300 font-medium">Habitat Enterprise</p>
         </div>
       </div>
       
       <!-- Mobile Menu Toggle -->
-      <button class="md:hidden menu-toggle text-2xl text-white p-2 rounded-lg hover:bg-gray-700 transition" 
+      <button class="md:hidden menu-toggle text-2xl text-white p-2 rounded-lg hover:bg-slate-700/50 transition" 
               aria-label="Toggle navigation menu" id="mobile-menu-toggle">
         <i class="fas fa-bars"></i>
       </button>
       
       <!-- Desktop Navigation -->
-      <ul class="hidden md:flex space-x-6 text-lg font-semibold">
-        <li><a href="#home" class="text-blue-400 hover:text-blue-300 nav-link active transition-colors duration-300">Home</a></li>
-        <li><a href="#services" class="hover:text-blue-300 nav-link transition-colors duration-300">Services</a></li>
-        <li><a href="#properties" class="hover:text-blue-300 nav-link transition-colors duration-300">Properties</a></li>
-        <li><a href="#about" class="hover:text-blue-300 nav-link transition-colors duration-300">About</a></li>
-        <li><a href="#contact" class="hover:text-blue-300 nav-link transition-colors duration-300">Contact</a></li>
+      <ul class="hidden md:flex space-x-8 text-lg font-semibold">
+        <li><a href="#home" class="text-blue-300 hover:text-blue-200 nav-link active transition-all duration-300 relative">Home</a></li>
+        <li><a href="#services" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Services</a></li>
+        <li><a href="#properties" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Properties</a></li>
+        <li><a href="#about" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">About</a></li>
+        <li><a href="#contact" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Contact</a></li>
       </ul>
     </nav>
     
     <!-- Mobile Navigation Menu -->
-    <div class="mobile-nav hidden md:hidden bg-gray-800 shadow-lg">
+    <div class="mobile-nav hidden md:hidden bg-gradient-to-br from-slate-900/98 via-blue-900/98 to-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-blue-400/20">
       <ul class="flex flex-col items-center space-y-4 py-6 text-lg font-semibold">
-        <li><a href="#home" class="text-blue-400 hover:text-blue-300 nav-link active">Home</a></li>
-        <li><a href="#services" class="hover:text-blue-300 nav-link">Services</a></li>
-        <li><a href="#properties" class="hover:text-blue-300 nav-link">Properties</a></li>
-        <li><a href="#about" class="hover:text-blue-300 nav-link">About</a></li>
-        <li><a href="#contact" class="hover:text-blue-300 nav-link">Contact</a></li>
+        <li><a href="#home" class="text-blue-300 hover:text-blue-200 nav-link active transition-all duration-300">Home</a></li>
+        <li><a href="#services" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Services</a></li>
+        <li><a href="#properties" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Properties</a></li>
+        <li><a href="#about" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">About</a></li>
+        <li><a href="#contact" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Contact</a></li>
       </ul>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <section id="home" class="hero relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-gray-900 to-blue-800">
-    <!-- Background Pattern -->
-    <div class="absolute inset-0 opacity-10">
-      <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.4"%3E%3Ccircle cx="7" cy="7" r="7"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
-    </div>
+  <section id="home" class="hero relative min-h-screen flex items-center justify-center overflow-hidden">
+    <!-- Background Image with Animation -->
+    <div class="absolute inset-0 hero-background"></div>
     
-    <div class="relative text-center text-white px-4 max-w-6xl mx-auto" data-aos="fade-up" data-aos-duration="1200">
+    <!-- Overlay for better text readability -->
+    <div class="absolute inset-0 hero-overlay"></div>
+    
+    <!-- Animated Pattern Overlay -->
+    <div class="absolute inset-0 hero-pattern opacity-20"></div>
+    
+    <div class="relative text-center text-white px-4 max-w-6xl mx-auto z-10" data-aos="fade-up" data-aos-duration="1200">
       <h1 class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight">
         Building Tomorrow's <span class="gradient-text">Living Solutions</span>
       </h1>
