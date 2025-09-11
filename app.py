@@ -251,19 +251,20 @@ def init_sample_data():
             featured=False
         )
         
-        Land Obada Ikija = Property(
-            title='Investment Land - Obada Ikija',
-            description='500sqm plot in developing area. Great investment opportunity with flexible payment plans.',
-            property_type='land',
-            location='Obada Ikija Area, Abeokuta, Ogun State',
-            price=8000000,
-            price_type='per plot (500sqm)',
-            size='500sqm',
-            amenities=['Clear documentation', 'Flexible payment plans', 'Investment opportunity', 'Growing area'],
-            images=['images/lands/offa-garage-investment.jpg'],
-            construction_status='completed',
-            featured=False
-        )
+        land_obada_ikija = Property(
+    title='BrightWave Estate - Obada Ikija',
+    description='6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
+    property_type='land',
+    location='Obada Ikija, Abeokuta, Ogun State',
+    price=2500000,
+    price_type='per_sqm',
+    size='6 acres',
+    amenities=['Gated Community', 'Electricity', 'Water Supply', 'Good Road Network', 'Security', 'Recreational Facilities'],
+    images=['brightwave-estate-placeholder.jpg'],
+    construction_status='planned',
+    completion_date=datetime(2026, 12, 31).date(),
+    featured=True
+)
 
         # Residential Homes (Future Projects)
         BrightWave GRA = Property(
