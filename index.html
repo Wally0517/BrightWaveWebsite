@@ -24,7 +24,7 @@
   <style>
     /* Custom animations and styles */
     .gradient-text {
-      background: linear-gradient(45deg, #3b82f6, #06b6d4, #8b5cf6);
+      background: linear-gradient(45deg, #64748B, #94A3B8, #475569);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -45,8 +45,8 @@
       animation: pulse-glow 2s infinite;
     }
     @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
-      50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+      0%, 100% { box-shadow: 0 0 20px rgba(100, 116, 139, 0.5); }
+      50% { box-shadow: 0 0 30px rgba(100, 116, 139, 0.8); }
     }
     
     /* Hero background image animation */
@@ -66,14 +66,14 @@
     /* Enhanced overlay for better text readability */
     .hero-overlay {
       background: linear-gradient(135deg, 
-        rgba(15, 23, 42, 0.85) 0%, 
-        rgba(30, 58, 138, 0.75) 35%, 
-        rgba(15, 23, 42, 0.85) 100%);
+        rgba(15, 23, 42, 0.90) 0%, 
+        rgba(51, 65, 85, 0.75) 35%, 
+        rgba(15, 23, 42, 0.90) 100%);
     }
     
     /* Animated dots pattern */
     .hero-pattern {
-      background-image: radial-gradient(circle at 2px 2px, rgba(96, 165, 250, 0.3) 1px, transparent 0);
+      background-image: radial-gradient(circle at 2px 2px, rgba(148, 163, 184, 0.2) 1px, transparent 0);
       background-size: 30px 30px;
       animation: pattern-move 30s linear infinite;
     }
@@ -96,7 +96,7 @@
       height: 2px;
       bottom: -8px;
       left: 50%;
-      background: linear-gradient(90deg, #60A5FA, #06B6D4);
+      background: linear-gradient(90deg, #64748B, #94A3B8);
       transition: all 0.3s ease;
       transform: translateX(-50%);
       border-radius: 1px;
@@ -106,26 +106,37 @@
     .nav-link.active::after {
       width: 100%;
     }
+
+    /* Timeline styles */
+    .timeline-dot {
+      position: relative;
+      z-index: 10;
+    }
     
-    /* Logo glow effect */
-    .logo-glow {
-      filter: drop-shadow(0 0 10px rgba(96, 165, 250, 0.3));
+    .timeline-line {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 100%;
+      background: linear-gradient(to bottom, #64748B, #94A3B8);
+      opacity: 0.3;
     }
   </style>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
   <!-- Navigation Bar -->
-  <header class="bg-gradient-to-r from-slate-900/95 via-blue-900/95 to-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-blue-400/20">
+  <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <div class="relative">
-          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-blue-400/50 shadow-lg logo-glow" />
-          <div class="absolute -inset-1 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full blur opacity-30 animate-pulse"></div>
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-slate-400/30 shadow-lg" />
+          <div class="absolute -inset-1 bg-gradient-to-r from-slate-400 to-slate-600 rounded-full blur opacity-20 animate-pulse"></div>
         </div>
         <div>
-          <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent">BrightWave</h1>
-          <p class="text-xs text-slate-300 font-medium">Habitat Enterprise</p>
+          <h1 class="text-xl md:text-2xl font-bold text-slate-100">BrightWave</h1>
+          <p class="text-xs text-slate-400 font-medium">Habitat Enterprise</p>
         </div>
       </div>
       
@@ -137,22 +148,24 @@
       
       <!-- Desktop Navigation -->
       <ul class="hidden md:flex space-x-8 text-lg font-semibold">
-        <li><a href="#home" class="text-blue-300 hover:text-blue-200 nav-link active transition-all duration-300 relative">Home</a></li>
-        <li><a href="#services" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Services</a></li>
-        <li><a href="#properties" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Properties</a></li>
-        <li><a href="#about" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">About</a></li>
-        <li><a href="#contact" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300 relative">Contact</a></li>
+        <li><a href="#home" class="text-slate-200 hover:text-slate-100 nav-link active transition-all duration-300 relative">Home</a></li>
+        <li><a href="#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative">Services</a></li>
+        <li><a href="#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative">Properties</a></li>
+        <li><a href="#about" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative">About</a></li>
+        <li><a href="#team" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative">Team</a></li>
+        <li><a href="#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative">Contact</a></li>
       </ul>
     </nav>
     
     <!-- Mobile Navigation Menu -->
-    <div class="mobile-nav hidden md:hidden bg-gradient-to-br from-slate-900/98 via-blue-900/98 to-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-blue-400/20">
+    <div class="mobile-nav hidden md:hidden bg-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-slate-700/30">
       <ul class="flex flex-col items-center space-y-4 py-6 text-lg font-semibold">
-        <li><a href="#home" class="text-blue-300 hover:text-blue-200 nav-link active transition-all duration-300">Home</a></li>
-        <li><a href="#services" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Services</a></li>
-        <li><a href="#properties" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Properties</a></li>
-        <li><a href="#about" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">About</a></li>
-        <li><a href="#contact" class="text-slate-300 hover:text-blue-200 nav-link transition-all duration-300">Contact</a></li>
+        <li><a href="#home" class="text-slate-200 hover:text-slate-100 nav-link active transition-all duration-300">Home</a></li>
+        <li><a href="#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Services</a></li>
+        <li><a href="#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Properties</a></li>
+        <li><a href="#about" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">About</a></li>
+        <li><a href="#team" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Team</a></li>
+        <li><a href="#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Contact</a></li>
       </ul>
     </div>
   </header>
@@ -179,7 +192,7 @@
       
       <!-- Quick Action Buttons -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
-        <a href="#student-hostels" class="group bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift pulse-glow">
+        <a href="#student-hostels" class="group bg-slate-600 hover:bg-slate-700 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift pulse-glow">
           <i class="fas fa-graduation-cap text-xl"></i>
           <span class="font-semibold">Student Hostels</span>
         </a>
@@ -187,14 +200,14 @@
           <i class="fas fa-map-marked-alt text-xl"></i>
           <span class="font-semibold">Land Sales</span>
         </a>
-        <a href="#residential" class="group bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
+        <a href="#residential" class="group bg-amber-600 hover:bg-amber-700 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
           <i class="fas fa-home text-xl"></i>
           <span class="font-semibold">Residential</span>
         </a>
       </div>
       
       <div class="flex flex-col md:flex-row justify-center gap-4">
-        <a href="#properties" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl hover:bg-blue-700 transition-all duration-300 font-semibold text-lg hover-lift">
+        <a href="#properties" class="inline-block bg-slate-600 text-white px-8 py-4 rounded-xl hover:bg-slate-700 transition-all duration-300 font-semibold text-lg hover-lift">
           <i class="fas fa-search mr-2"></i>Explore Properties
         </a>
         <a href="#contact" class="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 font-semibold text-lg">
@@ -203,7 +216,7 @@
       </div>
       
       <div class="mt-12 animate-bounce">
-        <a href="#services" class="text-white text-4xl hover:text-blue-400 transition-colors duration-300">
+        <a href="#services" class="text-white text-4xl hover:text-slate-300 transition-colors duration-300">
           <i class="fas fa-chevron-down"></i>
         </a>
       </div>
@@ -224,10 +237,10 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <!-- Student Hostels -->
         <div id="student-hostels" class="service-card glass-effect p-8 rounded-2xl text-center hover-lift">
-          <div class="bg-blue-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div class="bg-slate-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-graduation-cap text-3xl text-white"></i>
           </div>
-          <h3 class="text-2xl font-bold mb-4 text-blue-400">Student Hostels</h3>
+          <h3 class="text-2xl font-bold mb-4 text-slate-300">Student Hostels</h3>
           <p class="text-gray-300 mb-6">Modern, secure, and affordable accommodation designed specifically for students near major universities.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-green-400 mr-2"></i>Self-contained rooms</li>
@@ -235,7 +248,7 @@
             <li><i class="fas fa-check text-green-400 mr-2"></i>Solar power backup</li>
             <li><i class="fas fa-check text-green-400 mr-2"></i>Recreation facilities</li>
           </ul>
-          <a href="#properties" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">View Hostels</a>
+          <a href="#properties" class="inline-block bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 transition">View Hostels</a>
         </div>
 
         <!-- Land Sales -->
@@ -256,10 +269,10 @@
 
         <!-- Residential Properties -->
         <div id="residential" class="service-card glass-effect p-8 rounded-2xl text-center hover-lift">
-          <div class="bg-purple-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div class="bg-amber-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-home text-3xl text-white"></i>
           </div>
-          <h3 class="text-2xl font-bold mb-4 text-purple-400">Residential Homes</h3>
+          <h3 class="text-2xl font-bold mb-4 text-amber-400">Residential Homes</h3>
           <p class="text-gray-300 mb-6">Quality residential properties for families and individuals looking for comfortable modern living.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-green-400 mr-2"></i>Modern designs</li>
@@ -267,7 +280,7 @@
             <li><i class="fas fa-check text-green-400 mr-2"></i>Accessible locations</li>
             <li><i class="fas fa-check text-green-400 mr-2"></i>Affordable pricing</li>
           </ul>
-          <a href="#contact" class="inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">Learn More</a>
+          <a href="#contact" class="inline-block bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 transition">Learn More</a>
         </div>
 
         <!-- Estate Development -->
@@ -300,7 +313,7 @@
       <!-- Property Filter -->
       <div class="flex justify-center mb-12">
         <div class="bg-gray-800 rounded-xl p-2 flex flex-wrap gap-2">
-          <button class="property-filter active bg-blue-600 text-white px-6 py-2 rounded-lg transition-all duration-300" data-filter="all">All</button>
+          <button class="property-filter active bg-slate-600 text-white px-6 py-2 rounded-lg transition-all duration-300" data-filter="all">All</button>
           <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="hostel">Hostels</button>
           <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="land">Land</button>
           <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="residential">Homes</button>
@@ -316,40 +329,199 @@
   <!-- About Section -->
   <section id="about" class="py-20 bg-gray-800" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">About <span class="gradient-text">BrightWave Habitat Enterprise</span></h2>
+        <p class="text-lg text-gray-300 max-w-4xl mx-auto leading-relaxed">
+          We are a dynamic real estate company committed to transforming Nigeria's property landscape. 
+          From affordable student accommodations to strategic land investments and quality residential properties, 
+          we're building communities that inspire growth and opportunity.
+        </p>
+      </div>
+
+      <!-- Mission and Values Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+        <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+          <div class="text-4xl mb-4">🏠</div>
+          <h3 class="text-xl font-bold mb-3 text-slate-300">Our Mission</h3>
+          <p class="text-gray-300">To provide innovative, affordable housing, land, and estate solutions that empower students, families, and communities to thrive.</p>
+        </div>
+        <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+          <div class="text-4xl mb-4">🤝</div>
+          <h3 class="text-xl font-bold mb-3 text-slate-300">Integrity</h3>
+          <p class="text-gray-300">We uphold the highest standards of honesty and transparency in all our real estate dealings.</p>
+        </div>
+        <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+          <div class="text-4xl mb-4">✨</div>
+          <h3 class="text-xl font-bold mb-3 text-slate-300">Innovation</h3>
+          <p class="text-gray-300">We pioneer creative solutions to meet the evolving needs of housing and land development.</p>
+        </div>
+        <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+          <div class="text-4xl mb-4">🌱</div>
+          <h3 class="text-xl font-bold mb-3 text-slate-300">Excellence</h3>
+          <p class="text-gray-300">We strive for perfection in every project, ensuring quality, sustainability, and functionality.</p>
+        </div>
+      </div>
+
+      <!-- Company Stats and Vision -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div>
-          <h2 class="text-4xl md:text-5xl font-bold mb-6">About <span class="gradient-text">BrightWave Habitat Enterprise</span></h2>
+          <h3 class="text-3xl font-bold mb-6 text-slate-300">Our Journey & Goals</h3>
           <p class="text-lg text-gray-300 mb-6 leading-relaxed">
-            We are a dynamic real estate company committed to transforming Nigeria's property landscape. 
-            From affordable student accommodations to strategic land investments and quality residential properties, 
-            we're building communities that inspire growth and opportunity.
+            Our mission is to make quality housing accessible to everyone while creating sustainable value for our investors and partners. 
+            Guided by our core values of integrity, innovation, and excellence, we aim to:
           </p>
-          <p class="text-lg text-gray-300 mb-8 leading-relaxed">
-            Our mission is to make quality housing accessible to everyone while creating sustainable value for our investors and partners.
-          </p>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-start">
+              <i class="fas fa-check text-green-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Build 50+ modern student hostels by 2030 with top-tier amenities</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check text-green-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Facilitate land ownership for 30+ families through affordable sales by 2028</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check text-green-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Develop sustainable estate communities by 2035, promoting economic growth</span>
+            </li>
+          </ul>
           
           <!-- Stats -->
           <div class="grid grid-cols-2 gap-6 mb-8">
             <div class="text-center">
-              <div class="text-3xl font-bold text-blue-400 mb-2">10+</div>
+              <div class="text-3xl font-bold text-slate-300 mb-2">3+</div>
               <div class="text-gray-400">Active Projects</div>
             </div>
             <div class="text-center">
-              <div class="text-3xl font-bold text-green-400 mb-2">500+</div>
+              <div class="text-3xl font-bold text-green-400 mb-2">50+</div>
               <div class="text-gray-400">Happy Clients</div>
             </div>
           </div>
-          
-          <a href="#contact" class="inline-block bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-all duration-300 font-semibold hover-lift">
-            Learn More About Us
-          </a>
         </div>
         
         <div class="relative">
           <div class="glass-effect rounded-2xl p-8">
             <img src="/assets/images/brightwave-project-1.jpg" alt="Our Vision" class="w-full rounded-lg shadow-lg mb-6" />
-            <h3 class="text-2xl font-bold text-blue-400 mb-4">Our Vision</h3>
+            <h3 class="text-2xl font-bold text-slate-300 mb-4">Our Vision</h3>
             <p class="text-gray-300">To be Nigeria's leading provider of innovative, sustainable, and affordable living solutions that enhance communities and improve lives.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Team Section -->
+  <section id="team" class="py-20" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Meet Our <span class="gradient-text">Team</span></h2>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">The passionate professionals driving BrightWave's success</p>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="100">
+          <div class="relative group mb-6">
+            <img src="/assets/images/ceo-wally.jpg" alt="Wally H." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
+            <div class="absolute inset-0 rounded-full bg-slate-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-slate-300 mb-2">Wally H.</h4>
+          <p class="font-semibold text-gray-400 mb-3">Founder & CEO</p>
+          <p class="text-sm text-gray-400 mb-4">With 3 years in real estate, Wally leads BrightWave with a vision for innovative student housing and estates.</p>
+          <div class="flex justify-center space-x-4">
+            <a href="https://linkedin.com/in/wallyh" class="text-slate-400 hover:text-slate-300 transition-colors duration-300">
+              <i class="fab fa-linkedin text-xl"></i>
+            </a>
+          </div>
+        </div>
+        
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="200">
+          <div class="relative group mb-6">
+            <img src="/assets/images/property-manager-alameen.jpg" alt="Al-Ameen A." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
+            <div class="absolute inset-0 rounded-full bg-slate-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-slate-300 mb-2">Al-Ameen A.</h4>
+          <p class="font-semibold text-gray-400 mb-3">Project/Property Manager</p>
+          <p class="text-sm text-gray-400 mb-4">Al-Ameen oversees quality and safety across housing and estate projects.</p>
+          <div class="flex justify-center space-x-4">
+            <a href="https://linkedin.com/in/alameena" class="text-slate-400 hover:text-slate-300 transition-colors duration-300">
+              <i class="fab fa-linkedin text-xl"></i>
+            </a>
+          </div>
+        </div>
+        
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="300">
+          <div class="relative group mb-6">
+            <img src="/assets/images/realtor-kamal.jpg" alt="Kamal B." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
+            <div class="absolute inset-0 rounded-full bg-slate-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-slate-300 mb-2">Kamal B.</h4>
+          <p class="font-semibold text-gray-400 mb-3">Realtor</p>
+          <p class="text-sm text-gray-400 mb-4">Kamal connects clients with land and housing solutions tailored to their needs.</p>
+          <div class="flex justify-center space-x-4">
+            <a href="https://linkedin.com/in/kamalb" class="text-slate-400 hover:text-slate-300 transition-colors duration-300">
+              <i class="fab fa-linkedin text-xl"></i>
+            </a>
+          </div>
+        </div>
+        
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="400">
+          <div class="relative group mb-6">
+            <img src="/assets/images/oversight-Realtor-Habeeb.jpg" alt="Habeeb O." class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl" />
+            <div class="absolute inset-0 rounded-full bg-slate-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-slate-300 mb-2">Habeeb O.</h4>
+          <p class="font-semibold text-gray-400 mb-3">Site Operations & Oversight</p>
+          <p class="text-sm text-gray-400 mb-4">Habeeb ensures efficient execution of land and estate development projects.</p>
+          <div class="flex justify-center space-x-4">
+            <a href="https://linkedin.com/in/habeebo" class="text-slate-400 hover:text-slate-300 transition-colors duration-300">
+              <i class="fab fa-linkedin text-xl"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Company Journey Timeline -->
+  <section class="py-20 bg-gray-800" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Our <span class="gradient-text">Journey</span></h2>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">From vision to reality - building Nigeria's future one property at a time</p>
+      </div>
+      
+      <div class="max-w-4xl mx-auto relative">
+        <div class="timeline-line"></div>
+        <div class="space-y-12">
+          <div class="flex items-center" data-aos="fade-right" data-aos-delay="100">
+            <div class="timeline-dot w-6 h-6 bg-slate-400 rounded-full mr-6 flex-shrink-0"></div>
+            <div class="glass-effect p-6 rounded-xl flex-1">
+              <h4 class="text-xl font-bold text-slate-300 mb-2">September 2024 - Founded</h4>
+              <p class="text-gray-300">BrightWave Habitat Enterprise was founded to transform student housing, land sales, and estate development in Nigeria.</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center" data-aos="fade-right" data-aos-delay="200">
+            <div class="timeline-dot w-6 h-6 bg-green-400 rounded-full mr-6 flex-shrink-0"></div>
+            <div class="glass-effect p-6 rounded-xl flex-1">
+              <h4 class="text-xl font-bold text-green-300 mb-2">December 2024 - Phase 1 Construction</h4>
+              <p class="text-gray-300">Began construction of Phase 1 hostel, marking our entry into student housing with 10 modern self-contained rooms.</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center" data-aos="fade-right" data-aos-delay="300">
+            <div class="timeline-dot w-6 h-6 bg-amber-400 rounded-full mr-6 flex-shrink-0"></div>
+            <div class="glass-effect p-6 rounded-xl flex-1">
+              <h4 class="text-xl font-bold text-amber-300 mb-2">2025 - Land Sales Initiative</h4>
+              <p class="text-gray-300">Launched affordable land sales to support homeownership and investment across strategic locations in Kwara State.</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center" data-aos="fade-right" data-aos-delay="400">
+            <div class="timeline-dot w-6 h-6 bg-blue-400 rounded-full mr-6 flex-shrink-0"></div>
+            <div class="glass-effect p-6 rounded-xl flex-1">
+              <h4 class="text-xl font-bold text-blue-300 mb-2">Phase 2 & 3 Expansion - Planned</h4>
+              <p class="text-gray-300">Plans for additional hostel phases and residential estate development are underway, expanding our impact across Nigeria.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -367,7 +539,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
+            <div class="w-12 h-12 bg-slate-600 rounded-full flex items-center justify-center mr-4">
               <i class="fas fa-user text-white"></i>
             </div>
             <div>
@@ -399,7 +571,7 @@
         
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center mr-4">
+            <div class="w-12 h-12 bg-amber-600 rounded-full flex items-center justify-center mr-4">
               <i class="fas fa-user text-white"></i>
             </div>
             <div>
@@ -417,7 +589,7 @@
   </section>
 
   <!-- Contact Section -->
-  <section id="contact" class="py-20 bg-gradient-to-br from-blue-900 via-gray-900 to-purple-900" data-aos="fade-up" data-aos-duration="1000">
+  <section id="contact" class="py-20 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">Get In <span class="gradient-text">Touch</span></h2>
@@ -427,18 +599,18 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <!-- Contact Form -->
         <div class="glass-effect p-8 rounded-2xl">
-          <h3 class="text-2xl font-bold mb-6 text-blue-400">Send Us a Message</h3>
+          <h3 class="text-2xl font-bold mb-6 text-slate-300">Send Us a Message</h3>
           <form id="contactForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required 
-                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300" />
+                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
               <input type="email" id="email" name="email" placeholder="Your Email" required 
-                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300" />
+                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
             </div>
             <input type="tel" id="phone" name="phone" placeholder="Your Phone Number" required 
-                   class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300" />
+                   class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
             <select id="interest" name="interest" required 
-                    class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300">
+                    class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300">
               <option value="">I'm interested in...</option>
               <option value="student-hostel">Student Hostels</option>
               <option value="land-purchase">Land Purchase</option>
@@ -447,9 +619,9 @@
               <option value="general-inquiry">General Inquiry</option>
             </select>
             <textarea id="message" name="message" placeholder="Tell us more about what you're looking for..." rows="5" required 
-                      class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400 transition-all duration-300"></textarea>
+                      class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300"></textarea>
             <button type="submit" id="submitButton" 
-                    class="w-full bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition-all duration-300 font-semibold text-lg hover-lift flex items-center justify-center">
+                    class="w-full bg-slate-600 text-white p-4 rounded-lg hover:bg-slate-700 transition-all duration-300 font-semibold text-lg hover-lift flex items-center justify-center">
               <span>Send Message</span>
               <i class="fas fa-paper-plane ml-2"></i>
               <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
@@ -461,15 +633,15 @@
         <!-- Contact Information -->
         <div class="space-y-8">
           <div class="glass-effect p-6 rounded-xl">
-            <h3 class="text-xl font-bold mb-4 text-blue-400">Contact Information</h3>
+            <h3 class="text-xl font-bold mb-4 text-slate-300">Contact Information</h3>
             <div class="space-y-4">
               <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <div class="w-12 h-12 bg-slate-600 rounded-full flex items-center justify-center">
                   <i class="fas fa-envelope text-white"></i>
                 </div>
                 <div>
                   <h4 class="font-semibold">Email</h4>
-                  <a href="mailto:brightwaveenterprise0@gmail.com" class="text-blue-400 hover:text-blue-300">brightwaveenterprise0@gmail.com</a>
+                  <a href="mailto:brightwaveenterprise0@gmail.com" class="text-slate-300 hover:text-slate-200">brightwaveenterprise0@gmail.com</a>
                 </div>
               </div>
               
@@ -487,7 +659,7 @@
               </div>
               
               <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                <div class="w-12 h-12 bg-amber-600 rounded-full flex items-center justify-center">
                   <i class="fas fa-map-marker-alt text-white"></i>
                 </div>
                 <div>
@@ -500,7 +672,7 @@
           
           <!-- Social Media -->
           <div class="glass-effect p-6 rounded-xl">
-            <h3 class="text-xl font-bold mb-4 text-blue-400">Follow Us</h3>
+            <h3 class="text-xl font-bold mb-4 text-slate-300">Follow Us</h3>
             <div class="flex space-x-4">
               <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-300 hover-lift">
                 <i class="fab fa-facebook-f text-white"></i>
@@ -546,7 +718,7 @@
           <div class="flex items-center space-x-3 mb-4">
             <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-10 rounded-full" />
             <div>
-              <h3 class="text-lg font-bold text-blue-400">BrightWave</h3>
+              <h3 class="text-lg font-bold text-slate-300">BrightWave</h3>
               <p class="text-xs text-gray-300">Habitat Enterprise</p>
             </div>
           </div>
@@ -555,33 +727,34 @@
         
         <!-- Quick Links -->
         <div>
-          <h4 class="text-lg font-semibold mb-4 text-blue-400">Quick Links</h4>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Quick Links</h4>
           <ul class="space-y-2 text-sm">
-            <li><a href="#home" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Home</a></li>
-            <li><a href="#services" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Services</a></li>
-            <li><a href="#properties" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Properties</a></li>
-            <li><a href="#about" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">About Us</a></li>
-            <li><a href="#contact" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Contact</a></li>
+            <li><a href="#home" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Home</a></li>
+            <li><a href="#services" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Services</a></li>
+            <li><a href="#properties" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Properties</a></li>
+            <li><a href="#about" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">About Us</a></li>
+            <li><a href="#team" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Team</a></li>
+            <li><a href="#contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Contact</a></li>
           </ul>
         </div>
         
         <!-- Services -->
         <div>
-          <h4 class="text-lg font-semibold mb-4 text-blue-400">Our Services</h4>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Our Services</h4>
           <ul class="space-y-2 text-sm">
-            <li><a href="#student-hostels" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Student Hostels</a></li>
-            <li><a href="#land-sales" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Land Sales</a></li>
-            <li><a href="#residential" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Residential Homes</a></li>
-            <li><a href="#contact" class="text-gray-300 hover:text-blue-400 transition-colors duration-300">Estate Development</a></li>
+            <li><a href="#student-hostels" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Student Hostels</a></li>
+            <li><a href="#land-sales" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Land Sales</a></li>
+            <li><a href="#residential" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Residential Homes</a></li>
+            <li><a href="#contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Estate Development</a></li>
           </ul>
         </div>
         
         <!-- Contact Info -->
         <div>
-          <h4 class="text-lg font-semibold mb-4 text-blue-400">Contact Info</h4>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Contact Info</h4>
           <div class="space-y-2 text-sm text-gray-300">
             <div class="flex items-center space-x-2">
-              <i class="fas fa-envelope text-blue-400"></i>
+              <i class="fas fa-envelope text-slate-400"></i>
               <span>brightwaveenterprise0@gmail.com</span>
             </div>
             <div class="flex items-center space-x-2">
@@ -589,7 +762,7 @@
               <span>+234 803 766 9462</span>
             </div>
             <div class="flex items-center space-x-2">
-              <i class="fas fa-map-marker-alt text-purple-400"></i>
+              <i class="fas fa-map-marker-alt text-amber-400"></i>
               <span>Malete, Kwara State, Nigeria</span>
             </div>
           </div>
@@ -599,13 +772,13 @@
       <div class="border-t border-gray-700 pt-8 text-center">
         <p class="text-gray-400 text-sm mb-4">© 2025 BrightWave Habitat Enterprise. All rights reserved.</p>
         <div class="flex justify-center space-x-6">
-          <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="text-gray-400 hover:text-blue-400 transition-colors duration-300">
+          <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-facebook-f text-xl"></i>
           </a>
-          <a href="https://x.com/brightwave__?s=21" class="text-gray-400 hover:text-blue-400 transition-colors duration-300">
+          <a href="https://x.com/brightwave__?s=21" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-x-twitter text-xl"></i>
           </a>
-          <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="text-gray-400 hover:text-blue-400 transition-colors duration-300">
+          <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-instagram text-xl"></i>
           </a>
         </div>
@@ -631,7 +804,7 @@
     </div>
     
     <!-- Live Chat Button -->
-    <button id="open-chat" class="bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover-lift">
+    <button id="open-chat" class="bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover-lift">
       <i class="fas fa-comments text-xl"></i>
     </button>
     
@@ -699,9 +872,9 @@
         });
 
         navLinks.forEach(link => {
-          link.classList.remove('active', 'text-blue-400');
+          link.classList.remove('active', 'text-slate-200');
           if (link.getAttribute('href') === `#${current}`) {
-            link.classList.add('active', 'text-blue-400');
+            link.classList.add('active', 'text-slate-200');
           }
         });
       });
@@ -711,10 +884,10 @@
       filterButtons.forEach(button => {
         button.addEventListener('click', () => {
           // Update active filter button
-          filterButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-600', 'text-white'));
-          button.classList.add('active', 'bg-blue-600', 'text-white');
+          filterButtons.forEach(btn => btn.classList.remove('active', 'bg-slate-600', 'text-white'));
+          button.classList.add('active', 'bg-slate-600', 'text-white');
           
-          // Filter properties (this would normally fetch from API)
+          // Filter properties
           const filter = button.dataset.filter;
           fetchProperties(filter);
         });
@@ -775,7 +948,7 @@
           phone: formData.get('phone'),
           interest: formData.get('interest'),
           message: formData.get('message'),
-          formOrigin: 'Homepage Contact Form'
+          formOrigin: 'Integrated Homepage Contact Form'
         };
 
         try {
@@ -807,23 +980,108 @@
         }
       });
 
-      // Load initial properties
+      // Load initial properties - either from API or fallback to mock data
       fetchProperties('all');
     });
 
-    // Fetch properties function with realistic Kwara State data
+    // Enhanced fetch properties function that tries API first, then fallbacks to mock data
     async function fetchProperties(filter = 'all') {
       const grid = document.getElementById('propertiesGrid');
       
       // Show loading state
       grid.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400"></div></div>';
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      try {
+        // Try to fetch from API first
+        const response = await fetch(`/api/properties?type=${filter !== 'all' ? filter : ''}`);
+        
+        if (response.ok) {
+          const properties = await response.json();
+          
+          // Filter properties if needed
+          let filteredProperties = properties;
+          if (filter !== 'all') {
+            filteredProperties = properties.filter(property => property.type === filter);
+          }
+          
+          renderProperties(filteredProperties);
+        } else {
+          throw new Error('API not available');
+        }
+      } catch (error) {
+        console.log('API not available, using mock data');
+        // Fallback to mock data
+        setTimeout(() => {
+          const mockProperties = getMockProperties();
+          let filteredProperties = mockProperties;
+          if (filter !== 'all') {
+            filteredProperties = mockProperties.filter(property => property.type === filter);
+          }
+          renderProperties(filteredProperties);
+        }, 800);
+      }
+    }
 
-      // Mock data for realistic Kwara State properties
-      const mockProperties = [
-        // Student Hostels
+    function renderProperties(properties) {
+      const grid = document.getElementById('propertiesGrid');
+      
+      if (properties.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
+            <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = properties.map(property => `
+        <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
+          <div class="relative">
+            <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/placeholder-property.jpg'}" 
+                 alt="${property.title}" class="w-full h-64 object-cover" 
+                 onerror="this.src='/assets/images/placeholder-property.jpg'" />
+            ${property.construction_status && property.construction_status !== 'completed' ? `
+              <div class="absolute top-4 left-4">
+                <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
+                  ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
+                    property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
+                </span>
+              </div>
+            ` : ''}
+            ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
+          </div>
+          <div class="p-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold text-white">${property.title}</h3>
+              <span class="text-xs px-2 py-1 rounded-full ${
+                property.type === 'hostel' ? 'bg-slate-500' : 
+                property.type === 'land' ? 'bg-green-500' : 'bg-amber-500'
+              } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
+            </div>
+            <div class="flex items-center text-gray-400 mb-3">
+              <i class="fas fa-map-marker-alt mr-2"></i>
+              <span class="text-sm">${property.location}</span>
+            </div>
+            <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
+            <div class="flex items-center justify-between">
+              <div class="text-slate-300 font-bold text-lg">
+                ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
+              </div>
+              <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}" 
+                 class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
+                ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
+              </a>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Mock data function for fallback
+    function getMockProperties() {
+      return [
         {
           id: 'hostel-phase1',
           title: 'BrightWave Hostel Phase 1',
@@ -860,8 +1118,6 @@
           featured: false,
           images: ['images/hostels/brightwave-phase3-concept.jpg']
         },
-
-        // Land Properties
         {
           id: 'land-ilorin-gra',
           title: 'Premium Land - Ilorin GRA',
@@ -910,8 +1166,6 @@
           featured: false,
           images: ['images/lands/offa-garage-investment.jpg']
         },
-
-        // Residential Homes (Future Projects)
         {
           id: 'home-gra-duplex',
           title: '4-Bedroom Duplex - GRA',
@@ -937,131 +1191,6 @@
           images: ['images/homes/adewole-bungalow-render.jpg']
         }
       ];
-
-      // Filter properties based on selected filter
-      let filteredProperties = mockProperties;
-      if (filter !== 'all') {
-        filteredProperties = mockProperties.filter(property => property.type === filter);
-      }
-
-      try {
-        if (filteredProperties.length === 0) {
-          grid.innerHTML = `
-            <div class="col-span-full text-center py-12">
-              <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
-              <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
-              <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
-            </div>
-          `;
-          return;
-        }
-
-        grid.innerHTML = filteredProperties.map(property => `
-          <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
-            <div class="relative">
-              <img src="/assets/${property.images[0]}" 
-                   alt="${property.title}" class="w-full h-64 object-cover" />
-              ${property.construction_status !== 'completed' ? `
-                <div class="absolute top-4 left-4">
-                  <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
-                    ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
-                      property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
-                  </span>
-                </div>
-              ` : ''}
-              ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
-            </div>
-            <div class="p-6">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xl font-bold text-white">${property.title}</h3>
-                <span class="text-xs px-2 py-1 rounded-full ${
-                  property.type === 'hostel' ? 'bg-blue-500' : 
-                  property.type === 'land' ? 'bg-green-500' : 'bg-purple-500'
-                } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
-              </div>
-              <div class="flex items-center text-gray-400 mb-3">
-                <i class="fas fa-map-marker-alt mr-2"></i>
-                <span class="text-sm">${property.location}</span>
-              </div>
-              <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
-              <div class="flex items-center justify-between">
-                <div class="text-slate-300 font-bold text-lg">
-                  ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type}` : property.price_type}
-                </div>
-                <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}" 
-                   class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
-                  ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
-                </a>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      } catch (error) {
-        console.error('Error loading properties:', error);
-        grid.innerHTML = `
-          <div class="col-span-full text-center py-12">
-            <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
-            <h3 class="text-2xl font-bold text-red-400 mb-2">Error Loading Properties</h3>
-            <p class="text-gray-500">Please refresh the page or try again later.</p>
-          </div>
-        `;
-      }
-    }-home text-6xl text-gray-600 mb-4"></i>
-              <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
-              <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
-            </div>
-          `;
-          return;
-        }
-
-        grid.innerHTML = properties.map(property => `
-          <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
-            <div class="relative">
-              <img src="${property.images && property.images.length ? '/assets/' + property.images[0] : '/assets/images/property-placeholder.jpg'}" 
-                   alt="${property.title}" class="w-full h-64 object-cover" />
-              ${property.construction_status !== 'completed' ? `
-                <div class="absolute top-4 left-4">
-                  <span class="bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-bold">
-                    ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : '⚡ Coming Soon'}
-                  </span>
-                </div>
-              ` : ''}
-              ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
-            </div>
-            <div class="p-6">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xl font-bold text-white">${property.title}</h3>
-                <span class="text-xs px-2 py-1 rounded-full ${
-                  property.type === 'hostel' ? 'bg-blue-500' : 
-                  property.type === 'land' ? 'bg-green-500' : 'bg-purple-500'
-                } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
-              </div>
-              <div class="flex items-center text-gray-400 mb-3">
-                <i class="fas fa-map-marker-alt mr-2"></i>
-                <span class="text-sm">${property.location}</span>
-              </div>
-              <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description || 'Quality property with modern amenities and strategic location.'}</p>
-              <div class="flex items-center justify-between">
-                <div class="text-blue-400 font-bold text-lg">
-                  ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type || ''}` : 'Price on Request'}
-                </div>
-                <a href="/property/${property.id}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
-                  View Details
-                </a>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      } catch (error) {
-        console.error('Error fetching properties:', error);
-        grid.innerHTML = `
-          <div class="col-span-full text-center py-12">
-            <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4"></i>
-            <h3 class="text-2xl font-bold text-red-400 mb-2">Error Loading Properties</h3>
-            <p class="text-gray-500">Please refresh the page or try again later.</p>
-          </div>
-        `;
-      }
     }
 
     // Tawk.to Live Chat Integration
@@ -1077,7 +1206,7 @@
 
     Tawk_API.onLoad = function() {
       Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB',
+        bubbleBackground: '#475569',
         bubbleTextColor: '#FFFFFF',
         chatBackground: '#111827'
       };
