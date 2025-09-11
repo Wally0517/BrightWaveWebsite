@@ -44,7 +44,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ========== CORS CONFIGURATION ==========
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "https://brightwaveproperties.online").split(",")
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "https://brightwaveenterprises.online").split(",")
 allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
 if not allowed_origins:
     logger.warning("No allowed origins configured for CORS")
@@ -133,9 +133,10 @@ class ContactMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(20), nullable=False)
+    phone = db.Column(db.String(20), nullable=True)  # Made optional for about page
     subject = db.Column(db.String(200), nullable=True)
     message = db.Column(db.Text, nullable=False)
+    form_origin = db.Column(db.String(50), default='Unknown')  # Track form source
     status = db.Column(db.String(20), default='new')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -148,7 +149,7 @@ def create_admin_user():
     if not Admin.query.first():
         admin = Admin(
             username='admin',
-            email='admin@brightwaveproperties.online',  # Updated email
+            email='admin@brightwaveenterprises.online',
             password_hash=generate_password_hash('admin123')
         )
         db.session.add(admin)
@@ -156,55 +157,148 @@ def create_admin_user():
         logger.info("Default admin user created. Username: admin, Password: admin123")
 
 def init_sample_data():
-    """Initialize with sample property data"""
+    """Initialize with realistic Kwara State property data"""
     if not Property.query.first():
+        # Student Hostels
         phase1 = Property(
-            title='BrightWave Phase 1 Hostel',
-            description='Modern 10-room self-contained hostel near Kwara State University (KWASU) with private bathrooms, kitchens, 24/7 security, and solar power.',
+            title='BrightWave Hostel Phase 1',
+            description='Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
             property_type='hostel',
-            location='Malete, Kwara State, Nigeria',
-            price=180000,
-            price_type='per_semester',
+            location='Malete, Kwara State',
+            price=None,  # Contact for pricing
+            price_type='Contact for Pricing',
             total_rooms=10,
             available_rooms=10,
-            amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
-            images=['phase1/phase1-main-entrance.jpg', 'phase1/phase1-progress-1.jpg', 'phase1/phase1-progress-2.jpg'],
+            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Private Bathroom', 'Private Kitchen', 'Water Supply', 'Parking Space'],
+            images=['images/hostels/brightwave-phase1-exterior.jpg'],
             construction_status='ongoing',
             completion_date=datetime(2025, 12, 31).date(),
             featured=True
         )
+        
         phase2 = Property(
-            title='BrightWave Phase 2',
-            description='Expanded hostel facility with 32-35 rooms and enhanced amenities, planned for construction after Phase 1 completion.',
+            title='BrightWave Hostel Phase 2',
+            description='20-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
             property_type='hostel',
-            location='Malete, Kwara State, Nigeria',
-            price=200000,
-            price_type='per_semester',
-            total_rooms=35,
-            available_rooms=35,
-            amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space', 'Common Area', 'Study Rooms'],
-            images=['phase2/phase2-placeholder.jpg'],
-            construction_status='planned',
+            location='Malete, Kwara State',
+            price=480000,
+            price_type='per session',
+            total_rooms=20,
+            available_rooms=20,
+            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Study Areas', 'Common Spaces'],
+            images=['images/hostels/brightwave-phase2-render.jpg'],
+            construction_status='planning',
             completion_date=datetime(2026, 6, 30).date(),
             featured=False
         )
-        estate = Property(
-            title='BrightWave Estate',
-            description='6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
-            property_type='estate',
-            location='Obada Ikija, Abeokuta, Ogun State',
-            price=2500000,
-            price_type='per_sqm',
-            size='6 acres',
-            amenities=['Gated Community', 'Electricity', 'Water Supply', 'Good Road Network', 'Security', 'Recreational Facilities'],
-            images=['brightwave-estate-placeholder.jpg'],
-            construction_status='planned',
+        
+        phase3 = Property(
+            title='BrightWave Hostel Phase 3',
+            description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Ilorin.',
+            property_type='hostel',
+            location='Tanke, Ilorin, Kwara State',
+            price=520000,
+            price_type='per session',
+            total_rooms=40,
+            available_rooms=40,
+            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Gym', 'Library', 'Recreation facilities'],
+            images=['images/hostels/brightwave-phase3-concept.jpg'],
+            construction_status='planning',
             completion_date=datetime(2026, 12, 31).date(),
+            featured=False
+        )
+
+        # Land Properties
+        land_gra = Property(
+            title='Premium Land - Ilorin GRA',
+            description='600sqm residential plot in prestigious Government Reserved Area. Perfect for luxury residential development.',
+            property_type='land',
+            location='GRA, Ilorin, Kwara State',
+            price=25000000,
+            price_type='per plot (600sqm)',
+            size='600sqm',
+            amenities=['Clear documentation', 'Strategic location', 'Flexible payment plans', 'Investment guidance'],
+            images=['images/lands/ilorin-gra-plot.jpg'],
+            construction_status='completed',
             featured=True
         )
-        db.session.add_all([phase1, phase2, estate])
+        
+        land_fate = Property(
+            title='Commercial Land - Fate Road',
+            description='800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
+            property_type='land',
+            location='Fate Road, Ilorin, Kwara State',
+            price=15000000,
+            price_type='per plot (800sqm)',
+            size='800sqm',
+            amenities=['Clear documentation', 'Strategic location', 'Commercial zoning', 'High traffic area'],
+            images=['images/lands/fate-road-commercial.jpg'],
+            construction_status='completed',
+            featured=False
+        )
+        
+        land_kulende = Property(
+            title='Residential Plot - Kulende',
+            description='700sqm residential land in serene Kulende area. Close to schools and major roads.',
+            property_type='land',
+            location='Kulende, Ilorin West, Kwara State',
+            price=12000000,
+            price_type='per plot (700sqm)',
+            size='700sqm',
+            amenities=['Clear documentation', 'Strategic location', 'Residential zoning', 'Peaceful environment'],
+            images=['images/lands/kulende-residential.jpg'],
+            construction_status='completed',
+            featured=False
+        )
+        
+        Land Obada Ikija = Property(
+            title='Investment Land - Obada Ikija',
+            description='500sqm plot in developing area. Great investment opportunity with flexible payment plans.',
+            property_type='land',
+            location='Obada Ikija Area, Abeokuta, Ogun State',
+            price=8000000,
+            price_type='per plot (500sqm)',
+            size='500sqm',
+            amenities=['Clear documentation', 'Flexible payment plans', 'Investment opportunity', 'Growing area'],
+            images=['images/lands/offa-garage-investment.jpg'],
+            construction_status='completed',
+            featured=False
+        )
+
+        # Residential Homes (Future Projects)
+        BrightWave GRA = Property(
+            title='4-Bedroom Duplex - GRA',
+            description='Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
+            property_type='residential',
+            location='GRA, Ilorin, Kwara State',
+            price=None,
+            price_type='Coming 2028',
+            total_rooms=4,
+            amenities=['Modern designs', 'Quality construction', 'Accessible location', 'Luxury finishes'],
+            images=['images/homes/gra-duplex-concept.jpg'],
+            construction_status='planning',
+            completion_date=datetime(2026, 12, 31).date(),
+            featured=False
+        )
+        
+        home_adewole = Property(
+            title='3-Bedroom Bungalow - Adewole',
+            description='Contemporary 3-bedroom bungalow in planned estate development.',
+            property_type='residential',
+            location='Adewole Estate, Ilorin, Kwara State',
+            price=None,
+            price_type='Coming 2026',
+            total_rooms=3,
+            amenities=['Modern designs', 'Quality construction', 'Estate development', 'Contemporary style'],
+            images=['images/homes/adewole-bungalow-render.jpg'],
+            construction_status='planning',
+            completion_date=datetime(2026, 8, 31).date(),
+            featured=False
+        )
+        
+        db.session.add_all([phase1, phase2, phase3, land_gra, land_fate, land_kulende, land_offa, home_gra, home_adewole])
         db.session.commit()
-        logger.info("Sample property data initialized")
+        logger.info("Sample property data initialized with realistic Kwara State properties")
 
 # ========== AUTHENTICATION FUNCTIONS ==========
 def login_required(f):
@@ -247,7 +341,7 @@ def serve_static_assets(filename):
 # ========== PROPERTY API ROUTES ==========
 @app.route('/api/properties', methods=['GET'])
 def get_properties():
-    """Get all properties with filtering options"""
+    """Get all properties with filtering options - matches frontend expectations"""
     try:
         property_type = request.args.get('type')
         status = request.args.get('status', 'active')
@@ -263,24 +357,30 @@ def get_properties():
         
         properties = query.order_by(Property.created_at.desc()).all()
         
-        return jsonify([{
-            'id': prop.id,
-            'title': prop.title,
-            'description': prop.description,
-            'property_type': prop.property_type,
-            'location': prop.location,
-            'price': prop.price,
-            'price_type': prop.price_type,
-            'total_rooms': prop.total_rooms,
-            'available_rooms': prop.available_rooms,
-            'size': prop.size,
-            'amenities': prop.amenities or [],
-            'images': prop.images or [],
-            'construction_status': prop.construction_status,
-            'completion_date': prop.completion_date.isoformat() if prop.completion_date else None,
-            'featured': prop.featured,
-            'created_at': prop.created_at.isoformat()
-        } for prop in properties])
+        # Format response to match frontend expectations
+        formatted_properties = []
+        for prop in properties:
+            formatted_prop = {
+                'id': prop.id,
+                'title': prop.title,
+                'description': prop.description,
+                'type': prop.property_type,  # Frontend expects 'type' not 'property_type'
+                'location': prop.location,
+                'price': prop.price,
+                'price_type': prop.price_type,
+                'total_rooms': prop.total_rooms,
+                'available_rooms': prop.available_rooms,
+                'size': prop.size,
+                'amenities': prop.amenities or [],
+                'images': prop.images or [],
+                'construction_status': prop.construction_status,
+                'completion_date': prop.completion_date.isoformat() if prop.completion_date else None,
+                'featured': prop.featured,
+                'created_at': prop.created_at.isoformat()
+            }
+            formatted_properties.append(formatted_prop)
+        
+        return jsonify(formatted_properties)
     except Exception as e:
         logger.error(f"Error fetching properties: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -294,7 +394,7 @@ def get_property(property_id):
             'id': property.id,
             'title': property.title,
             'description': property.description,
-            'property_type': property.property_type,
+            'type': property.property_type,
             'location': property.location,
             'price': property.price,
             'price_type': property.price_type,
@@ -314,8 +414,9 @@ def get_property(property_id):
 
 # ========== CONTACT FORM API ==========
 @app.route('/api/contact', methods=['POST'])
+@limiter.limit("3 per minute")  # Rate limit contact submissions
 def handle_contact_form():
-    """Handle general contact form submissions"""
+    """Handle contact form submissions from both homepage and about page"""
     try:
         data = request.get_json()
         full_name = data.get('fullName', '').strip()
@@ -323,34 +424,48 @@ def handle_contact_form():
         phone = data.get('phone', '').strip()
         subject = data.get('subject', '').strip()
         message = data.get('message', '').strip()
+        form_origin = data.get('formOrigin', 'Unknown')
 
-        if not all([full_name, email, phone, message]):
-            return jsonify({"success": False, "message": "All fields are required."}), 400
+        # Validate required fields
+        if not all([full_name, email, message]):
+            return jsonify({"success": False, "message": "Name, email, and message are required."}), 400
 
+        # Email validation
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            return jsonify({"success": False, "message": "Please enter a valid email address."}), 400
+
+        # Save to database
         contact_message = ContactMessage(
             full_name=full_name,
             email=email,
             phone=phone,
             subject=subject,
-            message=message
+            message=message,
+            form_origin=form_origin
         )
         db.session.add(contact_message)
         db.session.commit()
 
+        # Send notification emails
         if NOTIFICATION_EMAILS:
-            email_subject = f"New Contact Form Submission - {subject or 'General Inquiry'}"
+            email_subject = f"New {form_origin} - {subject or 'General Inquiry'}"
             email_body = f"""
             New Contact Form Submission:
 
+            Source: {form_origin}
             Name: {full_name}
             Email: {email}
-            Phone: {phone}
-            Subject: {subject}
-            Message: {message}
+            Phone: {phone or 'Not provided'}
+            Subject: {subject or 'No subject'}
+            
+            Message:
+            {message}
 
             Submitted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
             try:
+                # Send notification to admin
                 msg = Message(
                     subject=email_subject,
                     recipients=NOTIFICATION_EMAILS,
@@ -358,16 +473,25 @@ def handle_contact_form():
                     reply_to=email
                 )
                 mail.send(msg)
+                
+                # Send confirmation to user
                 confirmation_msg = Message(
-                    subject="Thank You for Contacting BrightWave Properties",  # Updated
+                    subject="Thank You for Contacting BrightWave Habitat Enterprise",
                     recipients=[email],
                     body=f"""
                     Dear {full_name},
 
                     Thank you for your message! We have received your inquiry and will get back to you within 24-48 hours.
 
+                    Your message:
+                    {message[:200]}{'...' if len(message) > 200 else ''}
+
                     Best regards,
-                    BrightWave Properties Team  # Updated
+                    BrightWave Habitat Enterprise Team
+                    
+                    Email: brightwaveenterprise0@gmail.com
+                    WhatsApp: +234 803 766 9462, +234 903 840 2914
+                    Location: Malete, Kwara State, Nigeria
                     """
                 )
                 mail.send(confirmation_msg)
@@ -380,6 +504,7 @@ def handle_contact_form():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/api/property-inquiry', methods=['POST'])
+@limiter.limit("3 per minute")
 def handle_property_inquiry():
     """Handle property-specific inquiries"""
     try:
@@ -397,6 +522,11 @@ def handle_property_inquiry():
 
         if not all([full_name, email, phone, message]):
             return jsonify({"success": False, "message": "All required fields must be filled."}), 400
+
+        # Email validation
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            return jsonify({"success": False, "message": "Please enter a valid email address."}), 400
 
         move_date = None
         if preferred_move_date:
@@ -453,7 +583,7 @@ def handle_property_inquiry():
                 )
                 mail.send(msg)
                 confirmation_msg = Message(
-                    subject="Thank You for Your Property Inquiry",  # Updated
+                    subject="Thank You for Your Property Inquiry",
                     recipients=[email],
                     body=f"""
                     Dear {full_name},
@@ -461,7 +591,7 @@ def handle_property_inquiry():
                     Thank you for your interest in our properties! We have received your inquiry and our team will contact you within 24-48 hours.
 
                     Best regards,
-                    BrightWave Properties Team  # Updated
+                    BrightWave Habitat Enterprise Team
                     """
                 )
                 mail.send(confirmation_msg)
@@ -471,6 +601,58 @@ def handle_property_inquiry():
         return jsonify({"success": True, "message": "Thank you! Your inquiry has been received."})
     except Exception as e:
         logger.error(f"Error handling property inquiry: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== ADMIN DASHBOARD ENHANCEMENTS ==========
+@app.route('/admin/api/stats')
+@login_required
+def admin_stats():
+    """Get enhanced dashboard statistics"""
+    try:
+        total_properties = Property.query.count()
+        active_properties = Property.query.filter_by(status='active').count()
+        hostels = Property.query.filter_by(property_type='hostel').count()
+        land_plots = Property.query.filter_by(property_type='land').count()
+        residential = Property.query.filter_by(property_type='residential').count()
+        
+        total_inquiries = PropertyInquiry.query.count()
+        new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
+        contact_messages = ContactMessage.query.count()
+        new_messages = ContactMessage.query.filter_by(status='new').count()
+        
+        # Recent activity
+        recent_inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).limit(5).all()
+        recent_messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(5).all()
+        
+        return jsonify({
+            'total_properties': total_properties,
+            'active_properties': active_properties,
+            'property_breakdown': {
+                'hostels': hostels,
+                'land_plots': land_plots,
+                'residential': residential
+            },
+            'total_inquiries': total_inquiries,
+            'new_inquiries': new_inquiries,
+            'contact_messages': contact_messages,
+            'new_messages': new_messages,
+            'recent_activity': {
+                'inquiries': [{
+                    'id': inq.id,
+                    'name': inq.full_name,
+                    'inquiry_type': inq.inquiry_type,
+                    'created_at': inq.created_at.strftime('%Y-%m-%d %H:%M')
+                } for inq in recent_inquiries],
+                'messages': [{
+                    'id': msg.id,
+                    'name': msg.full_name,
+                    'form_origin': msg.form_origin,
+                    'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M')
+                } for msg in recent_messages]
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error fetching stats: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== FILE UPLOAD API ==========
@@ -552,32 +734,8 @@ def update_admin_password():
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
-    """Render admin dashboard"""
-    return render_template_string(ADMIN_DASHBOARD_TEMPLATE)
-
-@app.route('/admin/api/stats')
-@login_required
-def admin_stats():
-    """Get dashboard statistics"""
-    try:
-        total_properties = Property.query.count()
-        active_properties = Property.query.filter_by(status='active').count()
-        total_inquiries = PropertyInquiry.query.count()
-        new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
-        contact_messages = ContactMessage.query.count()
-        new_messages = ContactMessage.query.filter_by(status='new').count()
-        
-        return jsonify({
-            'total_properties': total_properties,
-            'active_properties': active_properties,
-            'total_inquiries': total_inquiries,
-            'new_inquiries': new_inquiries,
-            'contact_messages': contact_messages,
-            'new_messages': new_messages
-        })
-    except Exception as e:
-        logger.error(f"Error fetching stats: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
+    """Render enhanced admin dashboard"""
+    return render_template_string(ENHANCED_ADMIN_DASHBOARD_TEMPLATE)
 
 @app.route('/admin/api/properties', methods=['GET', 'POST'])
 @login_required
@@ -739,7 +897,7 @@ def admin_update_inquiry(inquiry_id):
 @app.route('/admin/api/contact-messages', methods=['GET'])
 @login_required
 def admin_get_contact_messages():
-    """Get all contact messages"""
+    """Get all contact messages with form origin tracking"""
     try:
         messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).all()
         return jsonify([{
@@ -749,6 +907,7 @@ def admin_get_contact_messages():
             'phone': msg.phone,
             'subject': msg.subject,
             'message': msg.message,
+            'form_origin': msg.form_origin,
             'status': msg.status,
             'created_at': msg.created_at.isoformat()
         } for msg in messages])
@@ -778,29 +937,29 @@ LOGIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - BrightWave Properties</title>  <!-- Updated -->
+    <title>Admin Login - BrightWave Habitat Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-gray-800 p-8 rounded-lg shadow-lg">
         <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-blue-400">BrightWave Admin</h1>
-            <p class="text-gray-300 mt-2">Property Management System</p>
+            <h1 class="text-3xl font-bold text-slate-400">BrightWave Admin</h1>
+            <p class="text-gray-300 mt-2">Habitat Enterprise Management</p>
         </div>
         <form id="loginForm" class="space-y-6">
             <div>
                 <label class="block text-sm font-medium mb-2">Username</label>
                 <input type="text" id="username" required 
-                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-slate-500">
             </div>
             <div>
                 <label class="block text-sm font-medium mb-2">Password</label>
                 <input type="password" id="password" required 
-                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-slate-500">
             </div>
             <div>
                 <button type="submit" 
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg focus:outline-none">
+                        class="w-full bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none">
                     Login
                 </button>
             </div>
@@ -836,22 +995,22 @@ LOGIN_TEMPLATE = """
 </html>
 """
 
-ADMIN_DASHBOARD_TEMPLATE = """
+ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - BrightWave Properties</title>  <!-- Updated -->
+    <title>Admin Dashboard - BrightWave Habitat Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <header class="bg-gray-800 shadow">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-blue-400">BrightWave Admin Dashboard</h1>
+            <h1 class="text-2xl font-bold text-slate-400">BrightWave Habitat Enterprise Dashboard</h1>
             <div>
-                <button id="changePasswordBtn" class="text-blue-400 hover:text-blue-300 mr-4">Change Password</button>
-                <a href="/admin/logout" class="text-blue-400 hover:text-blue-300">Logout</a>
+                <button id="changePasswordBtn" class="text-slate-400 hover:text-slate-300 mr-4">Change Password</button>
+                <a href="/admin/logout" class="text-slate-400 hover:text-slate-300">Logout</a>
             </div>
         </div>
     </header>
@@ -859,111 +1018,102 @@ ADMIN_DASHBOARD_TEMPLATE = """
         <!-- Change Password Form -->
         <section id="passwordForm" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Change Password</h2>
-            <form id="updatePasswordForm" class="bg-gray-800 p-4 rounded-lg space-y-4">
+            <form id="updatePasswordForm" class="bg-gray-800 p-4 rounded-lg space-y-4 max-w-md">
                 <div>
                     <label class="block text-sm font-medium mb-2">New Password</label>
                     <input type="password" id="newPassword" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                 </div>
                 <div>
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">Update Password</button>
+                    <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Update Password</button>
                     <button type="button" id="cancelPassword" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg ml-2">Cancel</button>
                 </div>
                 <p id="passwordMessage" class="text-red-500 text-sm hidden"></p>
             </form>
         </section>
+
+        <!-- Enhanced Statistics -->
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Dashboard Overview</h2>
+            <div id="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Stats will be populated by JavaScript -->
+            </div>
+            <div id="propertyBreakdown" class="bg-gray-800 p-4 rounded-lg mb-4">
+                <!-- Property breakdown will be populated -->
+            </div>
+            <div id="recentActivity" class="bg-gray-800 p-4 rounded-lg">
+                <!-- Recent activity will be populated -->
+            </div>
+        </section>
+
         <!-- Add Property Form -->
         <section class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Add New Property</h2>
-            <form id="addPropertyForm" class="bg-gray-800 p-4 rounded-lg space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-2">Title</label>
-                    <input type="text" id="title" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Description</label>
-                    <textarea id="description" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Property Type</label>
-                    <select id="property_type" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="hostel">Hostel</option>
-                        <option value="land">Land</option>
-                        <option value="residential">Residential</option>
-                        <option value="estate">Estate</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Location</label>
-                    <input type="text" id="location" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price</label>
-                    <input type="number" id="price" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price Type</label>
-                    <select id="price_type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="per_semester">Per Semester</option>
-                        <option value="per_year">Per Year</option>
-                        <option value="per_sqm">Per Sqm</option>
-                        <option value="total">Total</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Total Rooms</label>
-                    <input type="number" id="total_rooms" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Available Rooms</label>
-                    <input type="number" id="available_rooms" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Size</label>
-                    <input type="text" id="size" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Amenities (comma-separated)</label>
-                    <input type="text" id="amenities" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Construction Status</label>
-                    <select id="construction_status" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="planned">Planned</option>
-                        <option value="ongoing">Ongoing</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Completion Date</label>
-                    <input type="date" id="completion_date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Featured</label>
-                    <input type="checkbox" id="featured" class="h-4 w-4 text-blue-500">
-                </div>
-                <div>
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">Add Property</button>
-                </div>
-            </form>
-        </section>
-        <!-- Statistics -->
-        <section class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Overview</h2>
-            <div id="stats" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Stats will be populated by JavaScript -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <form id="addPropertyForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Title</label>
+                        <input type="text" id="title" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Property Type</label>
+                        <select id="property_type" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                            <option value="hostel">Hostel</option>
+                            <option value="land">Land</option>
+                            <option value="residential">Residential</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">Description</label>
+                        <textarea id="description" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Location</label>
+                        <input type="text" id="location" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Price</label>
+                        <input type="number" id="price" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Price Type</label>
+                        <select id="price_type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                            <option value="">Select</option>
+                            <option value="per session">Per Session</option>
+                            <option value="per year">Per Year</option>
+                            <option value="per plot">Per Plot</option>
+                            <option value="total">Total</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Construction Status</label>
+                        <select id="construction_status" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                            <option value="">Select</option>
+                            <option value="completed">Completed</option>
+                            <option value="ongoing">Ongoing</option>
+                            <option value="planning">Planning</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 flex items-center space-x-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="featured" class="mr-2">
+                            <span class="text-sm font-medium">Featured Property</span>
+                        </label>
+                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Add Property</button>
+                    </div>
+                </form>
             </div>
         </section>
-        <!-- Properties -->
+
+        <!-- Properties Table -->
         <section class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Properties</h2>
-            <div class="bg-gray-800 p-4 rounded-lg">
+            <div class="bg-gray-800 p-4 rounded-lg overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-600">
                             <th class="py-2 text-left">Title</th>
                             <th class="py-2 text-left">Type</th>
+                            <th class="py-2 text-left">Location</th>
                             <th class="py-2 text-left">Status</th>
                             <th class="py-2 text-left">Actions</th>
                         </tr>
@@ -974,46 +1124,60 @@ ADMIN_DASHBOARD_TEMPLATE = """
                 </table>
             </div>
         </section>
-        <!-- Inquiries -->
-        <section class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Property Inquiries</h2>
-            <div class="bg-gray-800 p-4 rounded-lg">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-600">
-                            <th class="py-2 text-left">Name</th>
-                            <th class="py-2 text-left">Property</th>
-                            <th class="py-2 text-left">Status</th>
-                            <th class="py-2 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inquiriesTable">
-                        <!-- Inquiries will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-        <!-- Contact Messages -->
+
+        <!-- Inquiries and Messages Tabs -->
         <section>
-            <h2 class="text-xl font-semibold mb-4">Contact Messages</h2>
-            <div class="bg-gray-800 p-4 rounded-lg">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-600">
-                            <th class="py-2 text-left">Name</th>
-                            <th class="py-2 text-left">Subject</th>
-                            <th class="py-2 text-left">Status</th>
-                            <th class="py-2 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="messagesTable">
-                        <!-- Messages will be populated by JavaScript -->
-                    </tbody>
-                </table>
+            <div class="flex space-x-4 mb-4">
+                <button id="inquiriesTab" class="bg-slate-600 text-white px-4 py-2 rounded-lg">Property Inquiries</button>
+                <button id="messagesTab" class="bg-gray-600 text-white px-4 py-2 rounded-lg">Contact Messages</button>
+            </div>
+            
+            <div id="inquiriesSection" class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold mb-4">Property Inquiries</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="py-2 text-left">Name</th>
+                                <th class="py-2 text-left">Property</th>
+                                <th class="py-2 text-left">Type</th>
+                                <th class="py-2 text-left">Status</th>
+                                <th class="py-2 text-left">Date</th>
+                                <th class="py-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inquiriesTable">
+                            <!-- Inquiries will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="messagesSection" class="bg-gray-800 p-4 rounded-lg hidden">
+                <h3 class="text-lg font-semibold mb-4">Contact Messages</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="py-2 text-left">Name</th>
+                                <th class="py-2 text-left">Source</th>
+                                <th class="py-2 text-left">Subject</th>
+                                <th class="py-2 text-left">Status</th>
+                                <th class="py-2 text-left">Date</th>
+                                <th class="py-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messagesTable">
+                            <!-- Messages will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </main>
+
     <script>
+        // Enhanced dashboard functionality
         async function fetchData(url, options = {}) {
             const response = await fetch(url, {
                 credentials: 'include',
@@ -1026,22 +1190,54 @@ ADMIN_DASHBOARD_TEMPLATE = """
         async function loadStats() {
             try {
                 const stats = await fetchData('/admin/api/stats');
-                const statsContainer = document.getElementById('stats');
-                statsContainer.innerHTML = `
-                    <div class="bg-gray-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium">Properties</h3>
-                        <p>Total: ${stats.total_properties}</p>
-                        <p>Active: ${stats.active_properties}</p>
+                
+                // Main stats cards
+                document.getElementById('stats').innerHTML = `
+                    <div class="bg-slate-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-medium text-slate-300">Total Properties</h3>
+                        <p class="text-2xl font-bold">${stats.total_properties}</p>
+                        <p class="text-sm text-gray-400">Active: ${stats.active_properties}</p>
                     </div>
-                    <div class="bg-gray-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium">Inquiries</h3>
-                        <p>Total: ${stats.total_inquiries}</p>
-                        <p>New: ${stats.new_inquiries}</p>
+                    <div class="bg-green-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-medium text-green-300">Inquiries</h3>
+                        <p class="text-2xl font-bold">${stats.total_inquiries}</p>
+                        <p class="text-sm text-green-200">New: ${stats.new_inquiries}</p>
                     </div>
-                    <div class="bg-gray-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium">Messages</h3>
-                        <p>Total: ${stats.contact_messages}</p>
-                        <p>New: ${stats.new_messages}</p>
+                    <div class="bg-blue-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-medium text-blue-300">Messages</h3>
+                        <p class="text-2xl font-bold">${stats.contact_messages}</p>
+                        <p class="text-sm text-blue-200">New: ${stats.new_messages}</p>
+                    </div>
+                    <div class="bg-amber-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-medium text-amber-300">Properties by Type</h3>
+                        <p class="text-sm">Hostels: ${stats.property_breakdown.hostels}</p>
+                        <p class="text-sm">Land: ${stats.property_breakdown.land_plots}</p>
+                        <p class="text-sm">Residential: ${stats.property_breakdown.residential}</p>
+                    </div>
+                `;
+
+                // Recent activity
+                document.getElementById('recentActivity').innerHTML = `
+                    <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-medium mb-2">Latest Inquiries</h4>
+                            ${stats.recent_activity.inquiries.map(inq => `
+                                <div class="text-sm mb-2 p-2 bg-gray-700 rounded">
+                                    <strong>${inq.name}</strong> - ${inq.inquiry_type}
+                                    <br><span class="text-gray-400">${inq.created_at}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-2">Latest Messages</h4>
+                            ${stats.recent_activity.messages.map(msg => `
+                                <div class="text-sm mb-2 p-2 bg-gray-700 rounded">
+                                    <strong>${msg.name}</strong> - ${msg.form_origin}
+                                    <br><span class="text-gray-400">${msg.created_at}</span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
                 `;
             } catch (error) {
@@ -1052,15 +1248,17 @@ ADMIN_DASHBOARD_TEMPLATE = """
         async function loadProperties() {
             try {
                 const properties = await fetchData('/admin/api/properties');
-                const tableBody = document.getElementById('propertiesTable');
-                tableBody.innerHTML = properties.map(prop => `
+                document.getElementById('propertiesTable').innerHTML = properties.map(prop => `
                     <tr class="border-b border-gray-600">
                         <td class="py-2">${prop.title}</td>
-                        <td class="py-2">${prop.property_type}</td>
-                        <td class="py-2">${prop.status}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
+                            prop.property_type === 'hostel' ? 'bg-slate-600' : 
+                            prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
+                        }">${prop.property_type}</span></td>
+                        <td class="py-2">${prop.location}</td>
+                        <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">
-                            <button onclick="editProperty(${prop.id}, '${prop.title}', '${prop.description}', '${prop.property_type}', '${prop.location}', '${prop.price || ''}', '${prop.price_type || ''}', '${prop.total_rooms || ''}', '${prop.available_rooms || ''}', '${prop.size || ''}', '${prop.amenities ? prop.amenities.join(',') : ''}', '${prop.construction_status || ''}', '${prop.completion_date || ''}', ${prop.featured})" class="text-blue-400 hover:underline">Edit</button>
-                            <button onclick="deleteProperty(${prop.id})" class="text-red-400 hover:underline ml-2">Delete</button>
+                            <button onclick="deleteProperty(${prop.id})" class="text-red-400 hover:underline">Delete</button>
                         </td>
                     </tr>
                 `).join('');
@@ -1072,20 +1270,23 @@ ADMIN_DASHBOARD_TEMPLATE = """
         async function loadInquiries() {
             try {
                 const inquiries = await fetchData('/admin/api/inquiries');
-                const tableBody = document.getElementById('inquiriesTable');
-                tableBody.innerHTML = inquiries.map(inq => `
+                document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
                         <td class="py-2">${inq.full_name}</td>
                         <td class="py-2">${inq.property_title}</td>
-                        <td class="py-2">${inq.status}</td>
+                        <td class="py-2">${inq.inquiry_type}</td>
                         <td class="py-2">
-                            <select onchange="updateInquiry(${inq.id}, this.value)">
+                            <select onchange="updateInquiry(${inq.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${inq.status === 'new' ? 'selected' : ''}>New</option>
                                 <option value="contacted" ${inq.status === 'contacted' ? 'selected' : ''}>Contacted</option>
                                 <option value="qualified" ${inq.status === 'qualified' ? 'selected' : ''}>Qualified</option>
                                 <option value="converted" ${inq.status === 'converted' ? 'selected' : ''}>Converted</option>
                                 <option value="closed" ${inq.status === 'closed' ? 'selected' : ''}>Closed</option>
                             </select>
+                        </td>
+                        <td class="py-2">${new Date(inq.created_at).toLocaleDateString()}</td>
+                        <td class="py-2">
+                            <button onclick="viewInquiry(${inq.id})" class="text-blue-400 hover:underline">View</button>
                         </td>
                     </tr>
                 `).join('');
@@ -1097,19 +1298,22 @@ ADMIN_DASHBOARD_TEMPLATE = """
         async function loadMessages() {
             try {
                 const messages = await fetchData('/admin/api/contact-messages');
-                const tableBody = document.getElementById('messagesTable');
-                tableBody.innerHTML = messages.map(msg => `
+                document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
                         <td class="py-2">${msg.full_name}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${msg.form_origin}</span></td>
                         <td class="py-2">${msg.subject || 'No Subject'}</td>
-                        <td class="py-2">${msg.status}</td>
                         <td class="py-2">
-                            <select onchange="updateMessage(${msg.id}, this.value)">
+                            <select onchange="updateMessage(${msg.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${msg.status === 'new' ? 'selected' : ''}>New</option>
                                 <option value="read" ${msg.status === 'read' ? 'selected' : ''}>Read</option>
                                 <option value="responded" ${msg.status === 'responded' ? 'selected' : ''}>Responded</option>
                                 <option value="closed" ${msg.status === 'closed' ? 'selected' : ''}>Closed</option>
                             </select>
+                        </td>
+                        <td class="py-2">${new Date(msg.created_at).toLocaleDateString()}</td>
+                        <td class="py-2">
+                            <button onclick="viewMessage(${msg.id})" class="text-blue-400 hover:underline">View</button>
                         </td>
                     </tr>
                 `).join('');
@@ -1118,6 +1322,7 @@ ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        // Action functions
         async function updateInquiry(id, status) {
             try {
                 const response = await fetchData(`/admin/api/inquiries/${id}`, {
@@ -1125,8 +1330,7 @@ ADMIN_DASHBOARD_TEMPLATE = """
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 });
-                alert(response.message);
-                loadInquiries();
+                loadStats(); // Refresh stats
             } catch (error) {
                 alert('Error updating inquiry');
             }
@@ -1139,8 +1343,7 @@ ADMIN_DASHBOARD_TEMPLATE = """
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 });
-                alert(response.message);
-                loadMessages();
+                loadStats(); // Refresh stats
             } catch (error) {
                 alert('Error updating message');
             }
@@ -1152,230 +1355,44 @@ ADMIN_DASHBOARD_TEMPLATE = """
                     const response = await fetchData(`/admin/api/properties/${id}`, {
                         method: 'DELETE'
                     });
-                    alert(response.message);
                     loadProperties();
+                    loadStats();
                 } catch (error) {
                     alert('Error deleting property');
                 }
             }
         }
 
-        function editProperty(id, title, description, property_type, location, price, price_type, total_rooms, available_rooms, size, amenities, construction_status, completion_date, featured) {
-            document.getElementById('addPropertyForm').innerHTML = `
-                <h2 class="text-xl font-semibold mb-4">Edit Property</h2>
-                <input type="hidden" id="property_id" value="${id}">
-                <div>
-                    <label class="block text-sm font-medium mb-2">Title</label>
-                    <input type="text" id="title" value="${title}" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Description</label>
-                    <textarea id="description" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">${description}</textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Property Type</label>
-                    <select id="property_type" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="hostel" ${property_type === 'hostel' ? 'selected' : ''}>Hostel</option>
-                        <option value="land" ${property_type === 'land' ? 'selected' : ''}>Land</option>
-                        <option value="residential" ${property_type === 'residential' ? 'selected' : ''}>Residential</option>
-                        <option value="estate" ${property_type === 'estate' ? 'selected' : ''}>Estate</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Location</label>
-                    <input type="text" id="location" value="${location}" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price</label>
-                    <input type="number" id="price" step="0.01" value="${price}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price Type</label>
-                    <select id="price_type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="per_semester" ${price_type === 'per_semester' ? 'selected' : ''}>Per Semester</option>
-                        <option value="per_year" ${price_type === 'per_year' ? 'selected' : ''}>Per Year</option>
-                        <option value="per_sqm" ${price_type === 'per_sqm' ? 'selected' : ''}>Per Sqm</option>
-                        <option value="total" ${price_type === 'total' ? 'selected' : ''}>Total</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Total Rooms</label>
-                    <input type="number" id="total_rooms" value="${total_rooms}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Available Rooms</label>
-                    <input type="number" id="available_rooms" value="${available_rooms}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Size</label>
-                    <input type="text" id="size" value="${size}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Amenities (comma-separated)</label>
-                    <input type="text" id="amenities" value="${amenities}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Construction Status</label>
-                    <select id="construction_status" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="planned" ${construction_status === 'planned' ? 'selected' : ''}>Planned</option>
-                        <option value="ongoing" ${construction_status === 'ongoing' ? 'selected' : ''}>Ongoing</option>
-                        <option value="completed" ${construction_status === 'completed' ? 'selected' : ''}>Completed</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Completion Date</label>
-                    <input type="date" id="completion_date" value="${completion_date}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Featured</label>
-                    <input type="checkbox" id="featured" ${featured ? 'checked' : ''} class="h-4 w-4 text-blue-500">
-                </div>
-                <div>
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">Update Property</button>
-                    <button type="button" onclick="resetPropertyForm()" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg ml-2">Cancel</button>
-                </div>
-            `;
-            document.getElementById('addPropertyForm').onsubmit = async (e) => {
-                e.preventDefault();
-                const id = document.getElementById('property_id').value;
-                const propertyData = {
-                    title: document.getElementById('title').value,
-                    description: document.getElementById('description').value,
-                    property_type: document.getElementById('property_type').value,
-                    location: document.getElementById('location').value,
-                    price: parseFloat(document.getElementById('price').value) || null,
-                    price_type: document.getElementById('price_type').value || null,
-                    total_rooms: parseInt(document.getElementById('total_rooms').value) || null,
-                    available_rooms: parseInt(document.getElementById('available_rooms').value) || null,
-                    size: document.getElementById('size').value || null,
-                    amenities: document.getElementById('amenities').value.split(',').map(a => a.trim()).filter(a => a),
-                    construction_status: document.getElementById('construction_status').value || null,
-                    completion_date: document.getElementById('completion_date').value || null,
-                    featured: document.getElementById('featured').checked
-                };
-                try {
-                    const response = await fetchData(`/admin/api/properties/${id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(propertyData)
-                    });
-                    alert(response.message);
-                    resetPropertyForm();
-                    loadProperties();
-                } catch (error) {
-                    alert('Error updating property');
-                }
-            };
+        function viewInquiry(id) {
+            // Simple modal implementation - you can enhance this
+            alert('Inquiry details would be shown in a modal. ID: ' + id);
         }
 
-        function resetPropertyForm() {
-            document.getElementById('addPropertyForm').innerHTML = `
-                <h2 class="text-xl font-semibold mb-4">Add New Property</h2>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Title</label>
-                    <input type="text" id="title" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Description</label>
-                    <textarea id="description" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Property Type</label>
-                    <select id="property_type" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="hostel">Hostel</option>
-                        <option value="land">Land</option>
-                        <option value="residential">Residential</option>
-                        <option value="estate">Estate</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Location</label>
-                    <input type="text" id="location" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price</label>
-                    <input type="number" id="price" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Price Type</label>
-                    <select id="price_type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="per_semester">Per Semester</option>
-                        <option value="per_year">Per Year</option>
-                        <option value="per_sqm">Per Sqm</option>
-                        <option value="total">Total</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Total Rooms</label>
-                    <input type="number" id="total_rooms" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Available Rooms</label>
-                    <input type="number" id="available_rooms" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Size</label>
-                    <input type="text" id="size" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Amenities (comma-separated)</label>
-                    <input type="text" id="amenities" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Construction Status</label>
-                    <select id="construction_status" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                        <option value="">Select</option>
-                        <option value="planned">Planned</option>
-                        <option value="ongoing">Ongoing</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Completion Date</label>
-                    <input type="date" id="completion_date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-2">Featured</label>
-                    <input type="checkbox" id="featured" class="h-4 w-4 text-blue-500">
-                </div>
-                <div>
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">Add Property</button>
-                </div>
-            `;
-            document.getElementById('addPropertyForm').onsubmit = async (e) => {
-                e.preventDefault();
-                const propertyData = {
-                    title: document.getElementById('title').value,
-                    description: document.getElementById('description').value,
-                    property_type: document.getElementById('property_type').value,
-                    location: document.getElementById('location').value,
-                    price: parseFloat(document.getElementById('price').value) || null,
-                    price_type: document.getElementById('price_type').value || null,
-                    total_rooms: parseInt(document.getElementById('total_rooms').value) || null,
-                    available_rooms: parseInt(document.getElementById('available_rooms').value) || null,
-                    size: document.getElementById('size').value || null,
-                    amenities: document.getElementById('amenities').value.split(',').map(a => a.trim()).filter(a => a),
-                    construction_status: document.getElementById('construction_status').value || null,
-                    completion_date: document.getElementById('completion_date').value || null,
-                    featured: document.getElementById('featured').checked
-                };
-                try {
-                    const response = await fetchData('/admin/api/properties', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(propertyData)
-                    });
-                    alert(response.message);
-                    loadProperties();
-                } catch (error) {
-                    alert('Error adding property');
-                }
-            };
+        function viewMessage(id) {
+            // Simple modal implementation - you can enhance this
+            alert('Message details would be shown in a modal. ID: ' + id);
         }
 
+        // Tab switching
+        document.getElementById('inquiriesTab').addEventListener('click', () => {
+            document.getElementById('inquiriesSection').classList.remove('hidden');
+            document.getElementById('messagesSection').classList.add('hidden');
+            document.getElementById('inquiriesTab').classList.add('bg-slate-600');
+            document.getElementById('inquiriesTab').classList.remove('bg-gray-600');
+            document.getElementById('messagesTab').classList.add('bg-gray-600');
+            document.getElementById('messagesTab').classList.remove('bg-slate-600');
+        });
+
+        document.getElementById('messagesTab').addEventListener('click', () => {
+            document.getElementById('messagesSection').classList.remove('hidden');
+            document.getElementById('inquiriesSection').classList.add('hidden');
+            document.getElementById('messagesTab').classList.add('bg-slate-600');
+            document.getElementById('messagesTab').classList.remove('bg-gray-600');
+            document.getElementById('inquiriesTab').classList.add('bg-gray-600');
+            document.getElementById('inquiriesTab').classList.remove('bg-slate-600');
+        });
+
+        // Password change functionality
         document.getElementById('changePasswordBtn').addEventListener('click', () => {
             document.getElementById('passwordForm').classList.toggle('hidden');
         });
@@ -1411,6 +1428,36 @@ ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
+        // Add property form
+        document.getElementById('addPropertyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const propertyData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                property_type: document.getElementById('property_type').value,
+                location: document.getElementById('location').value,
+                price: parseFloat(document.getElementById('price').value) || null,
+                price_type: document.getElementById('price_type').value || null,
+                construction_status: document.getElementById('construction_status').value || null,
+                featured: document.getElementById('featured').checked
+            };
+
+            try {
+                const response = await fetchData('/admin/api/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(propertyData)
+                });
+                alert('Property added successfully');
+                document.getElementById('addPropertyForm').reset();
+                loadProperties();
+                loadStats();
+            } catch (error) {
+                alert('Error adding property');
+            }
+        });
+
+        // Initialize dashboard
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             loadProperties();
