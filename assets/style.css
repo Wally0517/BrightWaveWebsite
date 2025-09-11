@@ -1,19 +1,43 @@
-/* Most styling is handled by Tailwind CSS via CDN. Custom styles are added below for specific functionality. */
+/* Enhanced CSS for BrightWave Habitat Enterprise */
+/* Most styling is handled by Tailwind CSS via CDN. Custom styles are added below for specific functionality and enhanced user experience. */
 
 /* ========== Global Base Styles ========== */
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, system-ui, -apple-system;
   margin: 0;
   padding: 0;
-  -webkit-font-smoothing: antialiased; /* Improve text rendering on WebKit browsers */
-  -moz-osx-font-smoothing: grayscale; /* Improve text rendering on Firefox */
-  transition: background-color 0.3s ease; /* Smooth background transitions */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease;
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 a {
   text-decoration: none;
   color: inherit;
-  transition: color 0.3s ease, background-color 0.3s ease; /* Smooth link hover effects */
+  transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1F2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3B82F6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563EB;
 }
 
 /* High-contrast mode support */
@@ -29,38 +53,198 @@ a {
   .text-white { color: #F9FAFB !important; }
 }
 
-/* ========== Hero and Banner Sections (all pages) ========== */
+/* ========== Custom Animations ========== */
+.gradient-text {
+  background: linear-gradient(45deg, #3b82f6, #06b6d4, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { 
+    background: linear-gradient(45deg, #3b82f6, #06b6d4, #8b5cf6);
+  }
+  50% { 
+    background: linear-gradient(45deg, #8b5cf6, #3b82f6, #06b6d4);
+  }
+}
+
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.glass-effect {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(17, 24, 39, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
+  }
+}
+
+/* ========== Navigation Enhancements ========== */
+.nav-link {
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -5px;
+  left: 50%;
+  background: linear-gradient(90deg, #3B82F6, #06B6D4);
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+  left: 0;
+}
+
+.mobile-nav {
+  transition: all 0.3s ease;
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+.mobile-nav:not(.hidden) {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ========== Hero and Banner Sections ========== */
 .hero, .intro-banner, .hostels-banner, .hostel-banner {
   position: relative;
-  overflow: hidden; /* Prevent content overflow */
+  overflow: hidden;
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center;
 }
 
 .hero::before, .intro-banner::before, .hostels-banner::before, .hostel-banner::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, rgba(29, 78, 216, 0.7), rgba(17, 24, 39, 0.6), rgba(37, 99, 235, 0.7)); /* Matches Tailwind blue-900/70, gray-900/60, blue-600/70 */
-  z-index: 10;
-  transition: opacity 0.3s ease; /* Smooth gradient transition on hover */
+  background: linear-gradient(135deg, 
+    rgba(29, 78, 216, 0.8) 0%, 
+    rgba(17, 24, 39, 0.7) 50%, 
+    rgba(37, 99, 235, 0.8) 100%);
+  z-index: 1;
+  transition: opacity 0.3s ease;
 }
 
-.hero:hover::before, .intro-banner:hover::before, .hostels-banner:hover::before, .hostel-banner:hover::before {
-  opacity: 0.9;
+.hero > *, .intro-banner > *, .hostels-banner > *, .hostel-banner > * {
+  position: relative;
+  z-index: 2;
 }
 
-/* ========== Google Maps Iframe (hostel-detail.html) ========== */
+/* Floating animation for hero elements */
+.hero h1, .intro-banner h1 {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* ========== Card Animations and Effects ========== */
+.service-card, .property-card, .hostel-card, .feature-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+  position: relative;
+  overflow: hidden;
+}
+
+.service-card::before, .property-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.service-card:hover::before, .property-card:hover::before {
+  left: 100%;
+}
+
+.service-card:hover, .property-card:hover, .hostel-card:hover, .feature-item:hover {
+  transform: scale(1.05) translateY(-5px);
+  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.3);
+}
+
+.service-card:focus-within, .property-card:focus-within, .hostel-card:focus-within, .feature-item:focus-within {
+  outline: 2px solid #60A5FA;
+  outline-offset: 2px;
+}
+
+/* ========== Property Filter Effects ========== */
+.property-filter {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.property-filter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, #3B82F6, #06B6D4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 0.5rem;
+}
+
+.property-filter.active::before,
+.property-filter:hover::before {
+  opacity: 1;
+}
+
+.property-filter span {
+  position: relative;
+  z-index: 1;
+}
+
+/* ========== Google Maps Iframe ========== */
 .map-container {
   position: relative;
-  border: 2px solid #2563EB; /* Tailwind blue-600 */
-  border-radius: 0.5rem; /* Tailwind rounded-lg */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Tailwind shadow-lg */
+  border: 2px solid #2563EB;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; /* Smooth scaling and shadow */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .map-container:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); /* Blue-600 glow effect */
+  box-shadow: 0 0 30px rgba(37, 99, 235, 0.5);
+  border-color: #60A5FA;
 }
 
 .map-container iframe {
@@ -68,7 +252,13 @@ a {
   width: 100%;
   height: 100%;
   border: none;
-  touch-action: manipulation; /* Improve touch scrolling on mobile */
+  touch-action: manipulation;
+  filter: saturate(1.2) contrast(1.1);
+  transition: filter 0.3s ease;
+}
+
+.map-container:hover iframe {
+  filter: saturate(1.4) contrast(1.2);
 }
 
 .map-container .map-fallback {
@@ -77,84 +267,109 @@ a {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #F9FAFB; /* Tailwind gray-100 */
+  color: #F9FAFB;
   font-size: 1rem;
   font-weight: 500;
   text-align: center;
   padding: 1rem;
-  background-color: rgba(17, 24, 39, 0.9); /* Tailwind gray-900/90 */
+  background: rgba(17, 24, 39, 0.95);
   border-radius: 0.5rem;
-  transition: opacity 0.3s ease; /* Smooth fade for fallback */
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(5px);
 }
 
-.map-container .map-fallback[aria-hidden="false"] {
-  display: block;
-  opacity: 1;
-}
-
-.map-container .map-fallback[aria-hidden="true"] {
-  opacity: 0;
-}
-
-.map-container:focus-within {
-  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
-  outline-offset: 2px;
-}
-
-/* ========== Slideshow Animation (hostel-detail.html) ========== */
+/* ========== Slideshow Animation ========== */
 .animate-fade {
-  animation: fade 1.5s ease-in-out forwards;
+  animation: fade 1s ease-in-out forwards;
 }
 
 @keyframes fade {
-  from { opacity: 0.4; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-/* Slideshow Arrows */
 .prev, .next {
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  cursor: pointer; /* Ensure clickable on all platforms */
-  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+  transition: all 0.3s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.prev::before, .next::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, #3B82F6, #06B6D4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.prev:hover::before, .next:hover::before {
+  opacity: 0.2;
 }
 
 .prev:hover, .next:hover {
-  background-color: #1F2937; /* Tailwind gray-800 hover state */
+  background-color: #1F2937;
   transform: scale(1.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .prev:focus, .next:focus {
-  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline: 2px solid #60A5FA;
   outline-offset: 2px;
 }
 
-/* Slideshow Dots */
 .dot {
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .dot:hover, .dot:focus {
   transform: scale(1.2);
-  background-color: #93C5FD; /* Tailwind blue-300 */
+  background-color: #93C5FD;
+  box-shadow: 0 0 10px rgba(147, 197, 253, 0.5);
 }
 
-/* ========== Status Labels and Timeline Text (hostels.html, hostel-detail.html) ========== */
+.dot.active {
+  background-color: #3B82F6;
+  transform: scale(1.1);
+}
+
+/* ========== Status Labels and Timeline ========== */
 .status-label, .timeline-text {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  font-size: 0.875rem; /* Tailwind text-sm */
-  font-weight: 600; /* Tailwind font-semibold */
-  color: #111827; /* Tailwind gray-900 */
-  transition: transform 0.3s ease, background-color 0.3s ease; /* Smooth hover effects */
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-label::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.status-label:hover::before {
+  transform: translateX(100%);
 }
 
 .ongoing-label {
-  background-color: #F59E0B; /* Tailwind yellow-500 */
+  background: linear-gradient(45deg, #F59E0B, #F97316);
+  color: white;
 }
 
 .coming-soon-label {
-  background-color: #10B981; /* Tailwind green-500 */
+  background: linear-gradient(45deg, #10B981, #059669);
+  color: white;
 }
 
 .status-label:hover, .timeline-text:hover {
@@ -162,198 +377,226 @@ a {
 }
 
 .timeline-text {
-  color: #9CA3AF; /* Tailwind gray-400 */
-  font-weight: 500; /* Tailwind font-medium */
-  padding: 0; /* No padding for timeline text */
+  color: #9CA3AF;
+  font-weight: 500;
+  padding: 0;
+  background: none;
 }
 
-/* ========== Hostel Cards and Feature Items (hostels.html, hostel-detail.html) ========== */
-.hostel-card, .feature-item {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; /* Smooth scaling and shadow */
-  will-change: transform, box-shadow; /* Optimize for animation */
+/* ========== Form Enhancements ========== */
+input:focus, textarea:focus, select:focus {
+  border-color: #60A5FA;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+  outline: none;
 }
 
-.hostel-card:hover, .feature-item:hover {
-  transform: scale(1.05); /* Matches Tailwind hover:scale-105 */
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); /* Blue-600 glow effect */
+button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.hostel-card:focus-within, .feature-item:focus-within {
-  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
-  outline-offset: 2px;
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
 }
 
-/* ========== Sticky Buttons (hostel-detail.html) ========== */
+button:hover::before {
+  transform: translateX(100%);
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ========== Sticky Elements ========== */
 .sticky-button {
-  transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
-  will-change: transform; /* Optimize for animation */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  z-index: 1000;
 }
 
 .sticky-button:hover {
-  transform: translateY(-2px) scale(1.05); /* Slight lift and scale */
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); /* Enhanced shadow */
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
 }
 
 .sticky-button:focus {
-  outline: 2px solid #60A5FA; /* Tailwind blue-400 */
+  outline: 2px solid #60A5FA;
   outline-offset: 2px;
 }
 
-/* ========== WhatsApp Dropdown (hostel-detail.html) ========== */
-#whatsappDropdown {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* ========== WhatsApp Dropdown ========== */
+#whatsappDropdown, #whatsappMenu {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: bottom right;
 }
 
-#whatsappDropdown.hidden {
+#whatsappDropdown.hidden, #whatsappMenu.hidden {
   opacity: 0;
-  transform: scale(0.95);
-  pointer-events: none; /* Prevent clicks on hidden dropdown */
+  transform: scale(0.95) translateY(10px);
+  pointer-events: none;
 }
 
-#whatsappDropdown:not(.hidden) {
+#whatsappDropdown:not(.hidden), #whatsappMenu:not(.hidden) {
   opacity: 1;
-  transform: scale(1);
+  transform: scale(1) translateY(0);
 }
 
-#whatsappDropdown a {
-  transition: background-color 0.3s ease;
+#whatsappDropdown a, #whatsappMenu a {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-#whatsappDropdown a:hover {
-  background-color: #374151; /* Tailwind gray-700 */
+#whatsappDropdown a::before, #whatsappMenu a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
 }
 
-/* ========== Form States (hostel-detail.html) ========== */
-#hostelContactForm input:focus, #hostelContactForm textarea:focus {
-  border-color: #60A5FA; /* Tailwind blue-400 */
-  box-shadow: 0 0 8px rgba(96, 165, 250, 0.5); /* Soft glow */
+#whatsappDropdown a:hover::before, #whatsappMenu a:hover::before {
+  transform: translateX(100%);
 }
 
-#submitButton {
-  transition: background-color 0.3s ease, transform 0.2s ease;
+#whatsappDropdown a:hover, #whatsappMenu a:hover {
+  background-color: #374151;
+  transform: translateX(5px);
 }
 
-#submitButton:hover:not(:disabled) {
-  background-color: #1D4ED8; /* Tailwind blue-700 */
-  transform: translateY(-1px);
-}
-
-#submitButton:disabled {
-  background-color: #4B5563; /* Tailwind gray-600 */
-  cursor: not-allowed;
-}
-
-#formStatus {
-  transition: opacity 0.3s ease;
-}
-
-#formStatus.animate-pulse {
-  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-/* ========== Team Grid (about.html) ========== */
+/* ========== Team Grid Enhancements ========== */
 .team-grid .group {
   position: relative;
+  transition: all 0.3s ease;
 }
 
-/* Overlay effect for team images */
 .team-grid .group::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  background-color: #2563EB; /* Tailwind blue-600 */
+  background: linear-gradient(45deg, #2563EB, #06B6D4);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
+  transform: scale(0.8);
 }
 
 .team-grid .group:hover::before {
-  opacity: 0.2;
+  opacity: 0.15;
+  transform: scale(1);
 }
 
-/* Ensure images remain circular on all devices */
 .team-grid img {
-  width: 12rem; /* 192px */
-  height: 12rem; /* 192px */
+  width: 12rem;
+  height: 12rem;
   border-radius: 9999px;
-  object-fit: cover; /* Maintain aspect ratio */
-  transition: transform 0.3s ease; /* Smooth zoom on hover */
+  object-fit: cover;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 3px solid transparent;
 }
 
 .team-grid .group:hover img {
   transform: scale(1.05);
+  border-color: #60A5FA;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
 }
 
-/* ========== Timeline (about.html) ========== */
+/* ========== Timeline Enhancements ========== */
 .timeline-item {
   display: flex;
   align-items: center;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
 }
 
 .timeline-item:hover {
-  transform: translateX(10px); /* Slight shift on hover */
+  transform: translateX(10px);
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .timeline-dot {
   width: 1.5rem;
   height: 1.5rem;
-  background-color: #60A5FA; /* Tailwind blue-400 */
+  background: linear-gradient(45deg, #60A5FA, #3B82F6);
   border-radius: 9999px;
   margin-right: 1rem;
-  transition: transform 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.timeline-dot::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: #1F2937;
+  border-radius: 9999px;
+  transition: all 0.3s ease;
 }
 
 .timeline-item:hover .timeline-dot {
-  transform: scale(1.2);
+  transform: scale(1.3);
+  box-shadow: 0 0 15px rgba(96, 165, 250, 0.5);
 }
 
-/* ========== Mobile Menu (all pages) ========== */
-.nav-links {
-  display: none;
+.timeline-item:hover .timeline-dot::after {
+  inset: 1px;
 }
 
-.nav-links:not(.hidden) {
-  display: flex;
-  animation: slideDown 0.3s ease-out; /* Smooth slide animation */
+/* ========== Loading States ========== */
+.loading-spinner {
+  animation: spin 1s linear infinite;
 }
 
-@keyframes slideDown {
-  from { transform: translateY(-100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* ========== Responsive Styling ========== */
+.skeleton {
+  background: linear-gradient(90deg, 
+    rgba(55, 65, 81, 0.6) 25%, 
+    rgba(75, 85, 99, 0.8) 50%, 
+    rgba(55, 65, 81, 0.6) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ========== Responsive Enhancements ========== */
 @media (max-width: 768px) {
-  /* Mobile Menu */
-  .nav-links {
-    flex-direction: column;
-    width: 100%;
-    padding: 1rem 0;
-  }
-
-  .nav-links a {
-    padding: 0.75rem 1rem;
-  }
-
-  /* Hero and Banner */
   .hero h1, .intro-banner h1, .hostels-banner h1, .hostel-banner h1 {
-    font-size: 2.5rem; /* Adjusted for mobile */
+    font-size: 2.5rem;
+    line-height: 1.2;
   }
 
   .hero p, .intro-banner p, .hostels-banner p, .hostel-banner p {
-    font-size: 1rem; /* Adjusted for mobile */
+    font-size: 1rem;
+    line-height: 1.6;
   }
 
-  /* Map Container */
   .map-container {
-    height: 300px; /* Reduced height for mobile */
+    height: 300px;
+    margin: 1rem 0;
   }
 
   .map-container .map-fallback {
@@ -361,68 +604,42 @@ a {
     padding: 0.75rem;
   }
 
-  /* Timeline Text */
   .timeline-text {
-    font-size: 0.75rem; /* Smaller font for mobile */
+    font-size: 0.75rem;
   }
 
-  /* Hostel Cards and Feature Items */
-  .hostel-card, .feature-item {
+  .hostel-card, .feature-item, .service-card, .property-card {
     padding: 1rem;
+    margin-bottom: 1rem;
   }
 
-  /* Team Grid */
   .team-grid img {
-    width: 10rem; /* 160px */
-    height: 10rem; /* 160px */
+    width: 10rem;
+    height: 10rem;
   }
 
   .team-grid h4 {
-    font-size: 1.125rem; /* Adjusted for mobile */
+    font-size: 1.125rem;
   }
 
   .team-grid p {
-    font-size: 0.875rem; /* Adjusted for mobile */
-  }
-
-  /* Mission and Values */
-  .mission-values .value-item {
-    padding: 1.5rem;
-  }
-
-  .mission-values h4 {
-    font-size: 1.125rem;
-  }
-
-  .mission-values p {
     font-size: 0.875rem;
   }
 
-  /* Timeline */
-  .timeline-item h4 {
-    font-size: 1.125rem;
-  }
-
-  .timeline-item p {
-    font-size: 0.875rem;
-  }
-
-  .timeline-dot {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  /* Sticky Buttons */
   .sticky-button {
     bottom: 1rem;
     left: 1rem;
     font-size: 0.875rem;
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .glass-effect {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 
 @media (max-width: 480px) {
-  /* Further adjustments for smaller screens */
   .hero h1, .intro-banner h1, .hostels-banner h1, .hostel-banner h1 {
     font-size: 2rem;
   }
@@ -431,9 +648,8 @@ a {
     font-size: 0.875rem;
   }
 
-  /* Map Container */
   .map-container {
-    height: 250px; /* Further reduced for smaller screens */
+    height: 250px;
   }
 
   .map-container .map-fallback {
@@ -441,32 +657,663 @@ a {
     padding: 0.5rem;
   }
 
-  /* Timeline Text */
   .timeline-text {
-    font-size: 0.6875rem; /* Even smaller for very small screens */
+    font-size: 0.6875rem;
   }
 
-  /* Hostel Cards and Feature Items */
-  .hostel-card, .feature-item {
-    padding: 0.75rem;
-  }
-
-  /* Team Grid */
   .team-grid img {
-    width: 8rem; /* 128px */
-    height: 8rem; /* 128px */
+    width: 8rem;
+    height: 8rem;
   }
 
-  /* Page Sections */
-  .intro, .mission-values, .team, .journey, .hostels-listing, .hostel-detail {
-    padding: 2rem 1rem; /* Reduced padding for smaller screens */
-  }
-
-  /* Sticky Buttons */
   .sticky-button {
     bottom: 0.75rem;
     left: 0.75rem;
     font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
+    padding: 0.5rem 0.75rem;
   }
+}
+
+/* ========== Print Styles ========== */
+@media print {
+  .sticky-button,
+  #whatsappDropdown,
+  #whatsappMenu,
+  .floating-action-buttons {
+    display: none !important;
+  }
+  
+  .glass-effect {
+    background: white;
+    color: black;
+    border: 1px solid #ccc;
+  }
+  
+  .gradient-text {
+    -webkit-text-fill-color: initial;
+    color: #2563EB;
+  }
+}
+
+/* ========== Accessibility Enhancements ========== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .hero h1, .intro-banner h1 {
+    animation: none;
+  }
+  
+  .gradient-text {
+    animation: none;
+    background: #3B82F6;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+*:focus {
+  outline: 2px solid #60A5FA;
+  outline-offset: 2px;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #3B82F6;
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 9999;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* ========== Floating Action Buttons ========== */
+.floating-action-buttons {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 1000;
+}
+
+.floating-action-buttons button {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  cursor: pointer;
+}
+
+.floating-action-buttons button:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.floating-action-buttons button i {
+  font-size: 1.25rem;
+}
+
+/* WhatsApp floating button */
+.floating-action-buttons .whatsapp-btn {
+  background: linear-gradient(45deg, #25D366, #128C7E);
+  color: white;
+}
+
+.floating-action-buttons .whatsapp-btn:hover {
+  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.4);
+}
+
+/* Chat floating button */
+.floating-action-buttons .chat-btn {
+  background: linear-gradient(45deg, #3B82F6, #2563EB);
+  color: white;
+}
+
+.floating-action-buttons .chat-btn:hover {
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
+
+/* Back to top floating button */
+.floating-action-buttons .back-to-top-btn {
+  background: linear-gradient(45deg, #374151, #1F2937);
+  color: white;
+}
+
+.floating-action-buttons .back-to-top-btn:hover {
+  box-shadow: 0 8px 25px rgba(55, 65, 81, 0.4);
+}
+
+/* ========== Line Clamp Utility ========== */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ========== Enhanced Hero Background Patterns ========== */
+.hero-pattern {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.3) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.hero-pattern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(45deg, transparent 30%, rgba(59, 130, 246, 0.1) 50%, transparent 70%),
+    linear-gradient(-45deg, transparent 30%, rgba(6, 182, 212, 0.1) 50%, transparent 70%);
+  animation: pattern-shift 10s ease-in-out infinite;
+}
+
+@keyframes pattern-shift {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+/* ========== FAQ Sections ========== */
+.faq-item {
+  transition: all 0.3s ease;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.faq-item:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.faq-question {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.faq-question::after {
+  content: '+';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  font-weight: bold;
+  transition: transform 0.3s ease;
+}
+
+.faq-question.active::after {
+  content: '−';
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 1rem;
+}
+
+.faq-answer.show {
+  max-height: 200px;
+  padding: 1rem;
+}
+
+/* ========== Contact Form Enhancements ========== */
+.form-group {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #374151;
+  border-radius: 0.5rem;
+  background: rgba(17, 24, 39, 0.8);
+  color: white;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: rgba(17, 24, 39, 0.9);
+}
+
+.form-input:focus + .form-label,
+.form-input:not(:placeholder-shown) + .form-label {
+  transform: translateY(-1.5rem) scale(0.85);
+  color: #3B82F6;
+}
+
+.form-label {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  color: #9CA3AF;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  background: rgba(17, 24, 39, 0.8);
+  padding: 0 0.25rem;
+}
+
+.form-submit {
+  width: 100%;
+  padding: 1rem 2rem;
+  background: linear-gradient(45deg, #3B82F6, #2563EB);
+  border: none;
+  border-radius: 0.5rem;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-submit:hover {
+  background: linear-gradient(45deg, #2563EB, #1D4ED8);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.form-submit:disabled {
+  background: #6B7280;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ========== Social Media Icons ========== */
+.social-icons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.social-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.social-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.social-icon:hover::before {
+  opacity: 1;
+}
+
+.social-icon:hover {
+  transform: scale(1.1) translateY(-2px);
+}
+
+.social-icon.facebook {
+  background: linear-gradient(45deg, #1877F2, #4267B2);
+}
+
+.social-icon.twitter {
+  background: linear-gradient(45deg, #1DA1F2, #0D8BD9);
+}
+
+.social-icon.instagram {
+  background: linear-gradient(45deg, #E4405F, #C13584);
+}
+
+.social-icon.linkedin {
+  background: linear-gradient(45deg, #0077B5, #005885);
+}
+
+/* ========== Success/Error Messages ========== */
+.alert {
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid;
+  position: relative;
+  overflow: hidden;
+}
+
+.alert::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: currentColor;
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10B981;
+  color: #10B981;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #EF4444;
+  color: #EF4444;
+}
+
+.alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #F59E0B;
+  color: #F59E0B;
+}
+
+.alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3B82F6;
+  color: #3B82F6;
+}
+
+/* ========== Image Gallery Enhancements ========== */
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.image-gallery-item {
+  position: relative;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.image-gallery-item:hover {
+  transform: scale(1.03);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.image-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: all 0.3s ease;
+}
+
+.image-gallery-item:hover img {
+  transform: scale(1.1);
+}
+
+.image-gallery-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.7));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.image-gallery-item:hover::before {
+  opacity: 1;
+}
+
+.image-gallery-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  color: white;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 2;
+}
+
+.image-gallery-item:hover .image-gallery-overlay {
+  transform: translateY(0);
+}
+
+/* ========== Progress Bars ========== */
+.progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  background: #374151;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3B82F6, #06B6D4);
+  border-radius: 9999px;
+  transition: width 0.8s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: progress-shine 2s infinite;
+}
+
+@keyframes progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ========== Testimonial Enhancements ========== */
+.testimonial-card {
+  position: relative;
+  transition: all 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.testimonial-card:hover {
+  transform: rotateY(5deg) rotateX(5deg);
+}
+
+.testimonial-quote {
+  position: relative;
+  padding: 1rem 2rem;
+}
+
+.testimonial-quote::before {
+  content: '"';
+  position: absolute;
+  top: -0.5rem;
+  left: 0;
+  font-size: 4rem;
+  color: #3B82F6;
+  opacity: 0.3;
+  line-height: 1;
+}
+
+.testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.testimonial-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #3B82F6, #06B6D4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+}
+
+/* ========== Mobile Responsiveness Enhancements ========== */
+@media (max-width: 640px) {
+  .floating-action-buttons {
+    bottom: 1rem;
+    right: 1rem;
+    gap: 0.5rem;
+  }
+
+  .floating-action-buttons button {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .floating-action-buttons button i {
+    font-size: 1rem;
+  }
+
+  .social-icons {
+    gap: 0.75rem;
+  }
+
+  .social-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 0.875rem;
+  }
+
+  .image-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .form-input {
+    padding: 0.875rem;
+  }
+
+  .form-submit {
+    padding: 0.875rem 1.5rem;
+  }
+
+  .testimonial-card {
+    margin-bottom: 1rem;
+  }
+
+  .testimonial-quote {
+    padding: 0.875rem 1.5rem;
+  }
+
+  .testimonial-quote::before {
+    font-size: 3rem;
+  }
+}
+
+/* ========== Dark Mode Enhancements ========== */
+@media (prefers-color-scheme: light) {
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1F2937;
+  }
+
+  .form-input {
+    background: rgba(255, 255, 255, 0.8);
+    color: #1F2937;
+    border-color: #D1D5DB;
+  }
+
+  .alert-success {
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .alert-error {
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* ========== Performance Optimizations ========== */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* ========== Final Utilities ========== */
+.text-shadow {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.box-shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.backdrop-blur {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ========== Custom Scrollbar for Containers ========== */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: rgba(55, 65, 81, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.6);
+  border-radius: 3px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.8);
 }
