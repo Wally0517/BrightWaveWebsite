@@ -1,10 +1,46 @@
+databases:
+  - name: brightwaveproperties-db
+    plan: free
+    databaseName: brightwaveproperties_db
+    user: brightwaveproperties_db_user
+
 services:
   - type: web
     name: brightwave-backend
     env: python
     plan: free
+    autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    # IMPORTANT: bind to Render's injected $PORT
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health   # change to "/" if you don't have a /health route
     envVars:
+      # DB from managed Postgres above
+      - key: DATABASE_URL
+        fromDatabase:
+          name: brightwaveproperties-db
+          property: connectionString
+
+      # App/runtime
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY         # keep secret in dashboard
+        sync: false
       - key: ALLOWED_ORIGINS
-        value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.online
+        value: https://brightwaveenterprises.online, https://www.brightwaveenterprises.online, http://localhost:5500
+
+      # Outbound email
+      - key: MAIL_SERVER
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USE_TLS
+        value: "True"
+      - key: MAIL_USERNAME
+        value: brightwaveenterprise0@gmail.com
+      - key: MAIL_DEFAULT_SENDER
+        value: brightwaveenterprise0@gmail.com
+      - key: MAIL_PASSWORD      # keep secret in dashboard (App Password)
+        sync: false
+      - key: NOTIFICATION_EMAILS
+        value: brightwaveenterprise0@gmail.com,kamalmallamia@gmail.com,omobolajiakinbode@gmail.com
