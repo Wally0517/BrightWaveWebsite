@@ -194,7 +194,7 @@ def init_sample_data():
         
         phase3 = Property(
             title='BrightWave Hostel Phase 3',
-            description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Ilorin.',
+            description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Kwara.',
             property_type='hostel',
             location='GreenCity, Malete, Kwara State',
             price=520000,
@@ -209,20 +209,6 @@ def init_sample_data():
         )
 
         # Land Properties
-        land_gra = Property(
-            title='Premium Land - Ilorin GRA',
-            description='600sqm residential plot in prestigious Government Reserved Area. Perfect for luxury residential development.',
-            property_type='land',
-            location='GRA, Ilorin, Kwara State',
-            price=25000000,
-            price_type='per plot (600sqm)',
-            size='600sqm',
-            amenities=['Clear documentation', 'Strategic location', 'Flexible payment plans', 'Investment guidance'],
-            images=['images/lands/ilorin-gra-plot.jpg'],
-            construction_status='completed',
-            featured=True
-        )
-        
         land_fate = Property(
             title='Commercial Land - Fate Road',
             description='800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
@@ -233,20 +219,6 @@ def init_sample_data():
             size='800sqm',
             amenities=['Clear documentation', 'Strategic location', 'Commercial zoning', 'High traffic area'],
             images=['images/lands/fate-road-commercial.jpg'],
-            construction_status='completed',
-            featured=False
-        )
-        
-        land_kulende = Property(
-            title='Residential Plot - Kulende',
-            description='700sqm residential land in serene Kulende area. Close to schools and major roads.',
-            property_type='land',
-            location='Kulende, Ilorin West, Kwara State',
-            price=12000000,
-            price_type='per plot (700sqm)',
-            size='700sqm',
-            amenities=['Clear documentation', 'Strategic location', 'Residential zoning', 'Peaceful environment'],
-            images=['images/lands/kulende-residential.jpg'],
             construction_status='completed',
             featured=False
         )
