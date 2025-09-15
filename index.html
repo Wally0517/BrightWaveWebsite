@@ -1025,61 +1025,61 @@
     }
 
     function renderProperties(properties) {
-      const grid = document.getElementById('propertiesGrid');
-      
-      if (properties.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full text-center py-12">
-            <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
-            <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
-            <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
-          </div>
-        `;
-        return;
-      }
+  const grid = document.getElementById('propertiesGrid');
 
-      grid.innerHTML = properties.map(property => `
-        <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
-          <div class="relative">
-            <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/placeholder-property.jpg'}" 
-                 alt="${property.title}" class="w-full h-64 object-cover" 
-                 onerror="this.src='/assets/images/placeholder-property.jpg'" />
-            ${property.construction_status && property.construction_status !== 'completed' ? `
-              <div class="absolute top-4 left-4">
-                <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
-                  ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
-                    property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
-                </span>
-              </div>
-            ` : ''}
-            ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
+  if (properties.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full text-center py-12">
+        <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
+        <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
+        <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = properties.map(property => `
+    <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
+      <div class="relative">
+        <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/placeholder-property.jpg'}" 
+             alt="${property.title}" class="w-full h-64 object-cover"
+             onerror="this.src='/assets/images/placeholder-property.jpg'" />
+        ${property.construction_status && property.construction_status !== 'completed' ? `
+          <div class="absolute top-4 left-4">
+            <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
+              ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
+                property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
+            </span>
           </div>
-          <div class="p-6">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-xl font-bold text-white">${property.title}</h3>
-              <span class="text-xs px-2 py-1 rounded-full ${
-                property.type === 'hostel' ? 'bg-slate-500' : 
-                property.type === 'land' ? 'bg-green-500' : 'bg-amber-500'
-              } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
-            </div>
-            <div class="flex items-center text-gray-400 mb-3">
-              <i class="fas fa-map-marker-alt mr-2"></i>
-              <span class="text-sm">${property.location}</span>
-            </div>
-            <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
-            <div class="flex items-center justify-between">
-              <div class="text-slate-300 font-bold text-lg">
-                ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
-              </div>
-              <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}" 
-                 class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
-                ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
-              </a>
-            </div>
-          </div>
+        ` : ''}
+        ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
+      </div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xl font-bold text-white">${property.title}</h3>
+          <span class="text-xs px-2 py-1 rounded-full ${
+            property.type === 'hostel' ? 'bg-slate-500' : 
+            property.type === 'land' ? 'bg-green-500' : 'bg-amber-500'
+          } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
         </div>
-      `).join('');
-    }
+        <div class="flex items-center text-gray-400 mb-3">
+          <i class="fas fa-map-marker-alt mr-2"></i>
+          <span class="text-sm">${property.location}</span>
+        </div>
+        <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
+        <div class="flex items-center justify-between">
+          <div class="text-slate-300 font-bold text-lg">
+            ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
+          </div>
+          <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostel-detail.html' : '#contact'}" 
+             class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
+            ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
+          </a>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
 
     // Mock data function for fallback
     function getMockProperties() {
