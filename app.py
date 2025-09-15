@@ -223,7 +223,7 @@ def init_sample_data():
             featured=False
         )
         
-        land_obada_ikija = Property(
+        land-obada_ikija = Property(
     title='BrightWave Estate - Obada Ikija',
     description='6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
     property_type='land',
