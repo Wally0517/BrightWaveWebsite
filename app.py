@@ -260,28 +260,29 @@ def init_sample_data():
     price_type='per_sqm',
     size='6 acres',
     amenities=['Gated Community', 'Electricity', 'Water Supply', 'Good Road Network', 'Security', 'Recreational Facilities'],
-    images=['brightwave-estate-placeholder.jpg'],
+    images=['images/lands/brightwave-estate-placeholder.jpg'],
     construction_status='planned',
     completion_date=datetime(2026, 12, 31).date(),
     featured=True
 )
 
         # Residential Homes (Future Projects)
-        BrightWave GRA = Property(
-            title='4-Bedroom Duplex - GRA',
-            description='Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
-            property_type='residential',
-            location='GRA, Ilorin, Kwara State',
-            price=None,
-            price_type='Coming 2028',
-            total_rooms=4,
-            amenities=['Modern designs', 'Quality construction', 'Accessible location', 'Luxury finishes'],
-            images=['images/homes/gra-duplex-concept.jpg'],
-            construction_status='planning',
-            completion_date=datetime(2026, 12, 31).date(),
-            featured=False
-        )
-        
+       # Residential Homes (Future Projects)
+home_gra = Property(
+    title='4-Bedroom Duplex - GRA',
+    description='Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
+    property_type='residential',
+    location='GRA, Ilorin, Kwara State',
+    price=None,
+    price_type='Coming 2028',
+    total_rooms=4,
+    amenities=['Modern designs', 'Quality construction', 'Accessible location', 'Luxury finishes'],
+    images=['images/homes/gra-duplex-concept.jpg'],
+    construction_status='planning',
+    completion_date=datetime(2026, 12, 31).date(),
+    featured=False
+)
+
         home_adewole = Property(
             title='3-Bedroom Bungalow - Adewole',
             description='Contemporary 3-bedroom bungalow in planned estate development.',
@@ -297,7 +298,11 @@ def init_sample_data():
             featured=False
         )
         
-        db.session.add_all([phase1, phase2, phase3, land_gra, land_fate, land_kulende, land_offa, home_gra, home_adewole])
+        db.session.add_all([
+    phase1, phase2, phase3,
+    land_gra, land_fate, land_kulende, land_obada_ikija,  # include this
+    home_gra, home_adewole
+])  # remove land_offa
         db.session.commit()
         logger.info("Sample property data initialized with realistic Kwara State properties")
 
@@ -317,11 +322,15 @@ def serve_homepage():
 
 @app.route('/about')
 def serve_about():
-    return send_from_directory('.', 'about.html')
+    return send_from_directory('.', 'about.html') if os.path.exists('about.html') \
+            else send_from_directory('.', 'index.html')
+    
 
 @app.route('/contact')
 def serve_contact():
-    return send_from_directory('.', 'contact.html')
+    return send_from_directory('.', 'contact.html') if os.path.exists('contact.html') \
+            else send_from_directory('.', 'index.html')
+    
 
 @app.route('/faq')
 def serve_faq():
@@ -329,7 +338,8 @@ def serve_faq():
 
 @app.route('/hostels')
 def serve_hostels():
-    return send_from_directory('.', 'hostels.html')
+    return send_from_directory('.', 'hostels.html') if os.path.exists('hostels.html') \
+            else send_from_directory('.', 'index.html')
 
 @app.route('/hostels/detail')
 def serve_hostel_detail():
@@ -338,6 +348,10 @@ def serve_hostel_detail():
 @app.route('/assets/<path:filename>')
 def serve_static_assets(filename):
     return send_from_directory('assets', filename)
+
+@app.route('/health')
+def health():
+    return 'ok', 200
 
 # ========== PROPERTY API ROUTES ==========
 @app.route('/api/properties', methods=['GET'])
