@@ -172,13 +172,13 @@ def init_sample_data():
     amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
     images=['images/brightwave-project-1.jpg'],  # Updated path
     construction_status='ongoing',
-    completion_date=datetime(2025, 12, 31).date(),
+    completion_date=datetime(2026, 03, 25).date(),
     featured=True
 )
         
         phase2 = Property(
             title='BrightWave Hostel Phase 2',
-            description='20-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
+            description='30-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
             property_type='hostel',
             location='Malete, Kwara State',
             price=480000,
@@ -188,7 +188,7 @@ def init_sample_data():
             amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Study Areas', 'Common Spaces'],
             images=['images/hostels/brightwave-phase2-render.jpg'],
             construction_status='planning',
-            completion_date=datetime(2026, 6, 30).date(),
+            completion_date=datetime(2027, 6, 30).date(),
             featured=False
         )
         
@@ -196,7 +196,7 @@ def init_sample_data():
             title='BrightWave Hostel Phase 3',
             description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Ilorin.',
             property_type='hostel',
-            location='Tanke, Ilorin, Kwara State',
+            location='GreenCity, Malete, Kwara State',
             price=520000,
             price_type='per session',
             total_rooms=40,
@@ -204,7 +204,7 @@ def init_sample_data():
             amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Gym', 'Library', 'Recreation facilities'],
             images=['images/hostels/brightwave-phase3-concept.jpg'],
             construction_status='planning',
-            completion_date=datetime(2026, 12, 31).date(),
+            completion_date=datetime(2028, 12, 31).date(),
             featured=False
         )
 
