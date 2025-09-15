@@ -3,223 +3,452 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Frequently Asked Questions about BrightWave Enterprises' student hostels in Nigeria." />
-  <title>FAQ | BrightWave Enterprises</title>
-  <link rel="icon" href="/assets/images/brightwave-logo.png" type="image/png" />
-  <!-- Font Awesome for Social Media Icons and FAQ Icons -->
+  <meta name="description" content="Frequently Asked Questions for BrightWave Habitat Enterprise: student hostels, land purchase, residential homes, and investment." />
+  <!-- Open Graph -->
+  <meta property="og:title" content="FAQ | BrightWave Habitat Enterprise" />
+  <meta property="og:description" content="Answers for students, land buyers and investors: bookings, pricing, security, documents, installment plans and more." />
+  <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="500" />
+  <meta property="og:image:height" content="500" />
+  <meta property="og:url" content="https://brightwaveenterprises.online/faq.html" />
+  <meta property="og:type" content="website" />
+  <title>FAQ | BrightWave Habitat Enterprise</title>
+  <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
+  <!-- Icons & Tailwind -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+  <style>
+    /* --- Reuse site theme (matches index.html) --- */
+    .gradient-text{background:linear-gradient(45deg,#64748B,#94A3B8,#475569);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hover-lift{transition:transform .3s ease,box-shadow .3s ease}
+    .hover-lift:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,0,0,.3)}
+    .glass-effect{backdrop-filter:blur(10px);background:rgba(17,24,39,.8);border:1px solid rgba(255,255,255,.08)}
+    .nav-link{position:relative;transition:color .3s ease}
+    .nav-link::after{content:'';position:absolute;width:0;height:2px;bottom:-8px;left:50%;background:linear-gradient(90deg,#64748B,#94A3B8);transition:all .3s ease;transform:translateX(-50%);border-radius:1px}
+    .nav-link:hover::after,.nav-link.active::after{width:100%}
+    .hero-overlay{background:linear-gradient(135deg,rgba(15,23,42,.92) 0%,rgba(51,65,85,.75) 35%,rgba(15,23,42,.92) 100%)}
+    .hero-pattern{background-image:radial-gradient(circle at 2px 2px,rgba(148,163,184,.2) 1px,transparent 0);background-size:30px 30px;animation:pattern-move 30s linear infinite}
+    @keyframes pattern-move{0%{background-position:0 0}100%{background-position:30px 30px}}
+    .faq-open .chev{transform:rotate(180deg)}
+    .chip{border:1px solid rgba(148,163,184,.35)}
+    .chip.active{background:#475569;color:#fff;border-color:#475569}
+  </style>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
-  <!-- Navigation -->
-  <header class="bg-gray-800 shadow-md sticky top-0 z-50">
+  <!-- Header (same as site) -->
+  <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10" />
-        <h1 class="text-2xl font-bold text-blue-400">BrightWave Enterprise</h1>
+        <div class="relative">
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-slate-400/30 shadow-lg" />
+          <div class="absolute -inset-1 bg-gradient-to-r from-slate-400 to-slate-600 rounded-full blur opacity-20 animate-pulse"></div>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-bold text-slate-100">BrightWave</h1>
+          <p class="text-xs text-slate-400 font-medium">Habitat Enterprise</p>
+        </div>
       </div>
-      <button class="md:hidden menu-toggle text-2xl text-white" aria-label="Toggle navigation menu">☰</button>
-      <ul class="hidden md:flex space-x-6 text-lg font-semibold">
-        <li><a href="/" class="hover:text-blue-300">Home</a></li>
-        <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
-        <li><a href="/about" class="hover:text-blue-300">About</a></li>
-        <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
-        <li><a href="/faq" class="text-blue-400 hover:text-blue-300">FAQ</a></li>
+
+      <button id="mobile-menu-toggle" class="md:hidden text-2xl text-white p-2 rounded-lg hover:bg-slate-700/50 transition" aria-label="Toggle navigation menu">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <ul class="hidden md:flex space-x-8 text-lg font-semibold">
+        <li><a href="/#home" class="text-slate-400 hover:text-slate-200 nav-link">Home</a></li>
+        <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link">Services</a></li>
+        <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link">Properties</a></li>
+        <li><a href="/#about" class="text-slate-400 hover:text-slate-200 nav-link">About</a></li>
+        <li><a href="/#team" class="text-slate-400 hover:text-slate-200 nav-link">Team</a></li>
+        <li><a href="/faq.html" class="text-slate-200 nav-link active">FAQ</a></li>
+        <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link">Contact</a></li>
       </ul>
     </nav>
-    <ul class="nav-links hidden bg-gray-800 shadow-md md:hidden flex-col items-center space-y-4 py-4">
-      <li><a href="/" class="hover:text-blue-300 font-semibold">Home</a></li>
-      <li><a href="/hostels" class="hover:text-blue-300">Hostels</a></li>
-      <li><a href="/about" class="hover:text-blue-300">About</a></li>
-      <li><a href="/contact" class="hover:text-blue-300">Contact</a></li>
-      <li><a href="/faq" class="text-blue-400 font-semibold hover:text-blue-300">FAQ</a></li>
-    </ul>
+
+    <!-- Mobile nav -->
+    <div class="mobile-nav hidden md:hidden bg-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-slate-700/30">
+      <ul class="flex flex-col items-center space-y-4 py-6 text-lg font-semibold">
+        <li><a href="/#home" class="text-slate-400 nav-link">Home</a></li>
+        <li><a href="/#services" class="text-slate-400 nav-link">Services</a></li>
+        <li><a href="/#properties" class="text-slate-400 nav-link">Properties</a></li>
+        <li><a href="/#about" class="text-slate-400 nav-link">About</a></li>
+        <li><a href="/#team" class="text-slate-400 nav-link">Team</a></li>
+        <li><a href="/faq.html" class="text-slate-200 nav-link active">FAQ</a></li>
+        <li><a href="/#contact" class="text-slate-400 nav-link">Contact</a></li>
+      </ul>
+    </div>
   </header>
 
-  <!-- FAQ Page -->
-  <main class="faq container mx-auto px-4 py-16">
-    <!-- Hero-like Banner -->
-    <section class="faq-banner relative h-80 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-center flex items-center justify-center mb-12 overflow-hidden">
-      <!-- Gradient and Pattern Overlay -->
-      <div class="absolute inset-0 bg-gradient-to-br from-blue-900/70 via-gray-900/60 to-blue-600/70 z-10"></div>
-      <div class="absolute inset-0 bg-[url('/assets/images/abstract-pattern.png')] bg-cover bg-center opacity-10 z-10"></div>
-      <!-- Parallax Background -->
-      <div class="absolute inset-0 bg-[url('/assets/images/hostel-background.jpg')] bg-cover bg-fixed bg-center z-0"></div>
-      <!-- Content -->
-      <div class="relative text-center z-20">
-        <h1 class="text-5xl font-bold mb-4 text-white drop-shadow-lg">Frequently Asked <span class="text-blue-400">Questions</span></h1>
-        <p class="text-xl font-semibold text-gray-100 drop-shadow-md">Find Answers About Our Student Hostels in Nigeria</p>
-      </div>
-    </section>
+  <!-- Hero -->
+  <section class="relative min-h-[45vh] md:min-h-[55vh] flex items-center justify-center overflow-hidden" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg');background-size:cover;background-position:center;background-attachment:fixed">
+    <div class="absolute inset-0 hero-overlay"></div>
+    <div class="absolute inset-0 hero-pattern opacity-20"></div>
+    <div class="relative z-10 text-center px-4 max-w-5xl" data-aos="fade-up" data-aos-duration="1000">
+      <h1 class="text-4xl md:text-6xl font-extrabold mb-4">Frequently Asked <span class="gradient-text">Questions</span></h1>
+      <p class="text-lg md:text-2xl text-slate-200">Clear answers for students, land buyers, and investors in Nigeria</p>
+    </div>
+  </section>
 
-    <!-- FAQ Section -->
-    <section class="faq-list py-12">
-      <h2 class="text-4xl font-bold text-center mb-8">Your Questions, Answered</h2>
-      <p class="text-lg font-medium text-center mb-12 max-w-2xl mx-auto">Explore common questions about BrightWave Enterprises' student housing solutions.</p>
-      <div class="max-w-3xl mx-auto space-y-4">
-        <div class="faq-item bg-gray-700 rounded-lg shadow-lg">
-          <button class="faq-question w-full text-left p-4 flex justify-between items-center text-lg font-semibold hover:bg-gray-600 transition">
-            What amenities are included in BrightWave hostels?
-            <i class="fas fa-chevron-down transform transition-transform duration-300"></i>
-          </button>
-          <div class="faq-answer hidden p-4 text-md font-medium">
-            Our Phase 1 hostel in Malete, Kwara State, Nigeria, includes 10 self-contained rooms with private bathrooms and kitchens, 24/7 security, and solar power. Phase 2 will offer extended amenities, details to be announced.
+  <!-- Search + Filters -->
+  <section class="py-10">
+    <div class="container mx-auto px-4">
+      <div class="glass-effect rounded-2xl p-6 md:p-8 hover-lift" data-aos="fade-up">
+        <div class="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+          <div class="relative flex-1">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="faqSearch" type="text" placeholder="Search questions (e.g., 'installment', 'security', 'documents')"
+                   class="w-full pl-12 pr-4 py-3 rounded-xl bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all" />
           </div>
-        </div>
-        <div class="faq-item bg-gray-700 rounded-lg shadow-lg">
-          <button class="faq-question w-full text-left p-4 flex justify-between items-center text-lg font-semibold hover:bg-gray-600 transition">
-            How can I book a room in a BrightWave hostel?
-            <i class="fas fa-chevron-down transform transition-transform duration-300"></i>
-          </button>
-          <div class="faq-answer hidden p-4 text-md font-medium">
-            Booking details for Phase 1 will be available closer to completion (Q2 2025). Please <a href="/contact" class="text-blue-400 hover:text-blue-300">contact us</a> to join our waiting list or inquire about the process.
-          </div>
-        </div>
-        <div class="faq-item bg-gray-700 rounded-lg shadow-lg">
-          <button class="faq-question w-full text-left p-4 flex justify-between items-center text-lg font-semibold hover:bg-gray-600 transition">
-            Are BrightWave hostels affordable for students?
-            <i class="fas fa-chevron-down transform transition-transform duration-300"></i>
-          </button>
-          <div class="faq-answer hidden p-4 text-md font-medium">
-            Yes, our mission is to provide affordable housing tailored for students. Pricing details will be shared as we near Phase 1 completion. Contact us for updates or to discuss your needs.
-          </div>
-        </div>
-        <div class="faq-item bg-gray-700 rounded-lg shadow-lg">
-          <button class="faq-question w-full text-left p-4 flex justify-between items-center text-lg font-semibold hover:bg-gray-600 transition">
-            What safety measures are in place at BrightWave hostels?
-            <i class="fas fa-chevron-down transform transition-transform duration-300"></i>
-          </button>
-          <div class="faq-answer hidden p-4 text-md font-medium">
-            We prioritize student safety with 24/7 security personnel, CCTV surveillance, and secure access points. Our hostels are designed to offer a safe and comfortable living environment.
-          </div>
-        </div>
-        <div class="faq-item bg-gray-700 rounded-lg shadow-lg">
-          <button class="faq-question w-full text-left p-4 flex justify-between items-center text-lg font-semibold hover:bg-gray-600 transition">
-            Can I visit a BrightWave hostel before booking?
-            <i class="fas fa-chevron-down transform transition-transform duration-300"></i>
-          </button>
-          <div class="faq-answer hidden p-4 text-md font-medium">
-            Tours for Phase 1 will be available closer to completion. Please <a href="/contact" class="text-blue-400 hover:text-blue-300">reach out</a> to schedule a visit or learn more about our progress.
+          <div class="flex flex-wrap gap-2">
+            <button class="chip active px-4 py-2 rounded-xl text-sm font-semibold" data-cat="all">All</button>
+            <button class="chip px-4 py-2 rounded-xl text-sm font-semibold" data-cat="students">Students</button>
+            <button class="chip px-4 py-2 rounded-xl text-sm font-semibold" data-cat="land">Land Buyers</button>
+            <button class="chip px-4 py-2 rounded-xl text-sm font-semibold" data-cat="investors">Investors</button>
+            <button class="chip px-4 py-2 rounded-xl text-sm font-semibold" data-cat="payments">Payments</button>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Contact Information -->
-    <section class="contact-info py-12">
-      <h2 class="text-3xl font-bold text-center mb-8">Still Have Questions?</h2>
-      <p class="text-lg font-medium text-center mb-8 max-w-2xl mx-auto">Reach out to us directly for more information.</p>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
-          <i class="fas fa-envelope text-3xl text-blue-400 mb-4"></i>
-          <h3 class="text-xl font-semibold mb-2">Email</h3>
-          <p class="text-sm font-medium break-words"><a href="mailto:brightwaveenterprises0@gmail.com" class="hover:text-blue-400">brightwaveenterprises0@gmail.com</a></p>
-        </div>
-        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
-          <i class="fab fa-whatsapp text-3xl text-blue-400 mb-4"></i>
-          <h3 class="text-xl font-semibold mb-2">WhatsApp</h3>
-          <p class="text-sm font-medium break-words">
-            <a href="https://wa.me/+2348037669492" class="hover:text-blue-400">+234 803 766 9492</a><br>
-            <a href="https://wa.me/+2349038402914" class="hover:text-blue-400">+234 903 840 2914</a><br>
-            <a href="https://wa.me/+2349075381905" class="hover:text-blue-400">+234 907 538 1905</a>
-          </p>
-        </div>
-        <div class="info-item text-center p-6 bg-gray-700 rounded-lg shadow-lg flex flex-col items-center justify-center h-48">
-          <i class="fas fa-map-marker-alt text-3xl text-blue-400 mb-4"></i>
-          <h3 class="text-xl font-semibold mb-2">Address</h3>
-          <p class="text-sm font-medium break-words">Malete, Kwara State, Nigeria</p>
-        </div>
+  <!-- FAQ List -->
+  <section class="pb-20">
+    <div class="container mx-auto px-4">
+      <div id="faqList" class="max-w-4xl mx-auto space-y-4" data-aos="fade-up" data-aos-duration="1000">
+
+        <!-- Each item: add data-tags with categories -->
+        <!-- Students -->
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="students">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>How do I book a room in BrightWave Hostel Phase 1?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Join the waitlist on the <a href="/hostel-detail.html" class="text-slate-300 underline">hostel detail page</a> or message us on WhatsApp.
+            We’ll confirm availability, share requirements (valid ID, admission letter or student ID), and guide you through payment and allocation.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="students payments">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>What does the price cover—light, water, and maintenance?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Rooms are self-contained with water supply included. Power is supported with solar backup and a general generator for common services.
+            Tenants fund their personal electricity usage (where applicable). Routine maintenance of common areas is included.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="students">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>How secure is the facility? Any curfew or visitor rules?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Security includes gated access, trained personnel and CCTV around key points. Visitor and quiet-hours policies are communicated during onboarding to keep everyone safe and productive.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="students">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Is internet (Wi-Fi) provided?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Internet options vary by phase and provider. Many students use personal MiFi/routers. Confirm current Wi-Fi availability with our team during booking.
+          </div>
+        </article>
+
+        <!-- Land Buyers -->
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="land payments">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Do you offer land on installment? What’s the initial deposit?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Yes—select sites allow installment plans. Typical structure: 20–30% initial deposit, then monthly or quarterly spreads (3–12 months depending on the estate).
+            Exact plans are shared with the offer letter for that location.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="land">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Which documents will I receive for land purchase in Kwara?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Standard pack includes a Receipt/Invoice, <em>Deed of Assignment</em>, Registered Survey (or Survey in process), Layout plan/allocation letter, and estate covenants where applicable.
+            Title type differs by site—our team will state whether it’s C of O, R of O, customary consent, or in-process.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="land">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>How do I verify the land before payment?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            We encourage site inspections and independent checks. You can verify survey details with the Surveyor-General’s office and confirm title at the Lands Registry.
+            We also provide beacons/coordinates and support due diligence.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="land payments">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Are there extra charges apart from plot price?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Possible extras (estate-dependent): survey fee, deed preparation/registration, development levy, and allocation/utility fees.
+            We provide a transparent fee sheet before payment.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="land">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>When will I get physical allocation and possession?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            After completing agreed payments and documentation, allocation is scheduled (often within 2–6 weeks, estate-specific). You’ll receive your plot beaconing and can take possession accordingly.
+          </div>
+        </article>
+
+        <!-- Investors -->
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="investors">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>How can I invest or partner with BrightWave Habitat Enterprise?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            We consider joint ventures (land-for-equity), build-to-rent financing, and bulk hostel blocks.
+            Share your proposal via <a href="mailto:brightwaveenterprise0@gmail.com" class="underline">email</a> and our team will schedule a session to review scope, security, timelines, and returns.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="investors">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>What returns can I expect from student hostels?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Yields vary by location, room mix and occupancy.
+            Student accommodations in strong university markets commonly target competitive cash yields; we share pro-formas and sensitivity analysis during due diligence.
+          </div>
+        </article>
+
+        <!-- Payments / General -->
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="payments">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Which payment methods do you accept?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Bank transfer is preferred for auditability. Official account details are provided on your invoice/offer letter only—always confirm with our team before sending funds.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="payments students land">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>Do you offer refunds if I change my mind?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Refunds follow the terms on your offer letter/tenancy. Administrative and processing fees may apply.
+            For land, refunds are subject to the stage of processing (survey/deed) and any outstanding deductions.
+          </div>
+        </article>
+
+        <article class="glass-effect rounded-xl overflow-hidden" data-tags="students land investors">
+          <button class="w-full flex justify-between items-center px-5 py-4 text-left font-semibold">
+            <span>How do I contact you quickly?</span>
+            <i class="fa-solid fa-chevron-down chev transition-transform"></i>
+          </button>
+          <div class="hidden px-5 pb-5 text-gray-300">
+            Email: <a href="mailto:brightwaveenterprise0@gmail.com" class="underline">brightwaveenterprise0@gmail.com</a> |
+            WhatsApp: <a class="underline" href="https://wa.me/2348037669462">+234 803 766 9462</a>,
+            <a class="underline" href="https://wa.me/2349038402914">+234 903 840 2914</a>,
+            <a class="underline" href="https://wa.me/2349075381905">+234 907 538 1905</a>.
+          </div>
+        </article>
+
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Call to Action -->
-    <section class="cta bg-blue-700 text-white py-16 text-center">
-      <h2 class="text-4xl font-bold mb-4">Need More Help?</h2>
-      <p class="text-lg mb-6 font-medium">Contact us to learn more about our hostels or to schedule a tour.</p>
-      <a href="/contact" class="inline-block bg-white text-blue-700 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-semibold text-lg">Get in Touch</a>
-    </section>
-  </main>
-
-  <!-- Footer -->
-  <footer class="bg-gray-800 text-white py-8">
+  <!-- CTA -->
+  <section class="py-16 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4 text-center">
-      <p class="mb-4 font-medium">© 2025 BrightWave Enterprise. All rights reserved.</p>
-      <div class="flex justify-center space-x-6 mb-4">
-        <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
-          <i class="fab fa-facebook-f"></i>
-          <span>Facebook</span>
-        </a>
-        <a href="https://x.com/brightwave__?s=21" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
-          <i class="fab fa-x-twitter"></i>
-          <span>Twitter</span>
-        </a>
-        <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="flex items-center space-x-2 hover:text-blue-400 font-semibold">
-          <i class="fab fa-instagram"></i>
-          <span>Instagram</span>
-        </a>
+      <h2 class="text-4xl font-bold mb-4">Didn’t find your answer?</h2>
+      <p class="text-lg text-gray-300 mb-8">Send us a message—our team will respond quickly.</p>
+      <a href="/#contact" class="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-4 rounded-xl transition-all font-semibold text-lg hover-lift">
+        Contact BrightWave
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer (same as site) -->
+  <footer class="bg-gray-800 text-white py-12">
+    <div class="container mx-auto px-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div class="flex items-center space-x-3">
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-10 rounded-full" />
+          <div>
+            <h3 class="text-lg font-bold text-slate-300">BrightWave</h3>
+            <p class="text-xs text-gray-300">Habitat Enterprise</p>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-lg font-semibold mb-3 text-slate-300">Quick Links</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="/#properties" class="text-gray-300 hover:text-slate-300">Properties</a></li>
+            <li><a href="/hostel-detail.html" class="text-gray-300 hover:text-slate-300">Hostel Phase 1</a></li>
+            <li><a href="/#services" class="text-gray-300 hover:text-slate-300">Services</a></li>
+            <li><a href="/#contact" class="text-gray-300 hover:text-slate-300">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-lg font-semibold mb-3 text-slate-300">Contact</h4>
+          <div class="space-y-2 text-sm text-gray-300">
+            <div class="flex items-center space-x-2"><i class="fas fa-envelope text-slate-400"></i><span>brightwaveenterprise0@gmail.com</span></div>
+            <div class="flex items-center space-x-2"><i class="fab fa-whatsapp text-green-400"></i><span>+234 803 766 9462</span></div>
+            <div class="flex items-center space-x-2"><i class="fas fa-map-marker-alt text-amber-400"></i><span>Malete, Kwara State, Nigeria</span></div>
+          </div>
+        </div>
       </div>
-      <button id="open-chat" class="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold text-md">
-        <i class="fas fa-comments mr-2"></i>Chat with Us
-      </button>
+      <div class="border-t border-gray-700 pt-6 text-center">
+        <p class="text-gray-400 text-sm">© 2025 BrightWave Habitat Enterprise. All rights reserved.</p>
+      </div>
     </div>
   </footer>
 
+  <!-- Floating Actions -->
+  <div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
+    <div class="relative">
+      <button id="whatsappToggle" class="bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg transition-all flex items-center justify-center hover-lift">
+        <i class="fab fa-whatsapp text-xl"></i>
+      </button>
+      <div id="whatsappMenu" class="absolute bottom-16 right-0 bg-white rounded-lg shadow-xl p-2 hidden min-w-48">
+        <a href="https://wa.me/2348037669462?text=Hello%20BrightWave" class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">+234 803 766 9462</a>
+        <a href="https://wa.me/2349038402914?text=Hello%20BrightWave" class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">+234 903 840 2914</a>
+        <a href="https://wa.me/2349075381905?text=Hello%20BrightWave" class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">+234 907 538 1905</a>
+      </div>
+    </div>
+
+    <button id="open-chat" class="bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg transition-all flex items-center justify-center hover-lift">
+      <i class="fas fa-comments text-xl"></i>
+    </button>
+
+    <button id="back-to-top" class="bg-gray-700 hover:bg-gray-600 text-white w-14 h-14 rounded-full shadow-lg transition-all items-center justify-center hover-lift hidden">
+      <i class="fas fa-arrow-up text-xl"></i>
+    </button>
+  </div>
+
+  <!-- JSON-LD FAQ Schema (top items) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How do I book a room in BrightWave Hostel Phase 1?",
+        "acceptedAnswer": {"@type":"Answer","text":"Join the waitlist on the hostel detail page or WhatsApp us. We'll confirm availability, share requirements (valid ID/student ID), and guide you through payment and allocation."}
+      },
+      {
+        "@type": "Question",
+        "name": "Do you offer land on installment? What’s the initial deposit?",
+        "acceptedAnswer": {"@type":"Answer","text":"Yes, selected sites support installments. Typical structure is 20–30% initial deposit with monthly or quarterly spreads over 3–12 months depending on the estate."}
+      },
+      {
+        "@type": "Question",
+        "name": "Which documents will I receive for land purchase?",
+        "acceptedAnswer": {"@type":"Answer","text":"Receipt/Invoice, Deed of Assignment, Registered Survey (or in process), Layout/allocation letter and estate covenants where applicable. Title varies by site (e.g. C of O, R of O, or customary consent)."}
+      },
+      {
+        "@type": "Question",
+        "name": "How secure is the facility?",
+        "acceptedAnswer": {"@type":"Answer","text":"Security includes gated access, trained personnel and CCTV at key points. Visitor and quiet-hours policies are enforced for safety."}
+      }
+    ]
+  }
+  </script>
+
   <!-- Scripts -->
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Mobile Menu Toggle
-      const toggle = document.querySelector('.menu-toggle');
-      const navLinks = document.querySelector('.nav-links');
-      toggle.addEventListener('click', () => {
-        navLinks.classList.toggle('hidden');
-        toggle.textContent = navLinks.classList.contains('hidden') ? '☰' : '✕';
-      });
+    // AOS
+    AOS.init({ duration: 1000, once: true, offset: 100 });
 
-      // FAQ Accordion Toggle
-      const faqQuestions = document.querySelectorAll('.faq-question');
-      faqQuestions.forEach(button => {
-        button.addEventListener('click', () => {
-          const answer = button.nextElementSibling;
-          const icon = button.querySelector('i');
-          answer.classList.toggle('hidden');
-          icon.classList.toggle('rotate-180');
-        });
+    // Mobile nav toggle
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const mobileNav = document.querySelector('.mobile-nav');
+    const toggleIcon = mobileToggle.querySelector('i');
+    mobileToggle.addEventListener('click', ()=>{
+      mobileNav.classList.toggle('hidden');
+      toggleIcon.classList.toggle('fa-bars'); toggleIcon.classList.toggle('fa-times');
+    });
+
+    // Floating menus
+    const whatsappToggle = document.getElementById('whatsappToggle');
+    const whatsappMenu   = document.getElementById('whatsappMenu');
+    whatsappToggle.addEventListener('click',()=>whatsappMenu.classList.toggle('hidden'));
+    document.addEventListener('click',(e)=>{ if(!whatsappToggle.contains(e.target)&&!whatsappMenu.contains(e.target)) whatsappMenu.classList.add('hidden'); });
+
+    const backToTopBtn = document.getElementById('back-to-top');
+    window.addEventListener('scroll',()=>{ if(window.pageYOffset>300){backToTopBtn.classList.remove('hidden');backToTopBtn.classList.add('flex');} else {backToTopBtn.classList.add('hidden');backToTopBtn.classList.remove('flex');} });
+    backToTopBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+    // FAQ Accordion
+    document.querySelectorAll('#faqList article').forEach(card=>{
+      const btn = card.querySelector('button');
+      const ans = card.querySelector('div');
+      btn.addEventListener('click',()=>{
+        ans.classList.toggle('hidden');
+        card.classList.toggle('faq-open');
       });
     });
+
+    // Filters & Search
+    const chips = document.querySelectorAll('.chip');
+    const search = document.getElementById('faqSearch');
+    function applyFilters(){
+      const q = search.value.toLowerCase().trim();
+      const active = document.querySelector('.chip.active').dataset.cat;
+      document.querySelectorAll('#faqList article').forEach(card=>{
+        const tags = card.dataset.tags || '';
+        const text = card.textContent.toLowerCase();
+        const catOk = (active==='all') || tags.includes(active);
+        const qOk = q==='' || text.includes(q);
+        card.style.display = (catOk && qOk) ? '' : 'none';
+      });
+    }
+    chips.forEach(c=>c.addEventListener('click',()=>{
+      chips.forEach(x=>x.classList.remove('active'));
+      c.classList.add('active'); applyFilters();
+    }));
+    search.addEventListener('input', applyFilters);
+
   </script>
 
-  <!-- Tawk.to Live Chat Script with API Integration -->
-  <script type="text/javascript">
+  <!-- Tawk.to (match site style) -->
+  <script>
     var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-    Tawk_API.api_key = '98b9a19a5b7bf1d2b6af110875d8f5a3f14d19e1';
     (function(){
-      var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-      s1.async=true;
-      s1.src='https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
-      s1.charset='UTF-8';
-      s1.setAttribute('crossorigin','*');
-      s0.parentNode.insertBefore(s1,s0);
+      var s1=document.createElement("script"), s0=document.getElementsByTagName("script")[0];
+      s1.async=true; s1.src='https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
+      s1.charset='UTF-8'; s1.setAttribute('crossorigin','*'); s0.parentNode.insertBefore(s1,s0);
     })();
-    // Customize Tawk.to widget appearance and behavior
-    Tawk_API.onLoad = function() {
-      // Set widget colors to match site design
-      Tawk_API.customStyle = {
-        bubbleBackground: '#2563EB', // Tailwind blue-600
-        bubbleTextColor: '#FFFFFF', // White text
-        chatBackground: '#111827' // Tailwind gray-900
-      };
-      // Minimize widget on load
+    Tawk_API.onLoad=function(){
+      Tawk_API.customStyle={ bubbleBackground:'#475569', bubbleTextColor:'#FFFFFF', chatBackground:'#111827' };
       Tawk_API.minimize();
     };
-    // Open chat when "Chat with Us" button is clicked
-    document.addEventListener('DOMContentLoaded', () => {
-      const openChatButton = document.getElementById('open-chat');
-      openChatButton.addEventListener('click', () => {
-        Tawk_API.maximize();
-      });
-    });
+    document.getElementById('open-chat')?.addEventListener('click',()=>{ if(typeof Tawk_API!=='undefined'){ Tawk_API.maximize(); }});
   </script>
-
 </body>
 </html>
