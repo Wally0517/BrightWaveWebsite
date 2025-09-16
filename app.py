@@ -172,7 +172,7 @@ def init_sample_data():
     amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
     images=['images/brightwave-project-1.jpg'],  # Updated path
     construction_status='ongoing',
-    completion_date=datetime(2026, 03, 25).date(),
+    completion_date=datetime(2026, 3, 25).date(),
     featured=True
 )
         
