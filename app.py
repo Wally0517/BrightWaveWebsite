@@ -158,125 +158,154 @@ def create_admin_user():
 
 def init_sample_data():
     """Initialize with realistic Kwara State property data"""
-    if not Property.query.first():
-        # Student Hostels
-        phase1 = Property(
-    title='BrightWave Phase 1 Hostel',
-    description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
-    property_type='hostel',
-    location='Malete, Kwara State, Nigeria',
-    price=None,
-    price_type='Contact for Pricing',
-    total_rooms=10,
-    available_rooms=10,
-    amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
-    images=['images/brightwave-project-1.jpg'],  # Updated path
-    construction_status='ongoing',
-    completion_date=datetime(2026, 3, 25).date(),
-    featured=True
-)
-        
-        phase2 = Property(
-            title='BrightWave Hostel Phase 2',
-            description='30-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
-            property_type='hostel',
-            location='Malete, Kwara State',
-            price=480000,
-            price_type='per session',
-            total_rooms=20,
-            available_rooms=20,
-            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Study Areas', 'Common Spaces'],
-            images=['images/hostels/brightwave-phase2-render.jpg'],
-            construction_status='planning',
-            completion_date=datetime(2027, 6, 30).date(),
-            featured=False
-        )
-        
-        phase3 = Property(
-            title='BrightWave Hostel Phase 3',
-            description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Kwara.',
-            property_type='hostel',
-            location='GreenCity, Malete, Kwara State',
-            price=520000,
-            price_type='per session',
-            total_rooms=40,
-            available_rooms=40,
-            amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Gym', 'Library', 'Recreation facilities'],
-            images=['images/hostels/brightwave-phase3-concept.jpg'],
-            construction_status='planning',
-            completion_date=datetime(2028, 12, 31).date(),
-            featured=False
-        )
+    if Property.query.first():
+        return
 
-        # Land Properties
-        land_fate = Property(
-            title='Commercial Land - Fate Road',
-            description='800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
-            property_type='land',
-            location='Fate Road, Ilorin, Kwara State',
-            price=15000000,
-            price_type='per plot (800sqm)',
-            size='800sqm',
-            amenities=['Clear documentation', 'Strategic location', 'Commercial zoning', 'High traffic area'],
-            images=['images/lands/fate-road-commercial.jpg'],
-            construction_status='completed',
-            featured=False
-        )
-        
-        land_obada_ikija = Property(
-    title='BrightWave Estate - Obada Ikija',
-    description='6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
-    property_type='land',
-    location='Obada Ikija, Abeokuta, Ogun State',
-    price=2500000,
-    price_type='per_sqm',
-    size='6 acres',
-    amenities=['Gated Community', 'Electricity', 'Water Supply', 'Good Road Network', 'Security', 'Recreational Facilities'],
-    images=['images/lands/brightwave-estate-placeholder.jpg'],
-    construction_status='planned',
-    completion_date=datetime(2026, 12, 31).date(),
-    featured=True
-)
+    # Student Hostels
+    phase1 = Property(
+        title='BrightWave Phase 1 Hostel',
+        description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
+        property_type='hostel',
+        location='Malete, Kwara State, Nigeria',
+        price=None,
+        price_type='Contact for Pricing',
+        total_rooms=10,
+        available_rooms=10,
+        amenities=['Private Bathroom', 'Private Kitchen', '24/7 Security', 'Solar Power', 'CCTV', 'Water Supply', 'Parking Space'],
+        images=['images/brightwave-project-1.jpg'],
+        construction_status='ongoing',
+        completion_date=datetime(2026, 3, 25).date(),
+        featured=True
+    )
 
-        # Residential Homes (Future Projects)
-       # Residential Homes (Future Projects)
-home_gra = Property(
-    title='4-Bedroom Duplex - GRA',
-    description='Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
-    property_type='residential',
-    location='GRA, Ilorin, Kwara State',
-    price=None,
-    price_type='Coming 2028',
-    total_rooms=4,
-    amenities=['Modern designs', 'Quality construction', 'Accessible location', 'Luxury finishes'],
-    images=['images/homes/gra-duplex-concept.jpg'],
-    construction_status='planning',
-    completion_date=datetime(2026, 12, 31).date(),
-    featured=False
-)
+    phase2 = Property(
+        title='BrightWave Hostel Phase 2',
+        description='30-room modern hostel with enhanced amenities. Self-contained rooms with study areas and common spaces.',
+        property_type='hostel',
+        location='Malete, Kwara State',
+        price=480000,
+        price_type='per session',
+        total_rooms=20,
+        available_rooms=20,
+        amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Recreation facilities', 'Study Areas', 'Common Spaces'],
+        images=['images/hostels/brightwave-phase2-render.jpg'],
+        construction_status='planning',
+        completion_date=datetime(2027, 6, 30).date(),
+        featured=False
+    )
 
-        home_adewole = Property(
-            title='3-Bedroom Bungalow - Adewole',
-            description='Contemporary 3-bedroom bungalow in planned estate development.',
-            property_type='residential',
-            location='Adewole Estate, Ilorin, Kwara State',
-            price=None,
-            price_type='Coming 2026',
-            total_rooms=3,
-            amenities=['Modern designs', 'Quality construction', 'Estate development', 'Contemporary style'],
-            images=['images/homes/adewole-bungalow-render.jpg'],
-            construction_status='planning',
-            completion_date=datetime(2026, 8, 31).date(),
-            featured=False
-        )
-        
-        db.session.add_all([
-    phase1, phase2, phase3,
-    land_gra, land_fate, land_kulende, land_obada_ikija,  # include this
-    home_gra, home_adewole
-])  # remove land_offa
-        db.session.commit()
-        logger.info("Sample property data initialized with realistic Kwara State properties")
+    phase3 = Property(
+        title='BrightWave Hostel Phase 3',
+        description='40-room premium hostel complex with gym, library, and recreational facilities. Near University of Kwara.',
+        property_type='hostel',
+        location='GreenCity, Malete, Kwara State',
+        price=520000,
+        price_type='per session',
+        total_rooms=40,
+        available_rooms=40,
+        amenities=['Self-contained rooms', '24/7 Security & CCTV', 'Solar power backup', 'Gym', 'Library', 'Recreation facilities'],
+        images=['images/hostels/brightwave-phase3-concept.jpg'],
+        construction_status='planning',
+        completion_date=datetime(2028, 12, 31).date(),
+        featured=False
+    )
+
+    # Land Properties
+    land_gra = Property(
+        title='Premium Land - Ilorin GRA',
+        description='600sqm residential plot in prestigious Government Reserved Area. Perfect for luxury residential development.',
+        property_type='land',
+        location='GRA, Ilorin, Kwara State',
+        price=25000000,
+        price_type='per plot (600sqm)',
+        size='600sqm',
+        amenities=['Clear documentation', 'Strategic location', 'Flexible payment plans', 'Investment guidance'],
+        images=['images/lands/ilorin-gra-plot.jpg'],
+        construction_status='completed',
+        featured=True
+    )
+
+    land_kulende = Property(
+        title='Residential Plot - Kulende',
+        description='700sqm residential land in serene Kulende area. Close to schools and major roads.',
+        property_type='land',
+        location='Kulende, Ilorin West, Kwara State',
+        price=12000000,
+        price_type='per plot (700sqm)',
+        size='700sqm',
+        amenities=['Clear documentation', 'Strategic location', 'Residential zoning', 'Peaceful environment'],
+        images=['images/lands/kulende-residential.jpg'],
+        construction_status='completed',
+        featured=False
+    )
+
+    land_fate = Property(
+        title='Commercial Land - Fate Road',
+        description='800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
+        property_type='land',
+        location='Fate Road, Ilorin, Kwara State',
+        price=15000000,
+        price_type='per plot (800sqm)',
+        size='800sqm',
+        amenities=['Clear documentation', 'Strategic location', 'Commercial zoning', 'High traffic area'],
+        images=['images/lands/fate-road-commercial.jpg'],
+        construction_status='completed',
+        featured=False
+    )
+
+    land_obada_ikija = Property(
+        title='BrightWave Estate - Obada Ikija',
+        description='6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
+        property_type='land',
+        location='Obada Ikija, Abeokuta, Ogun State',
+        price=2500000,
+        price_type='per_sqm',
+        size='6 acres',
+        amenities=['Gated Community', 'Electricity', 'Water Supply', 'Good Road Network', 'Security', 'Recreational Facilities'],
+        images=['images/lands/brightwave-estate-placeholder.jpg'],
+        construction_status='planned',
+        completion_date=datetime(2026, 12, 31).date(),
+        featured=True
+    )
+
+    # Residential Homes (Future Projects)
+    home_gra = Property(
+        title='4-Bedroom Duplex - GRA',
+        description='Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
+        property_type='residential',
+        location='GRA, Ilorin, Kwara State',
+        price=None,
+        price_type='Coming 2028',
+        total_rooms=4,
+        amenities=['Modern designs', 'Quality construction', 'Accessible location', 'Luxury finishes'],
+        images=['images/homes/gra-duplex-concept.jpg'],
+        construction_status='planning',
+        completion_date=datetime(2026, 12, 31).date(),
+        featured=False
+    )
+
+    home_adewole = Property(
+        title='3-Bedroom Bungalow - Adewole',
+        description='Contemporary 3-bedroom bungalow in planned estate development.',
+        property_type='residential',
+        location='Adewole Estate, Ilorin, Kwara State',
+        price=None,
+        price_type='Coming 2026',
+        total_rooms=3,
+        amenities=['Modern designs', 'Quality construction', 'Estate development', 'Contemporary style'],
+        images=['images/homes/adewole-bungalow-render.jpg'],
+        construction_status='planning',
+        completion_date=datetime(2026, 8, 31).date(),
+        featured=False
+    )
+
+    db.session.add_all([
+        phase1, phase2, phase3,
+        land_gra, land_fate, land_kulende, land_obada_ikija,
+        home_gra, home_adewole
+    ])
+    db.session.commit()
+    logger.info("Sample property data initialized with realistic Kwara State properties")
 
 # ========== AUTHENTICATION FUNCTIONS ==========
 def login_required(f):
