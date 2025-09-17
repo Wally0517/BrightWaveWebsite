@@ -206,7 +206,7 @@ def init_sample_data():
         property_type='land', location='Obada Ikija, Abeokuta, Ogun State',
         price=2500000, price_type='per_sqm', size='6 acres',
         amenities=['Gated Community','Electricity','Water Supply','Good Road Network','Security','Recreational Facilities'],
-        images=[],  # add real image later
+        images=['images/lands/brightwave-obada_ikija.jpg'],  # add real image later
         construction_status='completed', featured=True, status='active'
     )
 
