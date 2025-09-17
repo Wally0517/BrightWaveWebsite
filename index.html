@@ -122,6 +122,30 @@
       background: linear-gradient(to bottom, #64748B, #94A3B8);
       opacity: 0.3;
     }
+
+    /* WhatsApp menu open state (JS toggles classes) */
+.menu-open {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+    
+/* Diagonal "COMING SOON" overlay for images */
+.coming-soon-overlay::before {
+  content: "COMING SOON";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  letter-spacing: .25em;
+  color: #e2e8f0;            /* slate-200 */
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  background: rgba(15,23,42,.55);  /* slate-900/55 */
+  transform: rotate(-12deg);
+  border: 2px dashed rgba(226,232,240,.45);
+  box-shadow: inset 0 0 0 200vmax rgba(15,23,42,.15);
+}
   </style>
 </head>
 <body class="font-sans bg-gray-900 text-white">
@@ -788,33 +812,46 @@
     </div>
   </footer>
 
-  <!-- Floating Action Buttons -->
-  <div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
-    <!-- WhatsApp Button -->
-    <div class="relative">
-      <button id="whatsappToggle" class="bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover-lift">
-        <i class="fab fa-whatsapp text-xl"></i>
-      </button>
-      <div id="whatsappMenu" class="absolute bottom-16 right-0 bg-white rounded-lg shadow-xl p-2 hidden min-w-48">
-        <a href="https://wa.me/2348037669462?text=Hi%2C%20I%27m%20interested%20in%20student%20hostels" 
-           class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">Student Hostels</a>
-        <a href="https://wa.me/2349038402914?text=Hi%2C%20I%27m%20interested%20in%20land%20purchase" 
-           class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">Land Purchase</a>
-        <a href="https://wa.me/2349075381905?text=Hi%2C%20I%27m%20interested%20in%20residential%20properties" 
-           class="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg">Residential</a>
-      </div>
+<!-- Floating Action Buttons -->
+<div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
+  <!-- WhatsApp Speed Dial -->
+  <div class="relative">
+    <button 
+      id="whatsappToggle"
+      aria-controls="whatsappMenu"
+      aria-expanded="false"
+      class="group bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover-lift focus:outline-none focus:ring-4 focus:ring-green-300/40"
+    >
+      <i class="fab fa-whatsapp text-xl"></i>
+      <!-- pulse indicator (optional) -->
+      <span class="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping opacity-60"></span>
+      <span class="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full"></span>
+    </button>
+
+    <!-- Menu -->
+    <div 
+      id="whatsappMenu"
+      class="absolute bottom-16 right-0 bg-white rounded-xl shadow-2xl p-2 hidden min-w-56 will-change-transform origin-bottom-right scale-95 opacity-0 transition-all duration-150"
+      role="menu"
+      tabindex="-1"
+    >
+      <a data-wa="hostel"  class="wa-item block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg cursor-pointer" role="menuitem">
+        <i class="mr-2 fab fa-whatsapp"></i> Student Hostels
+      </a>
+      <a data-wa="land"    class="wa-item block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg cursor-pointer" role="menuitem">
+        <i class="mr-2 fab fa-whatsapp"></i> Land Purchase
+      </a>
+      <a data-wa="home"    class="wa-item block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-lg cursor-pointer" role="menuitem">
+        <i class="mr-2 fab fa-whatsapp"></i> Residential
+      </a>
     </div>
-    
-    <!-- Live Chat Button -->
-    <button id="open-chat" class="bg-slate-600 hover:bg-slate-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover-lift">
-      <i class="fas fa-comments text-xl"></i>
-    </button>
-    
-    <!-- Back to Top Button -->
-    <button id="back-to-top" class="bg-gray-700 hover:bg-gray-600 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 items-center justify-center hover-lift hidden">
-      <i class="fas fa-arrow-up text-xl"></i>
-    </button>
   </div>
+
+  <!-- Back to Top Button -->
+  <button id="back-to-top" class="bg-gray-700 hover:bg-gray-600 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 items-center justify-center hover-lift hidden">
+    <i class="fas fa-arrow-up text-xl"></i>
+  </button>
+</div>
 
   <!-- JavaScript -->
   <script>
@@ -914,21 +951,81 @@
         });
       });
 
-      // WhatsApp menu toggle
-      const whatsappToggle = document.getElementById('whatsappToggle');
-      const whatsappMenu = document.getElementById('whatsappMenu');
+// --- WhatsApp Speed Dial (enhanced)
+const whatsappToggle = document.getElementById('whatsappToggle');
+const whatsappMenu   = document.getElementById('whatsappMenu');
+
+const WA_NUMBERS = {
+  hostel: '2348037669462',
+  land:   '2349038402914',
+  home:   '2349075381905',
+};
+
+function buildWaLink(number, intentLabel) {
+  const page = document.title || 'BrightWave';
+  const url  = location.href;
+  const msg  = `Hi, I'm interested in ${intentLabel}.\n\nPage: ${page}\nURL: ${url}`;
+  return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
+}
+
+function openWa(number, label) {
+  const link = buildWaLink(number, label);
+  // optional: GTM/analytics
+  if (window.dataLayer) {
+    window.dataLayer.push({ event: 'whatsapp_click', category: 'Contact', label });
+  }
+  window.open(link, '_blank', 'noopener,noreferrer');
+}
+
+function openMenu() {
+  whatsappMenu.classList.remove('hidden');
+  // animate open
+  requestAnimationFrame(() => whatsappMenu.classList.add('menu-open'));
+  whatsappToggle.setAttribute('aria-expanded', 'true');
+  // focus first item for a11y
+  const first = whatsappMenu.querySelector('.wa-item');
+  if (first) first.focus();
+}
+
+function closeMenu() {
+  whatsappMenu.classList.remove('menu-open');
+  // wait for transition to finish
+  setTimeout(() => whatsappMenu.classList.add('hidden'), 120);
+  whatsappToggle.setAttribute('aria-expanded', 'false');
+}
+
+whatsappToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isHidden = whatsappMenu.classList.contains('hidden');
+  if (isHidden) openMenu(); else closeMenu();
+});
+
+// Open the correct conversation when an item is clicked
+whatsappMenu.querySelectorAll('.wa-item').forEach(a => {
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const key = a.getAttribute('data-wa');
+    if (!key) return;
+    const labelMap = { hostel: 'student hostels', land: 'land purchase', home: 'residential properties' };
+    openWa(WA_NUMBERS[key], labelMap[key] || key);
+    closeMenu();
+  });
+});
+
+// Close when clicking outside
+document.addEventListener('click', (e) => {
+  if (!whatsappMenu.contains(e.target) && !whatsappToggle.contains(e.target)) {
+    if (!whatsappMenu.classList.contains('hidden')) closeMenu();
+  }
+});
+
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !whatsappMenu.classList.contains('hidden')) {
+    closeMenu();
+  }
+});
       
-      whatsappToggle.addEventListener('click', () => {
-        whatsappMenu.classList.toggle('hidden');
-      });
-
-      // Close WhatsApp menu when clicking outside
-      document.addEventListener('click', (e) => {
-        if (!whatsappToggle.contains(e.target) && !whatsappMenu.contains(e.target)) {
-          whatsappMenu.classList.add('hidden');
-        }
-      });
-
       // Form submission
       const contactForm = document.getElementById('contactForm');
       const submitButton = document.getElementById('submitButton');
@@ -1170,36 +1267,6 @@
         }
       ];
     }
-
-    // Tawk.to Live Chat Integration
-    var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
-    (function(){
-      var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
-      s1.async = true;
-      s1.src = 'https://embed.tawk.to/681591c4e8036f191c6e7202/1iqa42puc';
-      s1.charset = 'UTF-8';
-      s1.setAttribute('crossorigin', '*');
-      s0.parentNode.insertBefore(s1, s0);
-    })();
-
-    Tawk_API.onLoad = function() {
-      Tawk_API.customStyle = {
-        bubbleBackground: '#475569',
-        bubbleTextColor: '#FFFFFF',
-        chatBackground: '#111827'
-      };
-      Tawk_API.minimize();
-    };
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const openChatButton = document.getElementById('open-chat');
-      openChatButton.addEventListener('click', () => {
-        if (typeof Tawk_API !== 'undefined') {
-          Tawk_API.maximize();
-        }
-      });
-    });
   </script>
-
 </body>
 </html>
