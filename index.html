@@ -1,35 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- SEO + Social -->
-<title>BrightWave Habitat Enterprise – Building Tomorrow’s Living Solutions</title>
+  <!-- Required basics -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
 
-<meta name="description" content="BrightWave Habitat Enterprise — student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
-<link rel="canonical" href="https://brightwaveenterprises.online/" />
+  <!-- SEO + Social -->
+  <title>BrightWave Habitat Enterprise – Building Tomorrow’s Living Solutions</title>
+  <meta name="description" content="BrightWave Habitat Enterprise — student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
+  <link rel="canonical" href="https://brightwaveenterprises.online/" />
+  <link rel="alternate" hreflang="en-ng" href="https://brightwaveenterprises.online/" />
+  <link rel="alternate" hreflang="x-default" href="https://brightwaveenterprises.online/" />
 
-<!-- Open Graph (WhatsApp/Facebook/etc.) -->
-<meta property="og:title" content="BrightWave Habitat Enterprise" />
-<meta property="og:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
-<meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
-<meta property="og:image:type" content="image/png" />
-<meta property="og:image:width" content="500" />
-<meta property="og:image:height" content="500" />
-<meta property="og:url" content="https://brightwaveenterprises.online/" />
-<meta property="og:type" content="website" />
+  <!-- Open Graph (WhatsApp/Facebook/etc.) -->
+  <meta property="og:title" content="BrightWave Habitat Enterprise" />
+  <meta property="og:site_name" content="BrightWave Habitat Enterprise" />
+  <meta property="og:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://brightwaveenterprises.online/" />
+  <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta property="og:image:secure_url" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="500" />
+  <meta property="og:image:height" content="500" />
+  <meta property="og:locale" content="en_NG" />
 
-<!-- Twitter (X) Cards -->
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="BrightWave Habitat Enterprise" />
-<meta name="twitter:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
-<meta name="twitter:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
-<meta name="twitter:site" content="@brightwave__" />
+  <!-- Twitter (X) Cards -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="BrightWave Habitat Enterprise" />
+  <meta name="twitter:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
+  <meta name="twitter:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta name="twitter:image:alt" content="BrightWave Habitat Enterprise" />
+  <meta name="twitter:site" content="@brightwave__" />
+
+  <!-- Icons / theme color -->
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
-  <!-- Font Awesome for Icons -->
+  <link rel="apple-touch-icon" href="/assets/images/brightwave-logo.png" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <!-- Fonts/Styles/Scripts (kept from your build) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- AOS for Animations -->
   <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+  <!-- Your styles -->
   <style>
     /* Custom animations and styles */
     .gradient-text {
@@ -38,164 +54,77 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    .hover-lift {
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    .hover-lift { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .hover-lift:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .glass-effect { backdrop-filter: blur(10px); background: rgba(17,24,39,0.8); border: 1px solid rgba(255,255,255,0.1); }
+    .pulse-glow { animation: pulse-glow 2s infinite; }
+    @keyframes pulse-glow { 0%,100%{ box-shadow:0 0 20px rgba(100,116,139,0.5);} 50%{ box-shadow:0 0 30px rgba(100,116,139,0.8);} }
+    .hero-background { background-image:url('/assets/images/brightwave-hero-water-estate.jpg'); background-size:cover; background-position:center; background-attachment:fixed; animation: subtle-zoom 20s ease-in-out infinite alternate; }
+    @keyframes subtle-zoom { 0%{transform:scale(1);} 100%{transform:scale(1.05);} }
+    .hero-overlay { background: linear-gradient(135deg, rgba(15,23,42,0.90) 0%, rgba(51,65,85,0.75) 35%, rgba(15,23,42,0.90) 100%); }
+    .hero-pattern { background-image: radial-gradient(circle at 2px 2px, rgba(148,163,184,0.2) 1px, transparent 0); background-size:30px 30px; animation: pattern-move 30s linear infinite; }
+    @keyframes pattern-move { 0%{background-position:0 0;} 100%{background-position:30px 30px;} }
+    .nav-link { position:relative; transition:color .3s ease; }
+    .nav-link::after { content:''; position:absolute; width:0; height:2px; bottom:-8px; left:50%; background:linear-gradient(90deg,#64748B,#94A3B8); transition:all .3s ease; transform:translateX(-50%); border-radius:1px; }
+    .nav-link:hover::after, .nav-link.active::after { width:100%; }
+    .timeline-dot { position:relative; z-index:10; }
+    .timeline-line { position:absolute; left:50%; transform:translateX(-50%); width:2px; height:100%; background:linear-gradient(to bottom,#64748B,#94A3B8); opacity:.3; }
+    .menu-open { opacity:1 !important; transform:scale(1) !important; }
+    .coming-soon-overlay::before {
+      content: "COMING SOON"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-weight:800; letter-spacing:.25em; color:#e2e8f0; text-shadow:0 1px 2px rgba(0,0,0,.6);
+      background:rgba(15,23,42,.55); transform:rotate(-12deg); border:2px dashed rgba(226,232,240,.45);
+      box-shadow: inset 0 0 0 200vmax rgba(15,23,42,.15);
     }
-    .hover-lift:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    }
-    .glass-effect {
-      backdrop-filter: blur(10px);
-      background: rgba(17, 24, 39, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .pulse-glow {
-      animation: pulse-glow 2s infinite;
-    }
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(100, 116, 139, 0.5); }
-      50% { box-shadow: 0 0 30px rgba(100, 116, 139, 0.8); }
-    }
-    
-    /* Hero background image animation */
-    .hero-background {
-      background-image: url('/assets/images/brightwave-hero-water-estate.jpg');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      animation: subtle-zoom 20s ease-in-out infinite alternate;
-    }
-    
-    @keyframes subtle-zoom {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.05); }
-    }
-    
-    /* Enhanced overlay for better text readability */
-    .hero-overlay {
-      background: linear-gradient(135deg, 
-        rgba(15, 23, 42, 0.90) 0%, 
-        rgba(51, 65, 85, 0.75) 35%, 
-        rgba(15, 23, 42, 0.90) 100%);
-    }
-    
-    /* Animated dots pattern */
-    .hero-pattern {
-      background-image: radial-gradient(circle at 2px 2px, rgba(148, 163, 184, 0.2) 1px, transparent 0);
-      background-size: 30px 30px;
-      animation: pattern-move 30s linear infinite;
-    }
-    
-    @keyframes pattern-move {
-      0% { background-position: 0 0; }
-      100% { background-position: 30px 30px; }
-    }
-    
-    /* Enhanced nav link underline effect */
-    .nav-link {
-      position: relative;
-      transition: color 0.3s ease;
-    }
-    
-    .nav-link::after {
-      content: '';
-      position: absolute;
-      width: 0;
-      height: 2px;
-      bottom: -8px;
-      left: 50%;
-      background: linear-gradient(90deg, #64748B, #94A3B8);
-      transition: all 0.3s ease;
-      transform: translateX(-50%);
-      border-radius: 1px;
-    }
-    
-    .nav-link:hover::after,
-    .nav-link.active::after {
-      width: 100%;
-    }
-
-    /* Timeline styles */
-    .timeline-dot {
-      position: relative;
-      z-index: 10;
-    }
-    
-    .timeline-line {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 2px;
-      height: 100%;
-      background: linear-gradient(to bottom, #64748B, #94A3B8);
-      opacity: 0.3;
-    }
-
-    /* WhatsApp menu open state (JS toggles classes) */
-.menu-open {
-  opacity: 1 !important;
-  transform: scale(1) !important;
-}
-    
-/* Diagonal "COMING SOON" overlay for images */
-.coming-soon-overlay::before {
-  content: "COMING SOON";
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  letter-spacing: .25em;
-  color: #e2e8f0;            /* slate-200 */
-  text-shadow: 0 1px 2px rgba(0,0,0,.6);
-  background: rgba(15,23,42,.55);  /* slate-900/55 */
-  transform: rotate(-12deg);
-  border: 2px dashed rgba(226,232,240,.45);
-  box-shadow: inset 0 0 0 200vmax rgba(15,23,42,.15);
-}
   </style>
+
+  <!-- Structured data (JSON-LD) -->
   <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "name": "BrightWave Habitat Enterprise",
-      "legalName": "BrightWave Habitat Enterprise",
-      "url": "https://brightwaveenterprises.online/",
-      "logo": "https://brightwaveenterprises.online/assets/images/brightwave-logo.png",
-      "description": "BrightWave Habitat Enterprise builds affordable student hostels, sells prime land, and develops modern residential estates across Nigeria.",
-      "sameAs": [
-        "https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr",
-        "https://x.com/brightwave__?s=21",
-        "https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr"
-      ],
-      "foundingDate": "2024-09",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Malete",
-        "addressRegion": "Kwara State",
-        "addressCountry": "NG"
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://brightwaveenterprises.online/#organization",
+        "name": "BrightWave Habitat Enterprise",
+        "legalName": "BrightWave Habitat Enterprise",
+        "url": "https://brightwaveenterprises.online/",
+        "logo": "https://brightwaveenterprises.online/assets/images/brightwave-logo.png",
+        "description": "BrightWave Habitat Enterprise builds affordable student hostels, sells prime land, and develops modern residential estates across Nigeria.",
+        "sameAs": [
+          "https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr",
+          "https://x.com/brightwave__?s=21",
+          "https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr"
+        ],
+        "foundingDate": "2024-09",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Malete",
+          "addressRegion": "Kwara State",
+          "addressCountry": "NG"
+        },
+        "contactPoint": [
+          {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "brightwaveenterprise0@gmail.com",
+            "telephone": "+2348037669462",
+            "areaServed": "NG",
+            "availableLanguage": ["en"]
+          }
+        ]
       },
-      "contactPoint": [{
-        "@type": "ContactPoint",
-        "contactType": "customer support",
-        "email": "brightwaveenterprise0@gmail.com",
-        "telephone": "+2348037669462",
-        "areaServed": "NG",
-        "availableLanguage": ["en"]
-      }]
-    },
-    {
-      "@type": "WebSite",
-      "name": "BrightWave Habitat Enterprise",
-      "url": "https://brightwaveenterprises.online/"
-    }
-  ]
-}
-</script>
+      {
+        "@type": "WebSite",
+        "@id": "https://brightwaveenterprises.online/#website",
+        "url": "https://brightwaveenterprises.online/",
+        "name": "BrightWave Habitat Enterprise",
+        "publisher": { "@id": "https://brightwaveenterprises.online/#organization" },
+        "inLanguage": "en"
+      }
+    ]
+  }
+  </script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
 
