@@ -136,12 +136,36 @@ a {
 }
 
 /* ========== Hero and Banner Sections ========== */
+
 .hero, .intro-banner, .hostels-banner, .hostel-banner {
   position: relative;
   overflow: hidden;
   background-attachment: fixed;
   background-size: cover;
   background-position: center;
+}
+
+.hero-background {
+  background-image: url('/assets/images/brightwave-hero-water-estate.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  animation: hero-move 30s ease-in-out infinite alternate;
+}
+
+@keyframes hero-move {
+  0% {
+    transform: scale(1) translateX(0px);
+    background-position: center;
+  }
+  50% {
+    transform: scale(1.05) translateX(20px);
+    background-position: 55% center;
+  }
+  100% {
+    transform: scale(1.08) translateX(-20px);
+    background-position: 45% center;
+  }
 }
 
 .hero::before, .intro-banner::before, .hostels-banner::before, .hostel-banner::before {
