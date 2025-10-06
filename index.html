@@ -538,7 +538,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="/assets/images/brightwave-logo.png" alt="Reviewer" class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Ayo O." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Ayo O.</h4>
               <p class="text-gray-400 text-sm">Local Guide</p>
@@ -552,7 +552,7 @@
         </div>
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="/assets/images/property-manager-alameen.jpg" alt="Reviewer" class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Fatima I." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Fatima I.</h4>
               <p class="text-gray-400 text-sm">Land Buyer</p>
@@ -566,7 +566,7 @@
         </div>
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="/assets/images/realtor-kamal.jpg" alt="Reviewer" class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://randomuser.me/api/portraits/men/65.jpg" alt="Michael O." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Michael O.</h4>
               <p class="text-gray-400 text-sm">Developer</p>
@@ -1145,7 +1145,8 @@ document.addEventListener('keydown', (e) => {
         ${property.construction_status && property.construction_status !== 'completed' ? `
           <div class="absolute top-4 left-4">
             <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
-              ${property.construction_status === 'ongoing' ? '🚧 Under Construction' : 
+              ${property.construction_status === 'ongoing-final' ? '� Under Construction - Final stage' : 
+                property.construction_status === 'pending' ? '⏳ Pending Phase' : 
                 property.construction_status === 'planning' ? '📋 Planning Phase' : '⚡ Coming Soon'}
             </span>
           </div>
@@ -1190,7 +1191,7 @@ document.addEventListener('keydown', (e) => {
   price: null,
   price_type: 'Contact for Pricing',
   description: 'Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
-  construction_status: 'ongoing',
+            construction_status: 'ongoing-final',
   featured: true,
   images: ['images/brightwave-project-1.jpg']  // Updated path
 },
@@ -1214,21 +1215,21 @@ document.addEventListener('keydown', (e) => {
           price: 620000,
           price_type: 'per session',
           description: '40-room premium hostel complex with gym, library, and recreational facilities. Near University of Kwara State.',
-          construction_status: 'planning',
+            construction_status: 'pending',
           featured: false,
           images: ['images/hostels/brightwave-phase3-concept.jpg']
         },
         {
           id: 'land-fate-road',
-          title: 'Commercial Land - Fate Road',
-          type: 'land',
-          location: 'Fate Road, Ilorin, Kwara State',
-          price: 1000000,
-          price_type: 'per plot (800sqm)',
-          description: '800sqm commercial plot on busy Fate Road. Ideal for shopping complex or office buildings.',
-          construction_status: 'completed',
-          featured: false,
-          images: ['images/lands/fate-road-commercial.jpg']
+            title: 'Investment Land - Fate Road',
+            type: 'land',
+            location: 'Kwara State',
+            price: 1000000,
+            price_type: 'per plot (800sqm)',
+            description: '800sqm investment plot in Kwara State. Ideal for development or long-term investment.',
+            construction_status: 'completed',
+            featured: false,
+            images: ['images/lands/fate-road-commercial.jpg']
         },
         {
           id: 'land-obada_ikija',
@@ -1241,18 +1242,6 @@ document.addEventListener('keydown', (e) => {
           construction_status: 'Clearing',
           featured: false,
           images: ['images/lands/brightwave-obada_ikija.jpg']
-        },
-        {
-          id: 'home-gra-duplex',
-          title: '4-Bedroom Duplex - GRA',
-          type: 'residential',
-          location: 'GRA, Ilorin, Kwara State',
-          price: null,
-          price_type: 'Coming 2027',
-          description: 'Luxury 4-bedroom duplex with modern finishes. Currently in planning phase.',
-          construction_status: 'planning',
-          featured: false,
-          images: ['images/homes/gra-duplex-concept.jpg']
         },
         {
           id: 'home-adewole-estate',

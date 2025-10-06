@@ -170,7 +170,7 @@ def init_sample_data():
         total_rooms=10, available_rooms=10,
         amenities=['Private Bathroom','Private Kitchen','24/7 Security','Solar Power','CCTV','Water Supply','Parking Space'],
         images=['images/brightwave-project-1.jpg'],
-        construction_status='ongoing', completion_date=datetime(2026, 3, 25).date(),
+        construction_status='ongoing-final', completion_date=datetime(2026, 3, 25).date(),
         featured=True, status='active'
     )
 
@@ -194,7 +194,7 @@ def init_sample_data():
         total_rooms=40, available_rooms=40,
         amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
         images=['images/hostels/brightwave-phase3-concept.jpg'],
-        construction_status='planning', completion_date=datetime(2028, 12, 31).date(),
+        construction_status='pending', completion_date=datetime(2028, 12, 31).date(),
         featured=False, status='active'
     )
 
@@ -212,24 +212,16 @@ def init_sample_data():
 
     # Keep these but show “Coming soon” (no images) — OR set status='inactive' to hide entirely.
     land_fate = Property(
-        title='Premium Land - Ilorin GRA',
-        description='600sqm residential plot in prestigious GRA.',
-        property_type='land', location='fate, Ilorin, Kwara State',
-        price=25000000, price_type='per plot (600sqm)', size='600sqm',
+        title='Investment Land - Fate Road',
+        description='800sqm investment plot in Kwara State. Ideal for development or long-term investment.',
+        property_type='land', location='Kwara State',
+        price=1000000, price_type='per plot (800sqm)', size='800sqm',
         amenities=['Clear documentation','Strategic location','Flexible payment plans','Investment guidance'],
-        images=[], construction_status='planning', featured=False, status='active'
+        images=['images/lands/fate-road-commercial.jpg'], construction_status='completed', featured=False, status='active'
     )
 
     # --- Homes (future) ---
-    home_gra = Property(
-        title='4-Bedroom Duplex - GRA',
-        description='Luxury 4-bedroom duplex in planning.',
-        property_type='residential', location='GRA, Ilorin, Kwara State',
-        price=None, price_type='Coming 2028', total_rooms=4,
-        amenities=['Modern designs','Quality construction','Accessible location','Luxury finishes'],
-        images=[], construction_status='planning', completion_date=datetime(2026,12,31).date(),
-        featured=False, status='active'
-    )
+    # Removed home_gra (4-Bedroom Duplex - GRA)
 
     home_adewole = Property(
         title='3-Bedroom Bungalow - Adewole',
