@@ -195,12 +195,18 @@
 
   <!-- Hero Section -->
   <section id="home" class="hero relative min-h-screen flex items-center justify-center overflow-hidden">
-    <!-- HD Video Background -->
-    <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover z-0">
+    <!-- HD Video Background with Fallback -->
+    <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover z-0" id="heroVideo">
       <source src="https://assets.mixkit.co/videos/preview/mixkit-university-students-walking-on-campus-4062-large.mp4" type="video/mp4" />
-      <!-- Fallback image or animation -->
     </video>
+    <div class="absolute inset-0 hero-background" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg'); background-size:cover; background-position:center; z-index:0;"></div>
     <div class="absolute inset-0 bg-black/40"></div>
+    <script>
+      // Hide fallback if video loads
+      document.getElementById('heroVideo').addEventListener('canplay', function() {
+        document.querySelector('.hero-background').style.display = 'none';
+      });
+    </script>
     
     <div class="relative text-center text-white px-4 max-w-6xl mx-auto z-10" data-aos="fade-up" data-aos-duration="1200">
       <h1 class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight">
@@ -536,7 +542,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=facearea&w=128&h=128&facepad=2" alt="Ayo O." class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://images.pexels.com/photos/1139503/pexels-photo-1139503.jpeg?auto=compress&w=128&h=128&fit=crop" alt="Ayo O." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Ayo O.</h4>
               <p class="text-gray-400 text-sm">Local Guide</p>
@@ -550,7 +556,7 @@
         </div>
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=facearea&w=128&h=128&facepad=2" alt="Fatima I." class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://images.pexels.com/photos/1181519/pexels-photo-1181519.jpeg?auto=compress&w=128&h=128&fit=crop" alt="Fatima I." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Fatima I.</h4>
               <p class="text-gray-400 text-sm">Land Buyer</p>
@@ -564,7 +570,7 @@
         </div>
         <div class="glass-effect p-8 rounded-2xl hover-lift">
           <div class="flex items-center mb-4">
-            <img src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=facearea&w=128&h=128&facepad=2" alt="Michael O." class="w-12 h-12 rounded-full mr-4" />
+            <img src="https://images.pexels.com/photos/936075/pexels-photo-936075.jpeg?auto=compress&w=128&h=128&fit=crop" alt="Michael O." class="w-12 h-12 rounded-full mr-4" />
             <div>
               <h4 class="font-semibold text-lg">Michael O.</h4>
               <p class="text-gray-400 text-sm">Developer</p>
