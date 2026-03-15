@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index,follow" />
+
+  <title>About Us & Our Team | BrightWave Habitat Enterprise</title>
+  <meta name="description" content="Meet the passionate team behind BrightWave Habitat Enterprise — real estate professionals building quality student housing, land investments, and residential homes in Nigeria." />
+  <link rel="canonical" href="https://brightwaveenterprises.online/about.html" />
+
+  <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
+  <link rel="apple-touch-icon" href="/assets/images/brightwave-logo.png" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <link rel="stylesheet" href="/assets/style.css" />
+
+  <style>
+    .gradient-text {
+      background: linear-gradient(45deg, #3B82F6, #60A5FA, #1D4ED8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hover-lift { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .hover-lift:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .glass-effect { backdrop-filter: blur(10px); background: rgba(17,24,39,0.8); border: 1px solid rgba(255,255,255,0.1); }
+    .nav-link { position:relative; transition:color .3s ease; }
+    .nav-link::after { content:''; position:absolute; width:0; height:2px; bottom:-8px; left:50%; background:linear-gradient(90deg,#3B82F6,#60A5FA); transition:all .3s ease; transform:translateX(-50%); border-radius:1px; }
+    .nav-link:hover::after, .nav-link.active::after { width:100%; }
+    .menu-open { opacity:1 !important; transform:scale(1) !important; }
+    .mobile-nav { transition: all 0.3s ease; transform: translateY(-10px); opacity: 0; }
+    .mobile-nav:not(.hidden) { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body class="font-sans bg-gray-900 text-white">
+
+  <!-- Navigation Bar -->
+  <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
+    <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="relative">
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-blue-400/30 shadow-lg" />
+          <div class="absolute -inset-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full blur opacity-20 animate-pulse"></div>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-bold text-slate-100">BrightWave</h1>
+          <p class="text-xs text-slate-400 font-medium">Habitat Enterprise</p>
+        </div>
+      </div>
+
+      <button class="md:hidden menu-toggle text-2xl text-white p-2 rounded-lg hover:bg-slate-700/50 transition"
+              aria-label="Toggle navigation menu" id="mobile-menu-toggle">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <ul class="hidden md:flex space-x-8 text-lg font-semibold" role="menubar">
+        <li><a href="/" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Home</a></li>
+        <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Services</a></li>
+        <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Properties</a></li>
+        <li><a href="/about.html" class="text-slate-200 hover:text-white nav-link active transition-all duration-300">About</a></li>
+        <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
+        <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="mobile-nav hidden md:hidden bg-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-slate-700/30">
+      <ul class="flex flex-col items-center space-y-4 py-6 text-lg font-semibold" role="menubar">
+        <li><a href="/" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Home</a></li>
+        <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Services</a></li>
+        <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Properties</a></li>
+        <li><a href="/about.html" class="text-slate-200 nav-link active transition-all duration-300">About</a></li>
+        <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
+        <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Contact</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- About Page Hero Banner -->
+  <section class="relative py-28 flex items-center justify-center overflow-hidden" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);">
+    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, rgba(59,130,246,0.4) 1px, transparent 0); background-size: 30px 30px;"></div>
+    <div class="relative text-center px-4 z-10" data-aos="fade-up">
+      <h1 class="text-5xl md:text-6xl font-extrabold mb-4">About <span class="gradient-text">BrightWave</span></h1>
+      <p class="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto">The passionate team transforming real estate in Nigeria — one property at a time.</p>
+    </div>
+  </section>
+
+  <!-- Who We Are -->
+  <section class="py-20 bg-gray-800" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto text-center">
+        <h2 class="text-4xl font-bold mb-6">Who <span class="gradient-text">We Are</span></h2>
+        <p class="text-lg text-gray-300 leading-relaxed mb-8">
+          BrightWave Habitat Enterprise is a dynamic Nigerian real estate company founded in September 2024. 
+          We are committed to transforming the property landscape by providing affordable student accommodations, 
+          strategic land investments, and quality residential properties — building communities that inspire growth and opportunity.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+          <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+            <div class="text-4xl mb-4">🏠</div>
+            <h3 class="text-xl font-bold mb-3 text-blue-300">Our Mission</h3>
+            <p class="text-gray-300 text-sm">To provide innovative, affordable housing, land, and estate solutions that empower students, families, and communities to thrive.</p>
+          </div>
+          <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+            <div class="text-4xl mb-4">🤝</div>
+            <h3 class="text-xl font-bold mb-3 text-blue-300">Integrity</h3>
+            <p class="text-gray-300 text-sm">We uphold the highest standards of honesty and transparency in all our real estate dealings.</p>
+          </div>
+          <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+            <div class="text-4xl mb-4">✨</div>
+            <h3 class="text-xl font-bold mb-3 text-blue-300">Innovation</h3>
+            <p class="text-gray-300 text-sm">We pioneer creative solutions to meet the evolving needs of housing and land development.</p>
+          </div>
+          <div class="glass-effect p-6 rounded-xl text-center hover-lift">
+            <div class="text-4xl mb-4">🌱</div>
+            <h3 class="text-xl font-bold mb-3 text-blue-300">Excellence</h3>
+            <p class="text-gray-300 text-sm">We strive for perfection in every project, ensuring quality, sustainability, and functionality.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12">
+          <div class="glass-effect p-4 rounded-xl text-center">
+            <div class="text-3xl font-bold text-blue-400 mb-1">3+</div>
+            <div class="text-gray-400 text-sm">Active Projects</div>
+          </div>
+          <div class="glass-effect p-4 rounded-xl text-center">
+            <div class="text-3xl font-bold text-emerald-400 mb-1">50+</div>
+            <div class="text-gray-400 text-sm">Happy Clients</div>
+          </div>
+          <div class="glass-effect p-4 rounded-xl text-center">
+            <div class="text-3xl font-bold text-amber-400 mb-1">3+</div>
+            <div class="text-gray-400 text-sm">Years Vision</div>
+          </div>
+          <div class="glass-effect p-4 rounded-xl text-center">
+            <div class="text-3xl font-bold text-blue-300 mb-1">2</div>
+            <div class="text-gray-400 text-sm">States Active</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Team Section -->
+  <section id="team" class="py-20" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Meet Our <span class="gradient-text">Team</span></h2>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">The passionate professionals driving BrightWave's success</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="100">
+          <div class="relative group mb-6">
+            <img src="/assets/images/ceo-wally.jpg" alt="Wally H. - Founder & CEO" class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ring-4 ring-blue-500/30" />
+            <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1">Wally H.</h4>
+          <p class="font-semibold text-blue-400 mb-3">Founder & CEO</p>
+          <p class="text-sm text-gray-400">With 3 years in real estate, Wally leads BrightWave with a vision for innovative student housing and estates.</p>
+        </div>
+
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="200">
+          <div class="relative group mb-6">
+            <img src="/assets/images/property-manager-alameen.jpg" alt="Al-Ameen A. - Property Manager" class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ring-4 ring-blue-500/30" />
+            <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1">Al-Ameen A.</h4>
+          <p class="font-semibold text-blue-400 mb-3">Project & Property Manager</p>
+          <p class="text-sm text-gray-400">Al-Ameen oversees quality and safety across all housing and estate projects.</p>
+        </div>
+
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="300">
+          <div class="relative group mb-6">
+            <img src="/assets/images/realtor-kamal.jpg" alt="Kamal B. - Realtor" class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ring-4 ring-blue-500/30" />
+            <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1">Kamal B.</h4>
+          <p class="font-semibold text-blue-400 mb-3">Realtor</p>
+          <p class="text-sm text-gray-400">Kamal connects clients with land and housing solutions tailored to their needs.</p>
+        </div>
+
+        <div class="text-center" data-aos="zoom-in" data-aos-delay="400">
+          <div class="relative group mb-6">
+            <img src="/assets/images/oversight-Realtor-Habeeb.jpg" alt="Habeeb O. - Site Operations" class="w-48 h-48 rounded-full object-cover object-top mx-auto shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ring-4 ring-blue-500/30" />
+            <div class="absolute inset-0 rounded-full bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+          </div>
+          <h4 class="text-xl font-bold text-white mb-1">Habeeb O.</h4>
+          <p class="font-semibold text-blue-400 mb-3">Site Operations & Oversight</p>
+          <p class="text-sm text-gray-400">Habeeb ensures efficient execution of land and estate development projects.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Company Journey Timeline -->
+  <section class="py-20 bg-gray-800" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Our <span class="gradient-text">Journey</span></h2>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">From vision to reality — building Nigeria's future one property at a time</p>
+      </div>
+
+      <div class="max-w-3xl mx-auto space-y-8">
+        <div class="glass-effect p-6 rounded-xl flex items-start space-x-5" data-aos="fade-right" data-aos-delay="100">
+          <div class="w-4 h-4 bg-blue-400 rounded-full mt-1 flex-shrink-0 ring-4 ring-blue-400/20"></div>
+          <div>
+            <h4 class="text-xl font-bold text-blue-300 mb-2">September 2024 — Founded</h4>
+            <p class="text-gray-300">BrightWave Habitat Enterprise was founded to transform student housing, land sales, and estate development in Nigeria.</p>
+          </div>
+        </div>
+
+        <div class="glass-effect p-6 rounded-xl flex items-start space-x-5" data-aos="fade-right" data-aos-delay="200">
+          <div class="w-4 h-4 bg-emerald-400 rounded-full mt-1 flex-shrink-0 ring-4 ring-emerald-400/20"></div>
+          <div>
+            <h4 class="text-xl font-bold text-emerald-300 mb-2">December 2024 — Phase 1 Construction Begins</h4>
+            <p class="text-gray-300">Began construction of Phase 1 hostel — marking our entry into student housing with 10 modern self-contained rooms in Malete, Kwara State.</p>
+          </div>
+        </div>
+
+        <div class="glass-effect p-6 rounded-xl flex items-start space-x-5" data-aos="fade-right" data-aos-delay="300">
+          <div class="w-4 h-4 bg-amber-400 rounded-full mt-1 flex-shrink-0 ring-4 ring-amber-400/20"></div>
+          <div>
+            <h4 class="text-xl font-bold text-amber-300 mb-2">2025 — Land Sales Initiative</h4>
+            <p class="text-gray-300">Launched affordable land sales to support homeownership and investment across strategic locations in Kwara and Ogun States.</p>
+          </div>
+        </div>
+
+        <div class="glass-effect p-6 rounded-xl flex items-start space-x-5" data-aos="fade-right" data-aos-delay="400">
+          <div class="w-4 h-4 bg-blue-500 rounded-full mt-1 flex-shrink-0 ring-4 ring-blue-500/20"></div>
+          <div>
+            <h4 class="text-xl font-bold text-blue-300 mb-2">Phase 2 & 3 — Expansion Planned</h4>
+            <p class="text-gray-300">Plans for additional hostel phases and residential estate development are underway, expanding our impact across Nigeria.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Goals Section -->
+  <section class="py-20" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="max-w-3xl mx-auto">
+        <h2 class="text-4xl font-bold mb-6 text-center">Our <span class="gradient-text">Goals</span></h2>
+        <div class="glass-effect p-8 rounded-2xl">
+          <ul class="space-y-4">
+            <li class="flex items-start">
+              <i class="fas fa-check text-blue-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Build 50+ modern student hostels by 2030 with top-tier amenities</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check text-emerald-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Facilitate land ownership for 30+ families through affordable sales by 2028</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check text-amber-400 mr-3 mt-1"></i>
+              <span class="text-gray-300">Develop sustainable estate communities by 2035, promoting economic growth</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check text-blue-300 mr-3 mt-1"></i>
+              <span class="text-gray-300">Become Nigeria's leading provider of innovative, sustainable, and affordable living solutions</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="text-center mt-10">
+          <a href="/#contact" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover-lift">
+            <i class="fas fa-phone mr-2"></i>Get in Touch
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-12">
+    <div class="container mx-auto px-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+        <div>
+          <div class="flex items-center space-x-3 mb-4">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave Logo" class="h-10 rounded-full" />
+            <div>
+              <h3 class="text-lg font-bold text-slate-300">BrightWave</h3>
+              <p class="text-xs text-gray-300">Habitat Enterprise</p>
+            </div>
+          </div>
+          <p class="text-gray-300 text-sm">Building tomorrow's living solutions with quality, affordability, and sustainability at the heart of everything we do.</p>
+        </div>
+
+        <div>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Quick Links</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="/" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Home</a></li>
+            <li><a href="/#services" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Services</a></li>
+            <li><a href="/#properties" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Properties</a></li>
+            <li><a href="/about.html" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">About Us</a></li>
+            <li><a href="/faq.html" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">FAQ</a></li>
+            <li><a href="/#contact" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Contact</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Our Services</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="/#student-hostels" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Student Hostels</a></li>
+            <li><a href="/#land-sales" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Land Sales</a></li>
+            <li><a href="/#residential" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Residential Homes</a></li>
+            <li><a href="/#contact" class="text-gray-300 hover:text-blue-300 transition-colors duration-300">Estate Development</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-lg font-semibold mb-4 text-slate-300">Contact Info</h4>
+          <div class="space-y-2 text-sm text-gray-300">
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-envelope text-blue-400"></i>
+              <span>brightwaveenterprise0@gmail.com</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <i class="fab fa-whatsapp text-emerald-400"></i>
+              <span>+234 803 766 9462</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-map-marker-alt text-blue-300"></i>
+              <span>Malete, Kwara State, Nigeria</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-700 pt-8 text-center">
+        <p class="text-gray-400 text-sm mb-4">© 2025 BrightWave Habitat Enterprise. All rights reserved.</p>
+        <div class="flex justify-center space-x-6">
+          <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="text-gray-400 hover:text-blue-400 transition-colors duration-300"><i class="fab fa-facebook-f text-xl"></i></a>
+          <a href="https://x.com/brightwave__?s=21" class="text-gray-400 hover:text-slate-300 transition-colors duration-300"><i class="fab fa-x-twitter text-xl"></i></a>
+          <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="text-gray-400 hover:text-pink-400 transition-colors duration-300"><i class="fab fa-instagram text-xl"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating WhatsApp Button -->
+  <div class="fixed bottom-6 right-6 z-50">
+    <a href="https://wa.me/2348037669462" target="_blank" rel="noopener"
+       class="bg-emerald-500 hover:bg-emerald-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover-lift">
+      <i class="fab fa-whatsapp text-2xl"></i>
+    </a>
+  </div>
+
+  <script>
+    AOS.init({ duration: 800, once: true });
+    const toggle = document.getElementById('mobile-menu-toggle');
+    const mobileNav = document.querySelector('.mobile-nav');
+    if (toggle && mobileNav) {
+      toggle.addEventListener('click', () => mobileNav.classList.toggle('hidden'));
+    }
+  </script>
+</body>
+</html>
