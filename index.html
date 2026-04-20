@@ -9,18 +9,18 @@
   <!-- SEO + Social -->
   <title>BrightWave Habitat Enterprise – Building Tomorrow’s Living Solutions</title>
   <meta name="description" content="BrightWave Habitat Enterprise — student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
-  <link rel="canonical" href="https://brightwaveenterprises.online/" />
-  <link rel="alternate" hreflang="en-ng" href="https://brightwaveenterprises.online/" />
-  <link rel="alternate" hreflang="x-default" href="https://brightwaveenterprises.online/" />
+  <link rel="canonical" href="https://brightwavehabitat.com/" />
+  <link rel="alternate" hreflang="en-ng" href="https://brightwavehabitat.com/" />
+  <link rel="alternate" hreflang="x-default" href="https://brightwavehabitat.com/" />
 
   <!-- Open Graph (WhatsApp/Facebook/etc.) -->
   <meta property="og:title" content="BrightWave Habitat Enterprise" />
   <meta property="og:site_name" content="BrightWave Habitat Enterprise" />
   <meta property="og:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://brightwaveenterprises.online/" />
-  <meta property="og:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
-  <meta property="og:image:secure_url" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta property="og:url" content="https://brightwavehabitat.com/" />
+  <meta property="og:image" content="https://brightwavehabitat.com/assets/images/brightwave-preview.png" />
+  <meta property="og:image:secure_url" content="https://brightwavehabitat.com/assets/images/brightwave-preview.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="500" />
   <meta property="og:image:height" content="500" />
@@ -30,7 +30,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="BrightWave Habitat Enterprise" />
   <meta name="twitter:description" content="Student hostels, land sales, residential homes & estate development in Nigeria. Affordable, secure, and sustainable living." />
-  <meta name="twitter:image" content="https://brightwaveenterprises.online/assets/images/brightwave-preview.png" />
+  <meta name="twitter:image" content="https://brightwavehabitat.com/assets/images/brightwave-preview.png" />
   <meta name="twitter:image:alt" content="BrightWave Habitat Enterprise" />
   <meta name="twitter:site" content="@brightwave__" />
 
@@ -104,11 +104,11 @@
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://brightwaveenterprises.online/#organization",
+        "@id": "https://brightwavehabitat.com/#organization",
         "name": "BrightWave Habitat Enterprise",
         "legalName": "BrightWave Habitat Enterprise",
-        "url": "https://brightwaveenterprises.online/",
-        "logo": "https://brightwaveenterprises.online/assets/images/brightwave-logo.png",
+        "url": "https://brightwavehabitat.com/",
+        "logo": "https://brightwavehabitat.com/assets/images/brightwave-logo.png",
         "description": "BrightWave Habitat Enterprise builds affordable student hostels, sells prime land, and develops modern residential estates across Nigeria.",
         "sameAs": [
           "https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr",
@@ -135,10 +135,10 @@
       },
       {
         "@type": "WebSite",
-        "@id": "https://brightwaveenterprises.online/#website",
-        "url": "https://brightwaveenterprises.online/",
+        "@id": "https://brightwavehabitat.com/#website",
+        "url": "https://brightwavehabitat.com/",
         "name": "BrightWave Habitat Enterprise",
-        "publisher": { "@id": "https://brightwaveenterprises.online/#organization" },
+        "publisher": { "@id": "https://brightwavehabitat.com/#organization" },
         "inLanguage": "en"
       }
     ]
@@ -193,25 +193,20 @@
 
   <!-- Hero Section -->
   <section id="home" class="hero relative min-h-screen flex items-center justify-center overflow-hidden">
-    <!-- HD Video Background with Fallback -->
-    <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover z-0" id="heroVideo">
-      <source src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-luxury-house-with-pool-1600-large.mp4" type="video/mp4" />
-    </video>
-    <div class="absolute inset-0 hero-background" style="background-image:url('https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1920'); background-size:cover; background-position:center; z-index:0;"></div>
-    <div class="absolute inset-0 bg-black/15"></div>
-    <script>
-      // Hide fallback if video loads
-      document.getElementById('heroVideo').addEventListener('canplay', function() {
-        document.querySelector('.hero-background').style.display = 'none';
-      });
-    </script>
-    
+    <div class="absolute inset-0 hero-background" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg'); background-size:cover; background-position:center; z-index:0;"></div>
+    <div class="absolute inset-0 hero-overlay z-0"></div>
+    <div class="absolute inset-0 hero-pattern opacity-30 z-0"></div>
+
     <div class="relative text-center text-white px-4 max-w-6xl mx-auto z-10" data-aos="fade-up" data-aos-duration="1200">
-      <h1 class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight">
-        Building Tomorrow's <span class="gradient-text">Living Solutions</span>
+      <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold tracking-wide text-slate-100 mb-6">
+        <i class="fas fa-building text-emerald-400"></i>
+        <span>Student hostels, land sales, homes and estate development</span>
+      </div>
+      <h1 id="homeHeroTitle" class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight">
+        Building trusted <span class="gradient-text">living solutions</span> across Nigeria
       </h1>
-      <p class="text-lg md:text-2xl mb-8 font-medium max-w-2xl mx-auto leading-relaxed">
-        Quality homes, prime land & student housing in Nigeria.
+      <p id="homeHeroSubtitle" class="text-lg md:text-2xl mb-8 font-medium max-w-3xl mx-auto leading-relaxed text-slate-100">
+        BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.
       </p>
       
       <!-- Quick Action Buttons -->
@@ -226,7 +221,7 @@
         </a>
         <a href="#residential" class="group bg-blue-700 hover:bg-blue-800 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
           <i class="fas fa-home text-xl"></i>
-          <span class="font-semibold">Residential</span>
+          <span class="font-semibold">Residential Homes</span>
         </a>
       </div>
       
@@ -234,8 +229,11 @@
         <a href="#properties" class="inline-block bg-slate-600 text-white px-8 py-4 rounded-xl hover:bg-slate-700 transition-all duration-300 font-semibold text-lg hover-lift">
           <i class="fas fa-search mr-2"></i>Explore Properties
         </a>
+        <a href="/hostel-detail.html" class="inline-block bg-emerald-600 text-white px-8 py-4 rounded-xl hover:bg-emerald-700 transition-all duration-300 font-semibold text-lg hover-lift">
+          <i class="fas fa-bed mr-2"></i>View Phase 1
+        </a>
         <a href="#contact" class="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 font-semibold text-lg">
-          <i class="fas fa-phone mr-2"></i>Get in Touch
+          <i class="fas fa-phone mr-2"></i>Talk to BrightWave
         </a>
       </div>
       
@@ -253,8 +251,7 @@
       <div class="text-center mb-16">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">Our <span class="gradient-text">Services</span></h2>
         <p class="text-lg text-gray-300 max-w-3xl mx-auto">
-          Whether you're a student seeking affordable accommodation, an investor looking for prime land, 
-          or a family searching for the perfect home, we have solutions tailored for you.
+          BrightWave is a broader real estate company, not a single-project landing page. We lead with what is ready now, while still presenting our full service direction clearly and credibly.
         </p>
       </div>
 
@@ -265,14 +262,14 @@
             <i class="fas fa-graduation-cap text-3xl text-white"></i>
           </div>
           <h3 class="text-2xl font-bold mb-4 text-sky-300">Student Hostels</h3>
-          <p class="text-gray-300 mb-6">Modern, secure, and affordable accommodation designed specifically for students near major universities.</p>
+          <p class="text-gray-300 mb-6">Purpose-built student accommodation remains our active flagship, with BrightWave Hostel Phase 1 now open in Malete and future phases in the pipeline.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-sky-400 mr-2"></i>Self-contained rooms</li>
             <li><i class="fas fa-check text-sky-400 mr-2"></i>24/7 Security & CCTV</li>
             <li><i class="fas fa-check text-sky-400 mr-2"></i>Solar power backup</li>
             <li><i class="fas fa-check text-sky-400 mr-2"></i>Recreation facilities</li>
           </ul>
-          <a href="/hostel-detail.html" class="inline-block bg-sky-500 text-white px-6 py-2 rounded-lg hover:bg-sky-600 transition">View Details</a>
+          <a href="/hostel-detail.html" class="inline-block bg-sky-500 text-white px-6 py-2 rounded-lg hover:bg-sky-600 transition">View Phase 1</a>
         </div>
 
         <!-- Land Sales -->
@@ -281,14 +278,14 @@
             <i class="fas fa-map-marked-alt text-3xl text-white"></i>
           </div>
           <h3 class="text-2xl font-bold mb-4 text-emerald-400">Land Sales</h3>
-          <p class="text-gray-300 mb-6">Prime land plots in strategic locations across Nigeria, perfect for investment or development projects.</p>
+          <p class="text-gray-300 mb-6">We structure land opportunities around documentation, location clarity, and investor confidence, from emerging plots to larger estate-positioned sites.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-emerald-400 mr-2"></i>Clear documentation</li>
             <li><i class="fas fa-check text-emerald-400 mr-2"></i>Strategic locations</li>
             <li><i class="fas fa-check text-emerald-400 mr-2"></i>Flexible payment plans</li>
             <li><i class="fas fa-check text-emerald-400 mr-2"></i>Investment guidance</li>
           </ul>
-          <a href="#contact" class="inline-block bg-emerald-500 text-white px-6 py-2 rounded-lg hover:bg-emerald-600 transition">Inquire Now</a>
+          <a href="#properties" class="inline-block bg-emerald-500 text-white px-6 py-2 rounded-lg hover:bg-emerald-600 transition">See Land Listings</a>
         </div>
 
         <!-- Residential Properties -->
@@ -297,14 +294,14 @@
             <i class="fas fa-home text-3xl text-white"></i>
           </div>
           <h3 class="text-2xl font-bold mb-4 text-blue-300">Residential Homes</h3>
-          <p class="text-gray-300 mb-6">Quality residential properties for families and individuals looking for comfortable modern living.</p>
+          <p class="text-gray-300 mb-6">Our residential work is focused on practical modern living, with selected homes and future developments positioned for families and owner-occupiers.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-blue-400 mr-2"></i>Modern designs</li>
             <li><i class="fas fa-check text-blue-400 mr-2"></i>Quality construction</li>
             <li><i class="fas fa-check text-blue-400 mr-2"></i>Accessible locations</li>
             <li><i class="fas fa-check text-blue-400 mr-2"></i>Affordable pricing</li>
           </ul>
-          <a href="#contact" class="inline-block bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition">Learn More</a>
+          <a href="#properties" class="inline-block bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition">See Home Pipeline</a>
         </div>
 
         <!-- Estate Development -->
@@ -313,14 +310,14 @@
             <i class="fas fa-city text-3xl text-white"></i>
           </div>
           <h3 class="text-2xl font-bold mb-4 text-amber-400">Estate Development</h3>
-          <p class="text-gray-300 mb-6">Comprehensive estate development services creating sustainable communities for the future.</p>
+          <p class="text-gray-300 mb-6">Estate development is where our planning, housing, and land strategy connect into longer-term community building and phased project delivery.</p>
           <ul class="text-sm text-gray-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-amber-400 mr-2"></i>Master planning</li>
             <li><i class="fas fa-check text-amber-400 mr-2"></i>Infrastructure development</li>
             <li><i class="fas fa-check text-amber-400 mr-2"></i>Sustainable design</li>
             <li><i class="fas fa-check text-amber-400 mr-2"></i>Community facilities</li>
           </ul>
-          <a href="#contact" class="inline-block bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 transition">Partner with Us</a>
+          <a href="#contact" class="inline-block bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 transition">Discuss a Project</a>
         </div>
       </div>
     </div>
@@ -331,7 +328,7 @@
     <div class="container mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">Featured <span class="gradient-text">Properties</span></h2>
-        <p class="text-lg text-gray-300 max-w-3xl mx-auto">Explore our current projects and available properties</p>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">Explore the properties and project pipeline behind the company, with each listing shown in its real current state.</p>
       </div>
 
       <!-- Property Filter -->
@@ -355,8 +352,8 @@
     <div class="container mx-auto px-4">
       <div class="text-center mb-12">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">About <span class="gradient-text">BrightWave</span></h2>
-        <p class="text-lg text-gray-300 max-w-3xl mx-auto">
-          A dynamic Nigerian real estate company building communities that inspire growth — from student hostels to prime land and modern estates.
+        <p id="homeAboutIntro" class="text-lg text-gray-300 max-w-3xl mx-auto">
+          BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.
         </p>
       </div>
 
@@ -385,16 +382,16 @@
 
       <div class="flex flex-wrap justify-center gap-12 mb-10">
         <div class="text-center">
-          <div class="text-4xl font-bold text-blue-400 mb-1">3+</div>
-          <div class="text-gray-400">Active Projects</div>
+          <div class="text-4xl font-bold text-blue-400 mb-1">4</div>
+          <div class="text-gray-400">Core Service Lines</div>
         </div>
         <div class="text-center">
-          <div class="text-4xl font-bold text-emerald-400 mb-1">50+</div>
-          <div class="text-gray-400">Happy Clients</div>
+          <div class="text-4xl font-bold text-emerald-400 mb-1">1</div>
+          <div class="text-gray-400">Flagship Project Now Open</div>
         </div>
         <div class="text-center">
-          <div class="text-4xl font-bold text-amber-400 mb-1">2</div>
-          <div class="text-gray-400">States Active</div>
+          <div class="text-4xl font-bold text-amber-400 mb-1">NG</div>
+          <div class="text-gray-400">Nigeria-Focused Growth</div>
         </div>
       </div>
 
@@ -880,6 +877,24 @@ document.addEventListener('keydown', (e) => {
         }
       });
 
+      fetch('/api/site-content')
+        .then(response => response.json())
+        .then(content => {
+          if (content['home.hero_badge']) {
+            document.getElementById('homeHeroBadge').innerHTML = `<i class="fas fa-building text-emerald-400"></i><span>${content['home.hero_badge']}</span>`;
+          }
+          if (content['home.hero_title']) {
+            document.getElementById('homeHeroTitle').textContent = content['home.hero_title'];
+          }
+          if (content['home.hero_subtitle']) {
+            document.getElementById('homeHeroSubtitle').textContent = content['home.hero_subtitle'];
+          }
+          if (content['home.about_intro']) {
+            document.getElementById('homeAboutIntro').textContent = content['home.about_intro'];
+          }
+        })
+        .catch(error => console.error('Error loading homepage content:', error));
+
       // Load initial properties - either from API or fallback to mock data
       fetchProperties('all');
     });
@@ -939,9 +954,9 @@ document.addEventListener('keydown', (e) => {
   grid.innerHTML = properties.map(property => `
     <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
       <div class="relative">
-        <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/placeholder-property.jpg'}" 
+        <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/property-coming-soon.svg'}" 
              alt="${property.title}" class="w-full h-64 object-cover"
-             onerror="this.src='/assets/images/placeholder-property.jpg'" />
+             onerror="this.src='/assets/images/property-coming-soon.svg'" />
         ${property.construction_status && property.construction_status !== 'completed' ? `
           <div class="absolute top-4 left-4">
             <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
@@ -989,11 +1004,11 @@ document.addEventListener('keydown', (e) => {
   type: 'hostel',
   location: 'Malete, Kwara State',
   price: null,
-  price_type: 'Contact for Pricing',
+  price_type: 'Now Open - Contact for Rates',
   description: 'Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
-            construction_status: 'ongoing-final',
+            construction_status: 'completed',
   featured: true,
-  images: ['images/brightwave-project-1.jpg']  // Updated path
+  images: ['images/phase1/phase1-main-entrance.jpg']
 },
         {
           id: 'hostel-phase2',
@@ -1027,9 +1042,9 @@ document.addEventListener('keydown', (e) => {
             price: 1000000,
             price_type: 'per plot (800sqm)',
             description: '800sqm investment plot in Kwara State. Ideal for development or long-term investment.',
-            construction_status: 'completed',
+            construction_status: 'planning',
             featured: false,
-            images: ['images/lands/fate-road-commercial.jpg']
+            images: []
         },
         {
           id: 'land-obada_ikija',
@@ -1039,7 +1054,7 @@ document.addEventListener('keydown', (e) => {
           price: 1500000,
           price_type: 'per plot (500sqm)',
           description: '6 acres of prime residential land at Obada Ikija, Abeokuta, featuring residential plots, modern homes, and community amenities.',
-          construction_status: 'Clearing',
+          construction_status: 'planning',
           featured: false,
           images: ['images/lands/brightwave-obada_ikija.jpg']
         },
@@ -1053,7 +1068,7 @@ document.addEventListener('keydown', (e) => {
           description: 'Contemporary 3-bedroom bungalow in planned estate development.',
           construction_status: 'planning',
           featured: false,
-          images: ['images/homes/adewole-bungalow-render.jpg']
+          images: []
         }
       ];
     }

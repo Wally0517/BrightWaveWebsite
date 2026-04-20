@@ -14,12 +14,16 @@ from datetime import datetime
 from time import time
 from collections import defaultdict
 import json
+from sqlalchemy.exc import IntegrityError
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ========== LOAD ENVIRONMENT VARIABLES ==========
 load_dotenv()
 
 # Validate required environment variables
-required_envs = ['SECRET_KEY', 'DATABASE_URL', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER']
+required_envs = ['SECRET_KEY']
 missing_envs = [env for env in required_envs if not os.environ.get(env)]
 if missing_envs:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_envs)}")
@@ -32,19 +36,22 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # ========== DATABASE CONFIGURATION ==========
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    database_url = 'sqlite:///brightwave_local.db'
+    logger.warning("DATABASE_URL not set; falling back to local SQLite storage")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'sslmode': 'require'} if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else {}
 }
 db = SQLAlchemy(app)
 
-# ========== LOGGING CONFIGURATION ==========
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # ========== CORS CONFIGURATION ==========
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "https://brightwaveenterprises.online").split(",")
+SITE_URL = os.environ.get("SITE_URL", "https://brightwavehabitat.com").rstrip("/")
+default_allowed_origins = f"{SITE_URL},https://www.brightwavehabitat.com"
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", default_allowed_origins).split(",")
 allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
 if not allowed_origins:
     logger.warning("No allowed origins configured for CORS")
@@ -140,21 +147,151 @@ class ContactMessage(db.Model):
     status = db.Column(db.String(20), default='new')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class SiteContent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(120), unique=True, nullable=False)
+    value = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class TeamMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(120), nullable=False)
+    bio = db.Column(db.Text, nullable=False)
+    image_path = db.Column(db.String(255), nullable=True)
+    sort_order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+DEFAULT_SITE_CONTENT = {
+    'home.hero_badge': 'Student hostels, land sales, homes and estate development',
+    'home.hero_title': 'Building trusted living solutions across Nigeria.',
+    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.',
+    'about.hero_subtitle': 'A growing Nigerian property company building credibility through delivered projects, clear communication, and steady expansion.',
+    'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business serving students, families, and investors through student hostels, land opportunities, residential homes, and estate development. Phase 1 in Malete is the current flagship delivery, while the broader company pipeline continues to grow around real execution.',
+    'about.team_heading': 'Meet the Active Team',
+    'about.team_subheading': 'The people currently responsible for delivery, operations, and client support at BrightWave.'
+}
+
+LEGACY_SITE_CONTENT = {
+    'home.hero_badge': 'Now Open: BrightWave Hostel Phase 1',
+    'home.hero_title': 'Affordable student rooms that are ready in Malete.',
+    'home.hero_subtitle': 'The first 10 self-contained rooms are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is focused on real, present inventory first. Phase 1 is open now, while future hostel, land, and residential projects are shown clearly as upcoming.',
+    'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, starting with BrightWave Hostel Phase 1 in Malete.',
+    'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to build housing people can actually trust. We are currently leading with BrightWave Hostel Phase 1 in Malete, while future hostels, land opportunities, and residential projects remain in the pipeline until they are ready to be presented properly.',
+}
+
+DEFAULT_TEAM_MEMBERS = [
+    {
+        'name': 'Wally H.',
+        'role': 'Founder & CEO',
+        'bio': 'Wally leads BrightWave Habitat Enterprise with a practical focus on student housing delivery, transparent communication, and steady long-term growth.',
+        'image_path': 'images/ceo-wally.jpg',
+        'sort_order': 1,
+        'is_active': True,
+    },
+    {
+        'name': 'Al-Ameen A.',
+        'role': 'Project & Property Manager',
+        'bio': 'Al-Ameen oversees site standards, property readiness, and day-to-day operational quality across BrightWave projects.',
+        'image_path': 'images/property-manager-alameen.jpg',
+        'sort_order': 2,
+        'is_active': True,
+    },
+    {
+        'name': 'Kamal B.',
+        'role': 'Realtor',
+        'bio': 'Kamal manages client conversations and helps prospects move from inquiry to a clear property decision.',
+        'image_path': 'images/realtor-kamal.jpg',
+        'sort_order': 3,
+        'is_active': True,
+    }
+]
+
 # ========== UTILITY FUNCTIONS ==========
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def ensure_cms_baseline():
+    """Create CMS tables and seed defaults lazily for existing deployments."""
+    db.create_all()
+    changes_made = False
+
+    try:
+        for slug, value in DEFAULT_SITE_CONTENT.items():
+            existing_item = SiteContent.query.filter_by(slug=slug).first()
+            if not existing_item:
+                db.session.add(SiteContent(slug=slug, value=value))
+                changes_made = True
+            elif existing_item.value == LEGACY_SITE_CONTENT.get(slug):
+                existing_item.value = value
+                changes_made = True
+
+        if not TeamMember.query.first():
+            for member in DEFAULT_TEAM_MEMBERS:
+                db.session.add(TeamMember(**member))
+                changes_made = True
+
+        if changes_made:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+def get_site_content():
+    ensure_cms_baseline()
+    return {
+        item.slug: item.value
+        for item in SiteContent.query.order_by(SiteContent.slug.asc()).all()
+    }
+
+def serialize_team_member(member):
+    return {
+        'id': member.id,
+        'name': member.name,
+        'role': member.role,
+        'bio': member.bio,
+        'image_path': member.image_path,
+        'sort_order': member.sort_order,
+        'is_active': member.is_active,
+        'created_at': member.created_at.isoformat(),
+        'updated_at': member.updated_at.isoformat(),
+    }
+
 def create_admin_user():
-    """Create default admin user if none exists"""
-    if not Admin.query.first():
-        admin = Admin(
-            username='admin',
-            email='admin@brightwaveenterprises.online',
-            password_hash=generate_password_hash('admin123')
-        )
-        db.session.add(admin)
+    """Create an admin user only when bootstrap credentials are supplied."""
+    username = os.environ.get('ADMIN_BOOTSTRAP_USERNAME')
+    email = os.environ.get('ADMIN_BOOTSTRAP_EMAIL')
+    password = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD')
+
+    if not all([username, email, password]):
+        logger.info("Admin bootstrap skipped: bootstrap credentials were not provided")
+        return False
+
+    existing_admin = Admin.query.filter(
+        (Admin.username == username) | (Admin.email == email)
+    ).first()
+    if existing_admin:
+        logger.info("Admin bootstrap skipped: requested admin already exists")
+        return False
+
+    admin = Admin(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password)
+    )
+    db.session.add(admin)
+    try:
         db.session.commit()
-        logger.info("Default admin user created. Username: admin, Password: admin123")
+        logger.info("Bootstrap admin user created for %s", email)
+        return True
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning("Admin bootstrap skipped after integrity conflict")
+        return False
 
 def init_sample_data():
     if Property.query.first():
@@ -166,11 +303,11 @@ def init_sample_data():
         description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
         property_type='hostel',
         location='Malete, Kwara State, Nigeria',
-        price=None, price_type='Contact for Pricing',
+        price=None, price_type='Now Open - Contact for Rates',
         total_rooms=10, available_rooms=10,
         amenities=['Private Bathroom','Private Kitchen','24/7 Security','Solar Power','CCTV','Water Supply','Parking Space'],
-        images=['images/brightwave-project-1.jpg'],
-        construction_status='ongoing-final', completion_date=datetime(2026, 3, 25).date(),
+        images=['images/phase1/phase1-main-entrance.jpg', 'images/phase1/phase1-aerial-topview.jpg'],
+        construction_status='completed', completion_date=datetime(2026, 3, 25).date(),
         featured=True, status='active'
     )
 
@@ -206,7 +343,7 @@ def init_sample_data():
         property_type='land', location='Obada Ikija, Abeokuta, Ogun State',
         price=2500000, price_type='per_sqm', size='6 acres',
         amenities=['Gated Community','Electricity','Water Supply','Good Road Network','Security','Recreational Facilities'],
-        images=['images/lands/brightwave-obada_ikija.jpg'],  # add real image later
+        images=['images/lands/brightwave-obada_ikija.jpg'],
         construction_status='completed', featured=True, status='active'
     )
 
@@ -217,7 +354,7 @@ def init_sample_data():
         property_type='land', location='Kwara State',
         price=1000000, price_type='per plot (800sqm)', size='800sqm',
         amenities=['Clear documentation','Strategic location','Flexible payment plans','Investment guidance'],
-        images=['images/lands/fate-road-commercial.jpg'], construction_status='completed', featured=False, status='active'
+        images=[], construction_status='planning', featured=False, status='active'
     )
 
     # --- Homes (future) ---
@@ -236,9 +373,19 @@ def init_sample_data():
     db.session.add_all([
         phase1, phase2, phase3,
         land_obada_ikija, land_fate,
-        home_gra, home_adewole
+        home_adewole
     ])
     db.session.commit()
+
+
+def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
+    """Run one-time database initialization outside the web worker startup path."""
+    db.create_all()
+    ensure_cms_baseline()
+    if include_sample_data:
+        init_sample_data()
+    if bootstrap_admin:
+        create_admin_user()
 
 # ========== AUTHENTICATION FUNCTIONS ==========
 def login_required(f):
@@ -286,6 +433,24 @@ def serve_static_assets(filename):
 @app.route('/health')
 def health():
     return 'ok', 200
+
+@app.route('/api/site-content', methods=['GET'])
+def get_public_site_content():
+    try:
+        return jsonify(get_site_content())
+    except Exception as e:
+        logger.error(f"Error fetching site content: {str(e)}")
+        return jsonify(DEFAULT_SITE_CONTENT)
+
+@app.route('/api/team-members', methods=['GET'])
+def get_public_team_members():
+    try:
+        ensure_cms_baseline()
+        members = TeamMember.query.filter_by(is_active=True).order_by(TeamMember.sort_order.asc(), TeamMember.created_at.asc()).all()
+        return jsonify([serialize_team_member(member) for member in members])
+    except Exception as e:
+        logger.error(f"Error fetching team members: {str(e)}")
+        return jsonify(DEFAULT_TEAM_MEMBERS)
 
 # ========== PROPERTY API ROUTES ==========
 @app.route('/api/properties', methods=['GET'])
@@ -438,7 +603,7 @@ def handle_contact_form():
                     Best regards,
                     BrightWave Habitat Enterprise Team
                     
-                    Email: brightwaveenterprise0@gmail.com
+                    Email: brightwavehabitat@gmail.com
                     WhatsApp: +234 803 766 9462, +234 903 840 2914
                     Location: Malete, Kwara State, Nigeria
                     """
@@ -558,11 +723,13 @@ def handle_property_inquiry():
 def admin_stats():
     """Get enhanced dashboard statistics"""
     try:
+        ensure_cms_baseline()
         total_properties = Property.query.count()
         active_properties = Property.query.filter_by(status='active').count()
         hostels = Property.query.filter_by(property_type='hostel').count()
         land_plots = Property.query.filter_by(property_type='land').count()
         residential = Property.query.filter_by(property_type='residential').count()
+        active_team_members = TeamMember.query.filter_by(is_active=True).count()
         
         total_inquiries = PropertyInquiry.query.count()
         new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
@@ -585,6 +752,7 @@ def admin_stats():
             'new_inquiries': new_inquiries,
             'contact_messages': contact_messages,
             'new_messages': new_messages,
+            'active_team_members': active_team_members,
             'recent_activity': {
                 'inquiries': [{
                     'id': inq.id,
@@ -602,6 +770,85 @@ def admin_stats():
         })
     except Exception as e:
         logger.error(f"Error fetching stats: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/site-content', methods=['GET', 'PUT'])
+@login_required
+def admin_site_content():
+    try:
+        ensure_cms_baseline()
+        if request.method == 'GET':
+            return jsonify(get_site_content())
+
+        data = request.get_json() or {}
+        for slug in DEFAULT_SITE_CONTENT.keys():
+            if slug in data:
+                existing = SiteContent.query.filter_by(slug=slug).first()
+                if existing:
+                    existing.value = str(data.get(slug, '')).strip()
+                else:
+                    db.session.add(SiteContent(slug=slug, value=str(data.get(slug, '')).strip()))
+        db.session.commit()
+        return jsonify({"success": True, "message": "Website content updated successfully"})
+    except Exception as e:
+        logger.error(f"Error updating site content: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/team-members', methods=['GET', 'POST'])
+@login_required
+def admin_team_members():
+    try:
+        ensure_cms_baseline()
+        if request.method == 'GET':
+            members = TeamMember.query.order_by(TeamMember.sort_order.asc(), TeamMember.created_at.asc()).all()
+            return jsonify([serialize_team_member(member) for member in members])
+
+        data = request.get_json() or {}
+        if not all([data.get('name'), data.get('role'), data.get('bio')]):
+            return jsonify({"success": False, "message": "Name, role, and bio are required"}), 400
+
+        member = TeamMember(
+            name=data['name'].strip(),
+            role=data['role'].strip(),
+            bio=data['bio'].strip(),
+            image_path=(data.get('image_path') or '').strip() or None,
+            sort_order=int(data.get('sort_order') or 0),
+            is_active=bool(data.get('is_active', True))
+        )
+        db.session.add(member)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Team member added successfully", "member": serialize_team_member(member)})
+    except Exception as e:
+        logger.error(f"Error creating team member: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/team-members/<int:member_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_team_member_detail(member_id):
+    try:
+        ensure_cms_baseline()
+        member = TeamMember.query.get_or_404(member_id)
+
+        if request.method == 'DELETE':
+            db.session.delete(member)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Team member removed successfully"})
+
+        data = request.get_json() or {}
+        if not all([data.get('name'), data.get('role'), data.get('bio')]):
+            return jsonify({"success": False, "message": "Name, role, and bio are required"}), 400
+
+        member.name = data['name'].strip()
+        member.role = data['role'].strip()
+        member.bio = data['bio'].strip()
+        member.image_path = (data.get('image_path') or '').strip() or None
+        member.sort_order = int(data.get('sort_order') or 0)
+        member.is_active = bool(data.get('is_active', True))
+        member.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True, "message": "Team member updated successfully", "member": serialize_team_member(member)})
+    except Exception as e:
+        logger.error(f"Error updating team member {member_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== FILE UPLOAD API ==========
@@ -1053,6 +1300,108 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Website Content</h2>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <form id="siteContentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Home Hero Badge</label>
+                        <input type="text" id="home_hero_badge" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Home Hero Title</label>
+                        <input type="text" id="home_hero_title" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">Home Hero Subtitle</label>
+                        <textarea id="home_hero_subtitle" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">Home About Intro</label>
+                        <textarea id="home_about_intro" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">About Hero Subtitle</label>
+                        <textarea id="about_hero_subtitle" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">About Intro Body</label>
+                        <textarea id="about_intro_body" rows="4" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">About Team Heading</label>
+                        <input type="text" id="about_team_heading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">About Team Subheading</label>
+                        <input type="text" id="about_team_subheading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Save Website Content</button>
+                        <span id="siteContentMessage" class="ml-3 text-sm"></span>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Team Members</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <form id="teamMemberForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="hidden" id="teamMemberId">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Name</label>
+                        <input type="text" id="teamName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Role</label>
+                        <input type="text" id="teamRole" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">Bio</label>
+                        <textarea id="teamBio" rows="3" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Upload Image</label>
+                        <input type="file" id="teamImageUpload" accept="image/*" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Image Path</label>
+                        <input type="text" id="teamImagePath" placeholder="images/ceo-wally.jpg" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sort Order</label>
+                        <input type="number" id="teamSortOrder" value="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div class="flex items-center pt-8">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="teamIsActive" checked class="mr-2">
+                            <span class="text-sm font-medium">Active on site</span>
+                        </label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Save Team Member</button>
+                        <button type="button" id="resetTeamForm" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg ml-2">Reset</button>
+                        <span id="teamMessage" class="ml-3 text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-600">
+                            <th class="py-2 text-left">Name</th>
+                            <th class="py-2 text-left">Role</th>
+                            <th class="py-2 text-left">Order</th>
+                            <th class="py-2 text-left">Active</th>
+                            <th class="py-2 text-left">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamMembersTable"></tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Properties Table -->
         <section class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Properties</h2>
@@ -1163,6 +1512,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <p class="text-sm">Land: ${stats.property_breakdown.land_plots}</p>
                         <p class="text-sm">Residential: ${stats.property_breakdown.residential}</p>
                     </div>
+                    <div class="bg-purple-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-medium text-purple-200">Active Team</h3>
+                        <p class="text-2xl font-bold">${stats.active_team_members}</p>
+                        <p class="text-sm text-purple-100">Shown on About page</p>
+                    </div>
                 `;
 
                 // Recent activity
@@ -1268,6 +1622,98 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 `).join('');
             } catch (error) {
                 console.error('Error loading messages:', error);
+            }
+        }
+
+        async function loadSiteContent() {
+            try {
+                const content = await fetchData('/admin/api/site-content');
+                document.getElementById('home_hero_badge').value = content['home.hero_badge'] || '';
+                document.getElementById('home_hero_title').value = content['home.hero_title'] || '';
+                document.getElementById('home_hero_subtitle').value = content['home.hero_subtitle'] || '';
+                document.getElementById('home_about_intro').value = content['home.about_intro'] || '';
+                document.getElementById('about_hero_subtitle').value = content['about.hero_subtitle'] || '';
+                document.getElementById('about_intro_body').value = content['about.intro_body'] || '';
+                document.getElementById('about_team_heading').value = content['about.team_heading'] || '';
+                document.getElementById('about_team_subheading').value = content['about.team_subheading'] || '';
+            } catch (error) {
+                console.error('Error loading site content:', error);
+            }
+        }
+
+        async function loadTeamMembers() {
+            try {
+                const members = await fetchData('/admin/api/team-members');
+                document.getElementById('teamMembersTable').innerHTML = members.map(member => `
+                    <tr class="border-b border-gray-600">
+                        <td class="py-2">${member.name}</td>
+                        <td class="py-2">${member.role}</td>
+                        <td class="py-2">${member.sort_order}</td>
+                        <td class="py-2">${member.is_active ? 'Yes' : 'No'}</td>
+                        <td class="py-2">
+                            <button onclick="editTeamMember(${member.id})" class="text-blue-400 hover:underline mr-3">Edit</button>
+                            <button onclick="deleteTeamMember(${member.id})" class="text-red-400 hover:underline">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+                window.teamMembersCache = members;
+            } catch (error) {
+                console.error('Error loading team members:', error);
+            }
+        }
+
+        function resetTeamMemberForm() {
+            document.getElementById('teamMemberId').value = '';
+            document.getElementById('teamName').value = '';
+            document.getElementById('teamRole').value = '';
+            document.getElementById('teamBio').value = '';
+            document.getElementById('teamImagePath').value = '';
+            document.getElementById('teamImageUpload').value = '';
+            document.getElementById('teamSortOrder').value = '0';
+            document.getElementById('teamIsActive').checked = true;
+            document.getElementById('teamMessage').textContent = '';
+        }
+
+        async function uploadSelectedTeamImage() {
+            const fileInput = document.getElementById('teamImageUpload');
+            if (!fileInput.files.length) return document.getElementById('teamImagePath').value.trim();
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const response = await fetch('/admin/api/upload', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Image upload failed');
+            }
+            return result.filename;
+        }
+
+        function editTeamMember(id) {
+            const member = (window.teamMembersCache || []).find(item => item.id === id);
+            if (!member) return;
+            document.getElementById('teamMemberId').value = member.id;
+            document.getElementById('teamName').value = member.name;
+            document.getElementById('teamRole').value = member.role;
+            document.getElementById('teamBio').value = member.bio;
+            document.getElementById('teamImagePath').value = member.image_path || '';
+            document.getElementById('teamSortOrder').value = member.sort_order || 0;
+            document.getElementById('teamIsActive').checked = member.is_active;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function deleteTeamMember(id) {
+            if (!confirm('Remove this team member from the site?')) return;
+            try {
+                await fetchData(`/admin/api/team-members/${id}`, { method: 'DELETE' });
+                loadTeamMembers();
+                loadStats();
+                resetTeamMemberForm();
+            } catch (error) {
+                alert('Error deleting team member');
             }
         }
 
@@ -1406,27 +1852,80 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
+        document.getElementById('siteContentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('siteContentMessage');
+            try {
+                const payload = {
+                    'home.hero_badge': document.getElementById('home_hero_badge').value,
+                    'home.hero_title': document.getElementById('home_hero_title').value,
+                    'home.hero_subtitle': document.getElementById('home_hero_subtitle').value,
+                    'home.about_intro': document.getElementById('home_about_intro').value,
+                    'about.hero_subtitle': document.getElementById('about_hero_subtitle').value,
+                    'about.intro_body': document.getElementById('about_intro_body').value,
+                    'about.team_heading': document.getElementById('about_team_heading').value,
+                    'about.team_subheading': document.getElementById('about_team_subheading').value
+                };
+                const response = await fetchData('/admin/api/site-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-green-400';
+            } catch (error) {
+                message.textContent = 'Error saving website content';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        document.getElementById('teamMemberForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('teamMessage');
+            try {
+                const imagePath = await uploadSelectedTeamImage();
+                const payload = {
+                    name: document.getElementById('teamName').value,
+                    role: document.getElementById('teamRole').value,
+                    bio: document.getElementById('teamBio').value,
+                    image_path: imagePath,
+                    sort_order: parseInt(document.getElementById('teamSortOrder').value || '0', 10),
+                    is_active: document.getElementById('teamIsActive').checked
+                };
+                const memberId = document.getElementById('teamMemberId').value;
+                const url = memberId ? `/admin/api/team-members/${memberId}` : '/admin/api/team-members';
+                const method = memberId ? 'PUT' : 'POST';
+                const response = await fetchData(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-green-400';
+                resetTeamMemberForm();
+                loadTeamMembers();
+                loadStats();
+            } catch (error) {
+                message.textContent = error.message || 'Error saving team member';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        document.getElementById('resetTeamForm').addEventListener('click', resetTeamMemberForm);
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             loadProperties();
             loadInquiries();
             loadMessages();
+            loadSiteContent();
+            loadTeamMembers();
         });
     </script>
 </body>
 </html>
 """
-
-# ========== DATABASE INITIALIZATION ==========
-with app.app_context():
-    try:
-        db.create_all()
-        create_admin_user()
-        init_sample_data()
-    except Exception as e:
-        logger.error(f"Database initialization error: {str(e)}")
-        raise
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
