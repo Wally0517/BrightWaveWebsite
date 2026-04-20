@@ -5,7 +5,7 @@
 ---
 
 ## 🌍 Live Website
-> **https://brightwaveenterprises.online**
+> **https://brightwavehabitat.com**
 
 ---
 
