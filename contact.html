@@ -5,29 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Contact | BrightWave Habitat Enterprise</title>
   <link rel="icon" href="/assets/images/brightwave-logo.png" />
-  <!-- SEO: avoid duplicate content, but keep link equity -->
-  <link rel="canonical" href="https://brightwaveenterprises.online/" />
+  <link rel="canonical" href="https://brightwavehabitat.com/" />
   <meta name="robots" content="noindex,follow" />
-  <!-- Immediate fallback redirect (for very old browsers) -->
   <meta http-equiv="refresh" content="0; url=/#contact" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="/assets/style.css" />
   <style>
-    body{margin:0;display:grid;place-items:center;height:100dvh;background:#0f172a;color:#e5e7eb;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto}
-    a{color:#93c5fd}
-    .card{padding:24px 28px;background:#111827cc;border:1px solid #334155;border-radius:14px}
+    body {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <p>Redirecting you to the contact section…</p>
-    <p><a id="fallback" href="/#contact">Go there now</a></p>
-  </div>
+  <main class="surface-panel rounded-[2rem] p-8 md:p-10 max-w-2xl w-full text-center">
+    <p class="section-kicker mb-3">Redirecting</p>
+    <h1 class="brand-display text-4xl md:text-5xl font-semibold mb-5">Taking you to <span class="gradient-text">BrightWave contact</span>.</h1>
+    <p class="text-slate-300 leading-8 max-w-xl mx-auto mb-8">The main contact experience lives on the homepage so all enquiries stay in one place. Your destination is loading now.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl mx-auto">
+      <a id="fallback" href="/#contact" class="brand-button">
+        <i class="fas fa-paper-plane"></i>
+        <span>Go to contact</span>
+      </a>
+      <a href="/" class="brand-button-secondary">
+        <i class="fas fa-home"></i>
+        <span>Back to homepage</span>
+      </a>
+    </div>
+  </main>
 
   <script>
-    // Preserve any query string (?interest=land-purchase) and send to the homepage
     const qs = window.location.search || '';
     const target = `/${qs}#contact`;
     document.getElementById('fallback').href = target;
-    // Use JS redirect so analytics keep the referrer
     window.location.replace(target);
   </script>
 </body>

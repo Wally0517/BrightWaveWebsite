@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="BrightWave Hostel Phase 1 is now open in Malete, Kwara State, with 10 self-contained rooms, security, water, solar backup, and practical student comfort." />
+  <meta name="description" content="BrightWave Hostel Phase 1 is now open in Malete, Kwara State, with self-contained rooms, dependable utilities, security, and a better student living experience." />
   <meta property="og:title" content="BrightWave Hostel Phase 1 | BrightWave Habitat Enterprise" />
-  <meta property="og:description" content="See the real BrightWave Hostel Phase 1 spaces now open in Malete, Kwara State." />
+  <meta property="og:description" content="Explore the real Phase 1 hostel spaces now open in Malete, Kwara State." />
   <meta property="og:image" content="https://brightwavehabitat.com/assets/images/phase1/phase1-main-entrance.jpg" />
   <meta property="og:url" content="https://brightwavehabitat.com/hostel-detail.html" />
   <meta property="og:type" content="website" />
@@ -13,315 +13,475 @@
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
-  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <link rel="stylesheet" href="/assets/style.css" />
   <style>
-    .skip-link{position:absolute;left:1rem;top:-3rem;z-index:100;padding:.75rem 1rem;border-radius:.75rem;background:#f8fafc;color:#0f172a;font-weight:700;transition:top .2s ease}
+    .skip-link{position:absolute;left:1rem;top:-3rem;z-index:100;padding:.75rem 1rem;border-radius:.75rem;background:#fff;color:#111827;font-weight:700;transition:top .2s ease}
     .skip-link:focus{top:1rem}
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    .gradient-text{background:linear-gradient(45deg,#64748B,#94A3B8,#475569);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .hover-lift{transition:transform .3s ease,box-shadow .3s ease}
-    .hover-lift:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,0,0,.3)}
-    .glass-effect{backdrop-filter:blur(10px);background:rgba(17,24,39,.8);border:1px solid rgba(255,255,255,.08)}
-    .nav-link{position:relative;transition:color .3s ease}
-    .nav-link::after{content:'';position:absolute;width:0;height:2px;bottom:-8px;left:50%;background:linear-gradient(90deg,#64748B,#94A3B8);transition:all .3s ease;transform:translateX(-50%);border-radius:1px}
-    .nav-link:hover::after,.nav-link.active::after{width:100%}
-    .hero-overlay{background:linear-gradient(135deg,rgba(15,23,42,.92) 0%,rgba(51,65,85,.75) 35%,rgba(15,23,42,.92) 100%)}
-    .hero-pattern{background-image:radial-gradient(circle at 2px 2px,rgba(148,163,184,.2) 1px,transparent 0);background-size:30px 30px;animation:pattern-move 30s linear infinite}
-    @keyframes pattern-move{0%{background-position:0 0}100%{background-position:30px 30px}}
-    .hostel-hero{background-image:url('/assets/images/phase1/phase1-main-entrance.jpg');background-size:cover;background-position:center;background-attachment:fixed}
-    @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none !important;transition:none !important}.hostel-hero{background-attachment:scroll}}
+    .phase-hero{
+      background:
+        linear-gradient(130deg, rgba(14, 24, 37, 0.58), rgba(5, 9, 15, 0.88)),
+        url('/assets/images/phase1/phase1-aerial-topview.jpg') center/cover no-repeat;
+    }
+    .gallery-frame{
+      border:1px solid rgba(236, 224, 209, 0.12);
+      background:rgba(255,255,255,0.04);
+      box-shadow:0 36px 80px rgba(5, 9, 18, 0.34);
+    }
+    .gallery-stage img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+    .gallery-thumb{
+      border:1px solid rgba(236, 224, 209, 0.12);
+      transition:transform .25s ease, border-color .25s ease, opacity .25s ease;
+      opacity:.7;
+    }
+    .gallery-thumb[aria-current="true"]{
+      opacity:1;
+      border-color:rgba(199, 151, 96, 0.62);
+      transform:translateY(-2px);
+    }
+    .phase-card{
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(236, 224, 209, 0.1);
+      box-shadow:0 24px 60px rgba(5, 10, 18, 0.22);
+    }
+    .field-input{
+      width:100%;
+      border-radius:1rem;
+      border:1px solid rgba(236, 224, 209, 0.12);
+      background:rgba(8, 12, 20, 0.58);
+      padding:1rem 1.1rem;
+      color:var(--bw-text);
+      outline:none;
+      transition:border-color .25s ease, background .25s ease, transform .25s ease;
+    }
+    .field-input:focus{
+      border-color:rgba(199, 151, 96, 0.54);
+      background:rgba(11, 18, 28, 0.82);
+      transform:translateY(-1px);
+    }
+    .field-input::placeholder{color:rgba(236, 224, 209, 0.52)}
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation:none !important;transition:none !important}
+    }
   </style>
 </head>
-<body class="font-sans bg-gray-900 text-white">
+<body class="font-sans text-white">
   <a href="#main-content" class="skip-link">Skip to main content</a>
-  <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
+
+  <header class="site-header">
     <nav class="container mx-auto px-4 py-4 flex items-center justify-between" aria-label="Primary">
-      <div class="flex items-center space-x-3">
+      <a href="/#home" class="flex items-center space-x-3">
         <div class="relative">
-          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-slate-400/30 shadow-lg"/>
-          <div class="absolute -inset-1 bg-gradient-to-r from-slate-400 to-slate-600 rounded-full blur opacity-20 animate-pulse"></div>
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-white/20 shadow-lg" />
+          <div class="absolute -inset-1 rounded-full bg-white/10 blur"></div>
         </div>
         <div>
-          <h1 class="text-xl md:text-2xl font-bold text-slate-100">BrightWave</h1>
-          <p class="text-xs text-slate-400 font-medium">Habitat Enterprise</p>
+          <p class="text-xl font-semibold text-white">BrightWave</p>
+          <p class="text-xs uppercase tracking-[0.28em] text-white/55">Habitat Enterprise</p>
         </div>
-      </div>
-      <button id="mobile-menu-toggle" class="md:hidden text-2xl text-white p-2 rounded-lg hover:bg-slate-700/50 transition" aria-label="Toggle navigation menu">
+      </a>
+
+      <button id="mobile-menu-toggle" class="md:hidden rounded-full border border-white/10 p-3 text-white" aria-label="Toggle navigation menu" aria-expanded="false">
         <i class="fas fa-bars"></i>
       </button>
-      <ul class="hidden md:flex space-x-8 text-lg font-semibold">
-        <li><a href="/#home" class="text-slate-200 nav-link active">Home</a></li>
-        <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link">Services</a></li>
-        <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link">Properties</a></li>
-        <li><a href="/about.html" class="text-slate-400 hover:text-slate-200 nav-link">About</a></li>
-        <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200">FAQ</a></li>
-        <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link">Contact</a></li>
+
+      <ul class="hidden md:flex items-center space-x-8 text-sm font-semibold uppercase tracking-[0.22em]">
+        <li><a href="/#home" class="nav-link">Home</a></li>
+        <li><a href="/#services" class="nav-link">Services</a></li>
+        <li><a href="/#properties" class="nav-link active">Properties</a></li>
+        <li><a href="/about.html" class="nav-link">About</a></li>
+        <li><a href="/faq.html" class="nav-link">FAQ</a></li>
+        <li><a href="/#contact" class="nav-link">Contact</a></li>
       </ul>
     </nav>
-    <div class="mobile-nav hidden md:hidden bg-slate-900/98 backdrop-blur-lg shadow-2xl border-t border-slate-700/30">
-      <ul class="flex flex-col items-center space-y-4 py-6 text-lg font-semibold">
-        <li><a href="/#home" class="text-slate-200 nav-link active">Home</a></li>
-        <li><a href="/#services" class="text-slate-400 nav-link">Services</a></li>
-        <li><a href="/#properties" class="text-slate-400 nav-link">Properties</a></li>
-        <li><a href="/about.html" class="text-slate-400 nav-link">About</a></li>
-        <li><a href="/faq.html" class="text-slate-400">FAQ</a></li>
-        <li><a href="/#contact" class="text-slate-400 nav-link">Contact</a></li>
+
+    <div id="mobile-menu" class="hidden border-t border-white/10 bg-[rgba(7,12,20,0.98)] md:hidden">
+      <ul class="flex flex-col px-6 py-6 text-sm font-semibold uppercase tracking-[0.2em] text-white/75">
+        <li><a href="/#home" class="block py-3">Home</a></li>
+        <li><a href="/#services" class="block py-3">Services</a></li>
+        <li><a href="/#properties" class="block py-3 text-white">Properties</a></li>
+        <li><a href="/about.html" class="block py-3">About</a></li>
+        <li><a href="/faq.html" class="block py-3">FAQ</a></li>
+        <li><a href="/#contact" class="block py-3">Contact</a></li>
       </ul>
     </div>
   </header>
 
   <main id="main-content">
-  <section class="relative min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden hostel-hero">
-    <div class="absolute inset-0 hero-overlay"></div>
-    <div class="absolute inset-0 hero-pattern opacity-20"></div>
-    <div class="relative text-center z-10 px-4 max-w-5xl" data-aos="fade-up" data-aos-duration="1000">
-      <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold tracking-wide text-slate-100 mb-6">
-        <i class="fas fa-check-circle text-emerald-400"></i>
-        <span>Now Open in Malete</span>
-      </div>
-      <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
-        BrightWave <span class="gradient-text">Hostel Phase 1</span>
-      </h1>
-      <p class="text-lg md:text-2xl text-slate-200 mb-8">
-        10 self-contained student rooms with solar backup, security, water, and recreation.
-      </p>
-      <div class="flex flex-col md:flex-row justify-center gap-4">
-        <a href="#contact-form" class="bg-slate-600 hover:bg-slate-700 text-white px-8 py-4 rounded-xl transition-all font-semibold text-lg hover-lift">
-          Check Availability
-        </a>
-        <a href="/#properties" class="bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all font-semibold text-lg">
-          Browse More Projects
-        </a>
-      </div>
-    </div>
-  </section>
+    <section class="phase-hero brand-hero relative overflow-hidden">
+      <div class="hero-pattern absolute inset-0 opacity-30"></div>
+      <div class="container relative z-10 mx-auto px-4 py-28 md:py-36">
+        <div class="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+          <div class="max-w-4xl">
+            <p class="section-kicker mb-4">Live project</p>
+            <h1 class="brand-display text-5xl md:text-7xl font-semibold leading-[0.96] mb-6">BrightWave Hostel Phase 1 is open and ready for serious enquiries.</h1>
+            <p class="section-lead max-w-3xl text-white/80">
+              This is the active BrightWave offer in Malete: self-contained student rooms, dependable utilities, stronger security posture, and real project imagery that reflects the property as it exists.
+            </p>
+            <div class="mt-8 flex flex-col gap-4 sm:flex-row">
+              <a href="#availability-form" class="brand-button">Check availability</a>
+              <a href="#gallery" class="brand-button-secondary">View gallery</a>
+            </div>
+          </div>
 
-  <section class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <div class="glass-effect rounded-2xl p-8 md:p-12 text-center hover-lift">
-        <h2 class="text-3xl md:text-4xl font-bold mb-6">Welcome to BrightWave Hostel Phase 1</h2>
-        <p class="text-lg text-gray-300 max-w-4xl mx-auto mb-6">
-          Located in Malete, Kwara State, Phase 1 features <span class="font-semibold">10 self-contained rooms</span> crafted for students, each with a private bathroom and kitchenette. The compound provides <span class="font-semibold">24/7 security, CCTV, solar backup, constant water</span> and a community-friendly courtyard with recreation.
-        </p>
-        <p class="text-lg text-gray-300 max-w-4xl mx-auto">
-          <span class="font-bold text-slate-200">Availability:</span> the first 10 rooms are now open for inquiries and allocation.<br/>
-          <span class="font-bold text-slate-200">Pricing:</span> contact us for current rates, payment structure, and room availability.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <section class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold text-center mb-8">Explore the Real Spaces</h2>
-      <div class="relative max-w-5xl mx-auto overflow-hidden rounded-2xl shadow-2xl" role="region" aria-label="Phase 1 photo gallery">
-        <div class="slides flex transition-transform duration-1000 ease-in-out" aria-live="polite">
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 main entrance" class="w-full h-[480px] object-cover" loading="eager" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Main Entrance</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-aerial-topview.jpg" alt="Aerial top view of BrightWave Hostel Phase 1" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Aerial View</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-bedroom.jpg" alt="A finished bedroom inside BrightWave Hostel Phase 1" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Bedroom</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-bathroom.jpg" alt="Bathroom inside a BrightWave Hostel Phase 1 room" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Bathroom</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-kitchen.jpg" alt="Kitchenette inside BrightWave Hostel Phase 1" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Kitchenette</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="Security and entry point at BrightWave Hostel Phase 1" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Security Entry</div></div>
-          <div class="slide flex-shrink-0 w-full relative"><img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="Courtyard and snooker recreation area at BrightWave Hostel Phase 1" class="w-full h-[480px] object-cover" loading="lazy" decoding="async" /><div class="absolute bottom-4 left-4 bg-gray-900/70 px-3 py-1 rounded text-sm">Courtyard & Recreation</div></div>
-        </div>
-        <button type="button" class="prev absolute top-1/2 left-4 -translate-y-1/2 bg-slate-800 text-white p-2 rounded-full hover:bg-slate-700 transition" aria-label="Previous slide">&#10094;</button>
-        <button type="button" class="next absolute top-1/2 right-4 -translate-y-1/2 bg-slate-800 text-white p-2 rounded-full hover:bg-slate-700 transition" aria-label="Next slide">&#10095;</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold text-center mb-8">Amenities & Features</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-bed text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">Self-Contained Rooms</h3><p class="text-gray-300">10 private rooms with ensuite and kitchenette for convenience.</p></div>
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-shield-alt text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">24/7 Security</h3><p class="text-gray-300">Security personnel, gated access, and CCTV coverage.</p></div>
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-solar-panel text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">Reliable Utilities</h3><p class="text-gray-300">Solar backup, generator support, and constant water supply.</p></div>
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-gamepad text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">Recreation</h3><p class="text-gray-300">Courtyard with snooker for relaxation and social life.</p></div>
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-map-marker-alt text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">Prime Location</h3><p class="text-gray-300">Near campus in Malete, Kwara State.</p></div>
-        <div class="glass-effect p-6 rounded-xl text-center hover-lift"><i class="fas fa-comments text-4xl mb-4 text-slate-300"></i><h3 class="text-xl font-bold mb-2">Direct Support</h3><p class="text-gray-300">Speak with BrightWave directly for allocation and next steps.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold text-center mb-8">Location</h2>
-      <p class="text-lg text-center text-gray-300 mb-6">Malete, Kwara State, close to the university and everyday amenities.</p>
-      <div class="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-2xl border border-slate-600 hover-lift">
-        <iframe src="https://maps.google.com/maps?q=8.583498,4.555573&z=16&t=k&output=embed" width="100%" height="100%" loading="lazy" class="w-full h-full" title="Satellite map of BrightWave Hostel Phase 1"></iframe>
-      </div>
-    </div>
-  </section>
-
-  <section class="py-16 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4 text-center">
-      <h2 class="text-4xl font-bold mb-4">Secure One of the First 10 Rooms</h2>
-      <p class="text-lg text-gray-300 mb-8">Reach out now to confirm current availability, inspection options, and booking steps.</p>
-      <a href="#contact-form" class="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-4 rounded-xl transition-all font-semibold text-lg hover-lift">
-        Contact BrightWave
-      </a>
-    </div>
-  </section>
-
-  <section id="contact-form" class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold text-center mb-8">Get in Touch</h2>
-      <form id="hostelContactForm" class="max-w-xl mx-auto glass-effect p-6 rounded-2xl space-y-4">
-        <label class="sr-only" for="fullName">Full name</label>
-        <input id="fullName" name="fullName" type="text" placeholder="Your Full Name" autocomplete="name" required class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all" />
-        <label class="sr-only" for="email">Email address</label>
-        <input id="email" name="email" type="email" placeholder="Your Email Address" autocomplete="email" required class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all" />
-        <label class="sr-only" for="phone">Phone number</label>
-        <input id="phone" name="phone" type="text" placeholder="Your Phone Number" autocomplete="tel" required class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all" />
-        <label class="sr-only" for="message">Your message</label>
-        <textarea id="message" name="message" rows="5" placeholder="Tell us what you need..." required class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all"></textarea>
-        <button id="submitButton" type="submit" class="w-full bg-slate-600 hover:bg-slate-700 text-white p-3 rounded-lg transition-all font-semibold flex items-center justify-center">
-          Send Request
-          <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
-        </button>
-      </form>
-      <div id="formStatus" class="text-center mt-4 font-semibold" aria-live="polite"></div>
-    </div>
-  </section>
-
-  <section class="py-16" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4 text-center">
-      <div class="relative max-w-4xl mx-auto h-64 rounded-2xl overflow-hidden shadow-2xl">
-        <img src="/assets/images/hostels/brightwave-phase2-render.jpg" alt="BrightWave Phase 2 concept render" class="w-full h-full object-cover opacity-60"/>
-        <div class="absolute inset-0 flex items-center justify-center">
-          <span class="bg-slate-700 text-white px-4 py-2 rounded-lg font-bold">Phase 2 - Coming Soon</span>
+          <aside class="surface-panel rounded-[2rem] p-8">
+            <p class="section-kicker mb-4">Phase 1 snapshot</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="brand-metric rounded-2xl p-5">
+                <span class="text-4xl font-semibold text-white">10</span>
+                <p class="mt-2 text-sm text-white/68">Self-contained rooms in the first delivery phase.</p>
+              </div>
+              <div class="brand-metric rounded-2xl p-5">
+                <span class="text-4xl font-semibold text-white">Now</span>
+                <p class="mt-2 text-sm text-white/68">Open for enquiries, inspections, and allocation conversations.</p>
+              </div>
+              <div class="brand-metric rounded-2xl p-5">
+                <span class="text-4xl font-semibold text-white">24/7</span>
+                <p class="mt-2 text-sm text-white/68">Security-backed compound access and controlled entry.</p>
+              </div>
+              <div class="brand-metric rounded-2xl p-5">
+                <span class="text-4xl font-semibold text-white">Malete</span>
+                <p class="mt-2 text-sm text-white/68">University-adjacent location in Kwara State.</p>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
-      <p class="text-lg text-gray-300 mt-6 max-w-2xl mx-auto">Phase 2 expands capacity with more rooms and amenities. It will be published fully when the next phase is ready.</p>
-      <a href="/#properties" class="inline-block mt-6 text-white border-2 border-white px-6 py-3 rounded-lg hover:bg-white hover:text-gray-900 transition font-semibold">
-        Back to Properties
-      </a>
-    </div>
-  </section>
+    </section>
 
-  <div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
-    <a href="https://wa.me/2348037669462?text=Interested%20in%20BrightWave%20Hostel%20Phase%201" class="bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg transition-all flex items-center justify-center hover-lift">
-      <i class="fab fa-whatsapp text-xl"></i>
-    </a>
-    <button id="back-to-top" class="bg-gray-700 hover:bg-gray-600 text-white w-14 h-14 rounded-full shadow-lg transition-all items-center justify-center hover-lift hidden">
-      <i class="fas fa-arrow-up text-xl"></i>
-    </button>
-  </div>
+    <section class="section-shell">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <div>
+            <p class="section-kicker mb-3">Why this matters</p>
+            <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-5">A student property should feel practical, secure, and worth the rate.</h2>
+            <p class="section-lead mb-6">
+              Phase 1 was built to answer the obvious concerns first: room privacy, utilities, compound safety, and the everyday experience of living close to school without settling for a weak standard.
+            </p>
+            <div class="grid gap-4 md:grid-cols-2">
+              <article class="surface-panel rounded-[1.6rem] p-6">
+                <p class="section-kicker mb-2">Room quality</p>
+                <h3 class="brand-display text-2xl font-semibold mb-3">Private, self-contained setup</h3>
+                <p class="text-base leading-8 text-white/70">Each room is planned for independence, with ensuite convenience and space for a cleaner student routine.</p>
+              </article>
+              <article class="surface-panel rounded-[1.6rem] p-6">
+                <p class="section-kicker mb-2">Utilities</p>
+                <h3 class="brand-display text-2xl font-semibold mb-3">Better operating reliability</h3>
+                <p class="text-base leading-8 text-white/70">Water access, solar support, and backup planning reduce the friction students usually face in poor compounds.</p>
+              </article>
+              <article class="surface-panel rounded-[1.6rem] p-6">
+                <p class="section-kicker mb-2">Security</p>
+                <h3 class="brand-display text-2xl font-semibold mb-3">Controlled entry and oversight</h3>
+                <p class="text-base leading-8 text-white/70">The property is positioned around safer access, visible management discipline, and a stronger sense of order.</p>
+              </article>
+              <article class="surface-panel rounded-[1.6rem] p-6">
+                <p class="section-kicker mb-2">Lifestyle</p>
+                <h3 class="brand-display text-2xl font-semibold mb-3">A compound students can actually enjoy</h3>
+                <p class="text-base leading-8 text-white/70">Shared areas and recreation add value, but the core win is still dependable day-to-day living.</p>
+              </article>
+            </div>
+          </div>
 
-  <footer class="bg-gray-800 text-white py-12">
-    <div class="container mx-auto px-4">
-      <div class="flex items-center space-x-3 mb-6">
-        <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-10 rounded-full"/>
+          <div class="surface-panel rounded-[2rem] p-8">
+            <p class="section-kicker mb-3">Offer summary</p>
+            <h2 class="brand-display text-3xl font-semibold mb-5">The current live offer should lead the page.</h2>
+            <div class="space-y-4 text-base leading-8 text-white/72">
+              <p><strong class="text-white">Property:</strong> BrightWave Hostel Phase 1</p>
+              <p><strong class="text-white">Status:</strong> Open now for enquiries and room allocation discussions</p>
+              <p><strong class="text-white">Location:</strong> Malete, Kwara State, Nigeria</p>
+              <p><strong class="text-white">Use case:</strong> Student accommodation with a premium practical standard</p>
+              <p><strong class="text-white">Rates:</strong> Shared directly during enquiry so availability and pricing stay aligned</p>
+            </div>
+            <div class="mt-8 flex flex-col gap-3">
+              <a href="#availability-form" class="brand-button justify-center">Request current rates</a>
+              <a href="https://wa.me/2348037669462?text=Hello%20BrightWave%2C%20I%20want%20details%20for%20Phase%201." class="brand-button-secondary justify-center">Ask on WhatsApp</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery" class="section-shell pt-0">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-start">
+          <div class="gallery-frame rounded-[2rem] p-4 md:p-5">
+            <div class="gallery-stage relative h-[440px] overflow-hidden rounded-[1.6rem]">
+              <img id="galleryImage" src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 main entrance" loading="eager" decoding="async" />
+              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6">
+                <p id="galleryLabel" class="text-xl font-semibold text-white">Main entrance</p>
+                <p id="galleryDescription" class="mt-2 max-w-2xl text-sm uppercase tracking-[0.18em] text-white/65">Real BrightWave Phase 1 imagery</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="section-kicker mb-3">Real project imagery</p>
+            <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-5">A live offer should not hide behind generic renders.</h2>
+            <p class="section-lead mb-6">
+              These images are part of the actual Phase 1 property in Malete. The gallery is arranged to show the compound, room experience, and key practical spaces.
+            </p>
+            <div id="galleryThumbs" class="grid gap-4 sm:grid-cols-2">
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-main-entrance.jpg" data-alt="BrightWave Hostel Phase 1 main entrance" data-label="Main entrance" data-description="Arrival, frontage, and first impression of the active Phase 1 property." aria-current="true">
+                <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Entrance</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-aerial-topview.jpg" data-alt="Aerial top view of BrightWave Hostel Phase 1" data-label="Aerial view" data-description="Top-level perspective showing the real compound footprint and context." aria-current="false">
+                <img src="/assets/images/phase1/phase1-aerial-topview.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Aerial</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-bedroom.jpg" data-alt="A finished bedroom inside BrightWave Hostel Phase 1" data-label="Bedroom" data-description="Private room finish and practical living condition for occupants." aria-current="false">
+                <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Bedroom</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-bathroom.jpg" data-alt="Bathroom inside BrightWave Hostel Phase 1" data-label="Bathroom" data-description="Ensuite bathroom finish for everyday use and privacy." aria-current="false">
+                <img src="/assets/images/phase1/phase1-bathroom.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Bathroom</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-kitchen.jpg" data-alt="Kitchenette inside BrightWave Hostel Phase 1" data-label="Kitchenette" data-description="Compact in-room convenience for a more independent student setup." aria-current="false">
+                <img src="/assets/images/phase1/phase1-kitchen.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Kitchen</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left" data-image="/assets/images/phase1/phase1-entrance-security.jpg" data-alt="Security and entry point at BrightWave Hostel Phase 1" data-label="Security entry" data-description="Controlled access and security positioning around the compound." aria-current="false">
+                <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="" class="h-36 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Security</span>
+              </button>
+              <button class="gallery-thumb rounded-[1.5rem] overflow-hidden text-left sm:col-span-2" data-image="/assets/images/phase1/phase1-courtyard-snooker.jpg" data-alt="Courtyard and snooker recreation area at BrightWave Hostel Phase 1" data-label="Courtyard and recreation" data-description="Shared outdoor environment and social value within the property." aria-current="false">
+                <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="" class="h-40 w-full object-cover" loading="lazy" decoding="async" />
+                <span class="block px-4 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/70">Courtyard</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell pt-0">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-6 md:grid-cols-3">
+          <article class="surface-panel rounded-[1.8rem] p-7">
+            <p class="section-kicker mb-3">What students get</p>
+            <h2 class="brand-display text-3xl font-semibold mb-4">Better essentials, not empty hype.</h2>
+            <p class="text-base leading-8 text-white/70">Room privacy, utility planning, and cleaner compound standards shape the core experience.</p>
+          </article>
+          <article class="surface-panel rounded-[1.8rem] p-7">
+            <p class="section-kicker mb-3">What parents want</p>
+            <h2 class="brand-display text-3xl font-semibold mb-4">A place that feels safer and more controlled.</h2>
+            <p class="text-base leading-8 text-white/70">The property is presented with clearer oversight, stronger access discipline, and a more credible standard.</p>
+          </article>
+          <article class="surface-panel rounded-[1.8rem] p-7">
+            <p class="section-kicker mb-3">What BrightWave proves</p>
+            <h2 class="brand-display text-3xl font-semibold mb-4">The brand can move from promise to live delivery.</h2>
+            <p class="text-base leading-8 text-white/70">Phase 1 gives BrightWave a real, active project to lead with while the pipeline grows behind it.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell pt-0">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div class="surface-panel rounded-[2rem] p-8">
+            <p class="section-kicker mb-3">Location</p>
+            <h2 class="brand-display text-4xl font-semibold mb-5">Placed for everyday student movement.</h2>
+            <p class="text-base leading-8 text-white/72 mb-6">
+              Malete remains a strong university-driven location. The value of the property depends not only on the room itself, but on how well it supports daily living, access, and security.
+            </p>
+            <div class="space-y-4 text-sm uppercase tracking-[0.18em] text-white/60">
+              <p>Malete, Kwara State, Nigeria</p>
+              <p>University-adjacent student market</p>
+              <p>Physical enquiries available through BrightWave</p>
+            </div>
+          </div>
+          <div class="gallery-frame rounded-[2rem] p-4">
+            <div class="overflow-hidden rounded-[1.6rem]">
+              <iframe src="https://maps.google.com/maps?q=8.583498,4.555573&z=16&t=k&output=embed" title="Satellite map of BrightWave Hostel Phase 1" loading="lazy" class="h-[420px] w-full border-0"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="availability-form" class="section-shell pt-0">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-10 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
+          <div>
+            <p class="section-kicker mb-3">Next step</p>
+            <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-5">Ask for the current rate, availability, and inspection process.</h2>
+            <p class="section-lead mb-6">
+              The right next action is not guessing from a static page. It is opening a direct conversation so the room count, rate, and booking path are accurate.
+            </p>
+            <div class="surface-panel rounded-[2rem] p-8">
+              <p class="section-kicker mb-3">Direct contact</p>
+              <div class="space-y-4 text-base leading-8 text-white/70">
+                <p><strong class="text-white">Email:</strong> brightwaveenterprise0@gmail.com</p>
+                <p><strong class="text-white">WhatsApp:</strong> +234 803 766 9462</p>
+                <p><strong class="text-white">Use case:</strong> bookings, inspection, room details, and student-parent enquiries</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="hostelContactForm" class="surface-panel rounded-[2rem] p-8 md:p-10">
+            <div class="grid gap-5">
+              <div>
+                <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="fullName">Full name</label>
+                <input id="fullName" name="fullName" class="field-input" type="text" autocomplete="name" placeholder="Your full name" required />
+              </div>
+              <div class="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="email">Email</label>
+                  <input id="email" name="email" class="field-input" type="email" autocomplete="email" placeholder="name@example.com" required />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="phone">Phone</label>
+                  <input id="phone" name="phone" class="field-input" type="text" autocomplete="tel" placeholder="+234..." required />
+                </div>
+              </div>
+              <div>
+                <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="message">What do you need?</label>
+                <textarea id="message" name="message" class="field-input min-h-[180px]" placeholder="Tell BrightWave whether you want current rates, an inspection, room details, or allocation guidance." required></textarea>
+              </div>
+              <button id="submitButton" type="submit" class="brand-button justify-center">
+                Send request
+                <i id="submitSpinner" class="fas fa-spinner ml-2 hidden animate-spin"></i>
+              </button>
+              <p id="formStatus" class="text-sm font-medium text-white/70" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell pt-0">
+      <div class="container mx-auto px-4">
+        <div class="surface-panel rounded-[2rem] p-8 md:p-10">
+          <div class="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p class="section-kicker mb-3">What comes next</p>
+              <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-5">Phase 2 should support the story, not outrank the live product.</h2>
+              <p class="section-lead max-w-3xl">
+                BrightWave can still signal growth without letting pipeline stock distract from what is active today. Phase 1 stays first; future phases stay in supporting view until they are ready.
+              </p>
+            </div>
+            <a href="/#properties" class="brand-button-secondary">Back to portfolio</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container mx-auto px-4 py-12">
+      <div class="grid gap-10 md:grid-cols-3">
         <div>
-          <h3 class="text-lg font-bold text-slate-300">BrightWave</h3>
-          <p class="text-xs text-gray-300">Habitat Enterprise</p>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        <div><p class="text-gray-300 text-sm">Modern, affordable, and practical living solutions for students in Nigeria.</p></div>
-        <div>
-          <h4 class="text-lg font-semibold mb-3 text-slate-300">Navigate</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="/#home" class="text-gray-300 hover:text-slate-300">Home</a></li>
-            <li><a href="/#services" class="text-gray-300 hover:text-slate-300">Services</a></li>
-            <li><a href="/#properties" class="text-gray-300 hover:text-slate-300">Properties</a></li>
-          </ul>
+          <div class="flex items-center space-x-3">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-11 w-11 rounded-full" />
+            <div>
+              <p class="text-lg font-semibold text-white">BrightWave</p>
+              <p class="text-xs uppercase tracking-[0.24em] text-white/55">Habitat Enterprise</p>
+            </div>
+          </div>
+          <p class="mt-4 max-w-sm text-sm leading-7 text-white/60">
+            A property brand focused on credible delivery, sharper presentation, and a stronger customer experience across hostels, land, and residential growth.
+          </p>
         </div>
         <div>
-          <h4 class="text-lg font-semibold mb-3 text-slate-300">Contact</h4>
-          <div class="space-y-2 text-sm text-gray-300">
-            <div>brightwaveenterprise0@gmail.com</div>
-            <div>+234 803 766 9462</div>
-            <div>Malete, Kwara State, Nigeria</div>
+          <p class="section-kicker mb-4">Navigate</p>
+          <div class="space-y-3 text-sm uppercase tracking-[0.16em] text-white/65">
+            <a href="/#home" class="block">Home</a>
+            <a href="/#properties" class="block">Properties</a>
+            <a href="/about.html" class="block">About</a>
+            <a href="/faq.html" class="block">FAQ</a>
+          </div>
+        </div>
+        <div>
+          <p class="section-kicker mb-4">Contact</p>
+          <div class="space-y-3 text-sm leading-7 text-white/65">
+            <p>brightwaveenterprise0@gmail.com</p>
+            <p>+234 803 766 9462</p>
+            <p>Malete, Kwara State, Nigeria</p>
           </div>
         </div>
       </div>
     </div>
   </footer>
-  </main>
 
   <script>
-    AOS.init({ duration: 900, once: true });
-    const toggle = document.getElementById('mobile-menu-toggle');
-    const mobileNav = document.querySelector('.mobile-nav');
-    if (toggle && mobileNav) {
-      toggle.addEventListener('click', () => {
-        mobileNav.classList.toggle('hidden');
-        toggle.setAttribute('aria-expanded', String(!mobileNav.classList.contains('hidden')));
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    if (mobileToggle && mobileMenu) {
+      mobileToggle.addEventListener('click', () => {
+        const isHidden = mobileMenu.classList.toggle('hidden');
+        mobileToggle.setAttribute('aria-expanded', String(!isHidden));
       });
     }
 
-    const slides = document.querySelector('.slides');
-    const slideElements = document.querySelectorAll('.slide');
-    const nextButton = document.querySelector('.next');
-    const prevButton = document.querySelector('.prev');
-    let currentSlide = 0;
-    function updateSlider() {
-      slides.style.transform = `translateX(-${currentSlide * 100}%)`;
-    }
-    nextButton.addEventListener('click', () => {
-      currentSlide = (currentSlide + 1) % slideElements.length;
-      updateSlider();
-    });
-    prevButton.addEventListener('click', () => {
-      currentSlide = (currentSlide - 1 + slideElements.length) % slideElements.length;
-      updateSlider();
-    });
+    const galleryImage = document.getElementById('galleryImage');
+    const galleryLabel = document.getElementById('galleryLabel');
+    const galleryDescription = document.getElementById('galleryDescription');
+    const galleryThumbs = Array.from(document.querySelectorAll('#galleryThumbs .gallery-thumb'));
 
-    const backToTopBtn = document.getElementById('back-to-top');
-    window.addEventListener('scroll', () => {
-      if (window.pageYOffset > 300) {
-        backToTopBtn.classList.remove('hidden');
-        backToTopBtn.classList.add('flex');
-      } else {
-        backToTopBtn.classList.add('hidden');
-        backToTopBtn.classList.remove('flex');
-      }
+    galleryThumbs.forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        galleryThumbs.forEach((item) => item.setAttribute('aria-current', 'false'));
+        thumb.setAttribute('aria-current', 'true');
+        galleryImage.src = thumb.dataset.image;
+        galleryImage.alt = thumb.dataset.alt;
+        galleryLabel.textContent = thumb.dataset.label;
+        galleryDescription.textContent = thumb.dataset.description;
+      });
     });
-    backToTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
     const contactForm = document.getElementById('hostelContactForm');
     const submitButton = document.getElementById('submitButton');
     const submitSpinner = document.getElementById('submitSpinner');
     const formStatus = document.getElementById('formStatus');
-    contactForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      submitButton.disabled = true;
-      submitSpinner.classList.remove('hidden');
-      formStatus.textContent = '';
-      const formData = new FormData(contactForm);
-      const data = {
-        fullName: formData.get('fullName'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-        message: formData.get('message'),
-        formOrigin: 'Hostel Phase 1 Detail Page'
-      };
-      try {
-        const response = await fetch('/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        const result = await response.json();
-        if (result.success) {
-          formStatus.textContent = 'Request sent successfully. BrightWave will contact you soon.';
-          formStatus.className = 'text-center mt-4 font-semibold text-emerald-400';
-          contactForm.reset();
-        } else {
-          formStatus.textContent = result.message || 'Something went wrong. Please try again.';
-          formStatus.className = 'text-center mt-4 font-semibold text-red-400';
+
+    if (contactForm) {
+      contactForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        submitButton.disabled = true;
+        submitSpinner.classList.remove('hidden');
+        formStatus.textContent = '';
+
+        const formData = new FormData(contactForm);
+        const payload = {
+          fullName: formData.get('fullName'),
+          email: formData.get('email'),
+          phone: formData.get('phone'),
+          message: formData.get('message'),
+          formOrigin: 'Hostel Phase 1 Detail Page'
+        };
+
+        try {
+          const response = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            formStatus.textContent = 'Request sent successfully. BrightWave will contact you soon.';
+            formStatus.className = 'text-sm font-medium text-emerald-300';
+            contactForm.reset();
+          } else {
+            formStatus.textContent = result.message || 'Something went wrong. Please try again.';
+            formStatus.className = 'text-sm font-medium text-red-300';
+          }
+        } catch (error) {
+          formStatus.textContent = 'Network error. Please check your connection and try again.';
+          formStatus.className = 'text-sm font-medium text-red-300';
+        } finally {
+          submitButton.disabled = false;
+          submitSpinner.classList.add('hidden');
         }
-      } catch (error) {
-        formStatus.textContent = 'Network error. Please check your connection and try again.';
-        formStatus.className = 'text-center mt-4 font-semibold text-red-400';
-      } finally {
-        submitButton.disabled = false;
-        submitSpinner.classList.add('hidden');
-      }
-    });
+      });
+    }
   </script>
 </body>
 </html>
