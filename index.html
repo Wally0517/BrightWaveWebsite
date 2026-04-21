@@ -107,6 +107,21 @@
     .hero-overlay { background: linear-gradient(135deg, rgba(15,23,42,0.90) 0%, rgba(51,65,85,0.75) 35%, rgba(15,23,42,0.90) 100%); }
     .hero-pattern { background-image: radial-gradient(circle at 2px 2px, rgba(148,163,184,0.2) 1px, transparent 0); background-size:30px 30px; animation: pattern-move 30s linear infinite; }
     @keyframes pattern-move { 0%{background-position:0 0;} 100%{background-position:30px 30px;} }
+    .hero-shell { position: relative; }
+    .hero-shell::before {
+      content: "";
+      position: absolute;
+      inset: 6% 4% auto auto;
+      width: 18rem;
+      height: 18rem;
+      border-radius: 9999px;
+      background: radial-gradient(circle, rgba(59,130,246,0.24) 0%, rgba(59,130,246,0) 70%);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .hero-panel { backdrop-filter: blur(16px); background: rgba(15,23,42,0.66); border: 1px solid rgba(148,163,184,0.18); box-shadow: 0 30px 80px rgba(2, 6, 23, 0.45); }
+    .hero-kicker { letter-spacing: 0.34em; text-transform: uppercase; }
+    .hero-stat { background: linear-gradient(180deg, rgba(30,41,59,0.92) 0%, rgba(15,23,42,0.92) 100%); border: 1px solid rgba(148,163,184,0.15); }
     .nav-link { position:relative; transition:color .3s ease; }
     .nav-link::after { content:''; position:absolute; width:0; height:2px; bottom:-8px; left:50%; background:linear-gradient(90deg,#3B82F6,#60A5FA); transition:all .3s ease; transform:translateX(-50%); border-radius:1px; }
     .nav-link:hover::after, .nav-link.active::after { width:100%; }
@@ -225,51 +240,97 @@
   <main id="main-content">
 
   <!-- Hero Section -->
-  <section id="home" class="hero relative min-h-screen flex items-center justify-center overflow-hidden">
+  <section id="home" class="hero relative min-h-screen flex items-center overflow-hidden">
     <div class="absolute inset-0 hero-background" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg'); background-size:cover; background-position:center; z-index:0;"></div>
     <div class="absolute inset-0 hero-overlay z-0"></div>
     <div class="absolute inset-0 hero-pattern opacity-30 z-0"></div>
 
-    <div class="relative text-center text-white px-4 max-w-6xl mx-auto z-10" data-aos="fade-up" data-aos-duration="1200">
-      <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold tracking-wide text-slate-100 mb-6">
-        <i class="fas fa-building text-emerald-400"></i>
-        <span>Student hostels, land sales, homes and estate development</span>
+    <div class="hero-shell relative px-4 py-24 md:py-32 max-w-7xl mx-auto z-10 w-full" data-aos="fade-up" data-aos-duration="1200">
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)] gap-8 items-end">
+        <div class="text-white">
+          <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 mb-6">
+            <i class="fas fa-building text-emerald-400"></i>
+            <span class="hero-kicker">Student hostels, land sales, homes and estate development</span>
+          </div>
+          <p class="text-sm font-semibold uppercase tracking-[0.32em] text-slate-300 mb-4">Premium property, clear delivery, Nigerian growth</p>
+          <h1 id="homeHeroTitle" class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight max-w-5xl">
+            Live where <span class="gradient-text">quality meets trust</span>.
+          </h1>
+          <p id="homeHeroSubtitle" class="text-lg md:text-2xl mb-8 font-medium max-w-3xl leading-relaxed text-slate-100">
+            BrightWave Habitat Enterprise delivers student accommodation, land opportunities, residential homes, and estate development with Phase 1 already open in Malete.
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-4xl">
+            <a href="/hostel-detail.html" class="group bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift pulse-glow">
+              <i class="fas fa-bed text-xl"></i>
+              <span class="font-semibold">See Phase 1</span>
+            </a>
+            <a href="#properties" class="group bg-slate-700 hover:bg-slate-600 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
+              <i class="fas fa-search text-xl"></i>
+              <span class="font-semibold">Explore Portfolio</span>
+            </a>
+            <a href="#contact" class="group bg-transparent border-2 border-white/80 text-white px-6 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 flex items-center justify-center space-x-3">
+              <i class="fas fa-phone text-xl"></i>
+              <span class="font-semibold">Talk to BrightWave</span>
+            </a>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl">
+            <div class="hero-stat rounded-2xl p-4">
+              <p class="text-3xl font-bold text-emerald-400">Now</p>
+              <p class="text-sm text-slate-300 mt-1">Phase 1 open for student accommodation</p>
+            </div>
+            <div class="hero-stat rounded-2xl p-4">
+              <p class="text-3xl font-bold text-sky-400">4</p>
+              <p class="text-sm text-slate-300 mt-1">core verticals from leasing to land</p>
+            </div>
+            <div class="hero-stat rounded-2xl p-4">
+              <p class="text-3xl font-bold text-amber-400">NG</p>
+              <p class="text-sm text-slate-300 mt-1">property strategy built for Nigerian buyers</p>
+            </div>
+            <div class="hero-stat rounded-2xl p-4">
+              <p class="text-3xl font-bold text-blue-300">24/7</p>
+              <p class="text-sm text-slate-300 mt-1">security mindset in student living</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="hero-panel rounded-[2rem] p-6 md:p-8 text-white">
+          <div class="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <p class="text-sm font-semibold uppercase tracking-[0.28em] text-slate-400">Flagship property</p>
+              <h2 class="text-3xl font-bold mt-2">BrightWave Phase 1 Hostel</h2>
+            </div>
+            <span class="rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-300">Now Open</span>
+          </div>
+
+          <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Phase 1 hostel frontage in Malete" class="w-full h-72 rounded-[1.5rem] object-cover mb-6 shadow-2xl" loading="eager" decoding="async" />
+
+          <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+            <div class="rounded-2xl bg-slate-900/60 p-4 border border-slate-700/70">
+              <p class="text-slate-400 mb-1">Location</p>
+              <p class="font-semibold text-slate-100">Malete, Kwara State</p>
+            </div>
+            <div class="rounded-2xl bg-slate-900/60 p-4 border border-slate-700/70">
+              <p class="text-slate-400 mb-1">Inventory</p>
+              <p class="font-semibold text-slate-100">10 self-contained rooms</p>
+            </div>
+            <div class="rounded-2xl bg-slate-900/60 p-4 border border-slate-700/70">
+              <p class="text-slate-400 mb-1">Power</p>
+              <p class="font-semibold text-slate-100">Solar backup</p>
+            </div>
+            <div class="rounded-2xl bg-slate-900/60 p-4 border border-slate-700/70">
+              <p class="text-slate-400 mb-1">Access</p>
+              <p class="font-semibold text-slate-100">Security and CCTV</p>
+            </div>
+          </div>
+
+          <a href="/hostel-detail.html" class="inline-flex items-center justify-center w-full rounded-2xl bg-white px-6 py-4 text-base font-semibold text-slate-900 transition-all duration-300 hover:bg-slate-100">
+            View hostel details
+          </a>
+        </aside>
       </div>
-      <h1 id="homeHeroTitle" class="text-4xl md:text-7xl font-extrabold mb-6 tracking-tight">
-        Building trusted <span class="gradient-text">living solutions</span> across Nigeria
-      </h1>
-      <p id="homeHeroSubtitle" class="text-lg md:text-2xl mb-8 font-medium max-w-3xl mx-auto leading-relaxed text-slate-100">
-        BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.
-      </p>
-      
-      <!-- Quick Action Buttons -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
-        <a href="#student-hostels" class="group bg-sky-500 hover:bg-sky-600 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift pulse-glow">
-          <i class="fas fa-graduation-cap text-xl"></i>
-          <span class="font-semibold">Student Hostels</span>
-        </a>
-        <a href="#land-sales" class="group bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
-          <i class="fas fa-map-marked-alt text-xl"></i>
-          <span class="font-semibold">Land Sales</span>
-        </a>
-        <a href="#residential" class="group bg-blue-700 hover:bg-blue-800 text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 hover-lift">
-          <i class="fas fa-home text-xl"></i>
-          <span class="font-semibold">Residential Homes</span>
-        </a>
-      </div>
-      
-      <div class="flex flex-col md:flex-row justify-center gap-4">
-        <a href="#properties" class="inline-block bg-slate-600 text-white px-8 py-4 rounded-xl hover:bg-slate-700 transition-all duration-300 font-semibold text-lg hover-lift">
-          <i class="fas fa-search mr-2"></i>Explore Properties
-        </a>
-        <a href="/hostel-detail.html" class="inline-block bg-emerald-600 text-white px-8 py-4 rounded-xl hover:bg-emerald-700 transition-all duration-300 font-semibold text-lg hover-lift">
-          <i class="fas fa-bed mr-2"></i>View Phase 1
-        </a>
-        <a href="#contact" class="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 font-semibold text-lg">
-          <i class="fas fa-phone mr-2"></i>Talk to BrightWave
-        </a>
-      </div>
-      
+
       <div class="mt-12 animate-bounce">
         <a href="#services" class="text-white text-4xl hover:text-slate-300 transition-colors duration-300">
           <i class="fas fa-chevron-down"></i>
@@ -356,42 +417,58 @@
     </div>
   </section>
 
-  <section class="py-20 bg-slate-950" aria-labelledby="proof-heading" data-aos="fade-up" data-aos-duration="900">
+  <section class="py-20 bg-slate-950" aria-labelledby="experience-heading" data-aos="fade-up" data-aos-duration="900">
     <div class="container mx-auto px-4">
-      <div class="text-center mb-12">
-        <p class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">Real Project Images</p>
-        <h2 id="proof-heading" class="text-4xl md:text-5xl font-bold mb-4">Proof of <span class="gradient-text">Delivery</span></h2>
-        <p class="text-lg text-gray-300 max-w-3xl mx-auto">The homepage should show real BrightWave work. These are actual Phase 1 spaces and shared areas from Malete, not generic stock photography.</p>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-          <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 main entrance in Malete" class="w-full h-72 object-cover" loading="eager" decoding="async" />
-          <div class="p-5">
-            <h3 class="text-xl font-bold text-slate-100 mb-2">Main Entrance</h3>
-            <p class="text-sm text-slate-300">The active Phase 1 building with the finished exterior frontage.</p>
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-10 items-center">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">Student experience</p>
+          <h2 id="experience-heading" class="text-4xl md:text-5xl font-bold mb-4">What students and parents actually <span class="gradient-text">care about</span></h2>
+          <p class="text-lg text-gray-300 max-w-2xl">BrightWave Phase 1 is presented around comfort, safety, and day-to-day usability. The site should answer practical questions fast, not feel like an internal project report.</p>
+          <div class="space-y-4 mt-8">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Secure entry and visibility</h3>
+              <p class="text-slate-300">Controlled access, CCTV, and a clear frontage make the hostel easier to trust for both students and parents.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Comfortable private rooms</h3>
+              <p class="text-slate-300">Self-contained rooms support privacy, study routines, and a better standard of daily living near school.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Shared areas that feel intentional</h3>
+              <p class="text-slate-300">Recreation and circulation spaces help the property feel complete instead of bare or improvised.</p>
+            </div>
           </div>
-        </article>
-        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-          <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="BrightWave Hostel Phase 1 bedroom interior" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-          <div class="p-5">
-            <h3 class="text-xl font-bold text-slate-100 mb-2">Room Interior</h3>
-            <p class="text-sm text-slate-300">A real self-contained room showing the interior standard students can expect.</p>
-          </div>
-        </article>
-        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-          <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="BrightWave Hostel Phase 1 entry and security area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-          <div class="p-5">
-            <h3 class="text-xl font-bold text-slate-100 mb-2">Security Area</h3>
-            <p class="text-sm text-slate-300">Access, visibility, and controlled entry are part of the live site experience.</p>
-          </div>
-        </article>
-        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-          <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="BrightWave Hostel Phase 1 courtyard and recreation area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-          <div class="p-5">
-            <h3 class="text-xl font-bold text-slate-100 mb-2">Shared Recreation</h3>
-            <p class="text-sm text-slate-300">Courtyard and recreation space that make the property feel lived-in, not bare.</p>
-          </div>
-        </article>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+            <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 main entrance in Malete" class="w-full h-72 object-cover" loading="eager" decoding="async" />
+            <div class="p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Main Entrance</h3>
+              <p class="text-sm text-slate-300">A finished exterior that gives the property presence and easier wayfinding.</p>
+            </div>
+          </article>
+          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+            <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="BrightWave Hostel Phase 1 bedroom interior" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+            <div class="p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Room Interior</h3>
+              <p class="text-sm text-slate-300">The standard students can expect inside a self-contained unit.</p>
+            </div>
+          </article>
+          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+            <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="BrightWave Hostel Phase 1 entry and security area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+            <div class="p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Security Area</h3>
+              <p class="text-sm text-slate-300">Entry visibility and movement control help the property feel safer from day one.</p>
+            </div>
+          </article>
+          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+            <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="BrightWave Hostel Phase 1 courtyard and recreation area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+            <div class="p-5">
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Shared Recreation</h3>
+              <p class="text-sm text-slate-300">A better communal experience gives the hostel more life and appeal.</p>
+            </div>
+          </article>
+        </div>
       </div>
     </div>
   </section>
@@ -423,9 +500,63 @@
   <!-- About Section -->
   <section id="about" class="py-20 bg-gray-800" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] gap-10 items-start">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">Company position</p>
+          <h2 class="text-4xl md:text-5xl font-bold mb-4">About <span class="gradient-text">BrightWave</span></h2>
+          <p id="homeAboutIntro" class="text-lg text-gray-300 max-w-3xl">
+            BrightWave Habitat Enterprise is building a premium Nigerian property brand around student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is the first live signal of that standard.
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+              <p class="text-sm uppercase tracking-[0.25em] text-slate-400 mb-2">01</p>
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Credibility first</h3>
+              <p class="text-sm text-slate-300">Listings, pricing, and status should always feel controlled and believable.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+              <p class="text-sm uppercase tracking-[0.25em] text-slate-400 mb-2">02</p>
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Clean market focus</h3>
+              <p class="text-sm text-slate-300">Students, families, and investors should each see where BrightWave fits them.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+              <p class="text-sm uppercase tracking-[0.25em] text-slate-400 mb-2">03</p>
+              <h3 class="text-xl font-bold text-slate-100 mb-2">Measured growth</h3>
+              <p class="text-sm text-slate-300">The brand expands around delivery, not around unearned hype.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-[2rem] border border-slate-700 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-8 shadow-2xl">
+          <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="rounded-2xl bg-slate-950/70 p-5 border border-slate-800">
+              <p class="text-3xl font-bold text-blue-400">4</p>
+              <p class="text-sm text-slate-300 mt-2">core service lines with one brand language</p>
+            </div>
+            <div class="rounded-2xl bg-slate-950/70 p-5 border border-slate-800">
+              <p class="text-3xl font-bold text-emerald-400">1</p>
+              <p class="text-sm text-slate-300 mt-2">flagship project already open and visible</p>
+            </div>
+            <div class="rounded-2xl bg-slate-950/70 p-5 border border-slate-800">
+              <p class="text-3xl font-bold text-amber-400">NG</p>
+              <p class="text-sm text-slate-300 mt-2">local market understanding for Nigerian clients</p>
+            </div>
+            <div class="rounded-2xl bg-slate-950/70 p-5 border border-slate-800">
+              <p class="text-3xl font-bold text-blue-300">Top</p>
+              <p class="text-sm text-slate-300 mt-2">brand ambition in leasing, land, and living</p>
+            </div>
+          </div>
+          <h3 class="text-2xl font-bold text-white mb-3">Where BrightWave should win</h3>
+          <p class="text-slate-300 mb-6">The company site needs to look serious enough for investors, clear enough for parents, and polished enough for students who compare everything visually.</p>
+          <a href="/about.html" class="inline-flex items-center rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 font-semibold transition-all duration-300 hover-lift">
+            <i class="fas fa-users mr-2"></i>Meet the team
+          </a>
+        </div>
+      </div>
+
+      <div class="hidden" aria-hidden="true">
       <div class="text-center mb-12">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">About <span class="gradient-text">BrightWave</span></h2>
-        <p id="homeAboutIntro" class="text-lg text-gray-300 max-w-3xl mx-auto">
+        <p id="homeAboutIntroLegacy" class="text-lg text-gray-300 max-w-3xl mx-auto">
           BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.
         </p>
       </div>
@@ -472,6 +603,7 @@
         <a href="/about.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover-lift">
           <i class="fas fa-users mr-2"></i>Meet Our Team
         </a>
+      </div>
       </div>
     </div>
   </section>
@@ -965,7 +1097,7 @@ document.addEventListener('keydown', (e) => {
         .then(response => response.json())
         .then(content => {
           if (content['home.hero_badge']) {
-            document.getElementById('homeHeroBadge').innerHTML = `<i class="fas fa-building text-emerald-400"></i><span>${content['home.hero_badge']}</span>`;
+            document.getElementById('homeHeroBadge').innerHTML = `<i class="fas fa-building text-emerald-400"></i><span class="hero-kicker">${content['home.hero_badge']}</span>`;
           }
           if (content['home.hero_title']) {
             document.getElementById('homeHeroTitle').textContent = content['home.hero_title'];
@@ -1003,7 +1135,7 @@ document.addEventListener('keydown', (e) => {
             filteredProperties = properties.filter(property => property.type === filter);
           }
           
-          renderProperties(filteredProperties);
+          renderPropertiesEnhanced(filteredProperties);
         } else {
           throw new Error('API not available');
         }
@@ -1016,7 +1148,7 @@ document.addEventListener('keydown', (e) => {
           if (filter !== 'all') {
             filteredProperties = mockProperties.filter(property => property.type === filter);
           }
-          renderProperties(filteredProperties);
+          renderPropertiesEnhanced(filteredProperties);
         }, 800);
       }
     }
@@ -1071,6 +1203,109 @@ document.addEventListener('keydown', (e) => {
             ${property.price ? `₦${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
           </div>
           <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostel-detail.html' : '#contact'}" 
+             class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
+            ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
+          </a>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+    function getPropertyPriority(property) {
+  const statusPriority = {
+    completed: 0,
+    'ongoing-final': 1,
+    pending: 2,
+    planning: 3
+  };
+  const typePriority = {
+    hostel: 0,
+    residential: 1,
+    land: 2
+  };
+
+  return {
+    featured: property.featured ? 0 : 1,
+    status: statusPriority[property.construction_status] ?? 4,
+    type: typePriority[property.type] ?? 3,
+    createdAt: property.created_at ? Date.parse(property.created_at) : 0
+  };
+}
+
+    function sortPropertiesForDisplay(properties) {
+  return [...properties].sort((a, b) => {
+    const left = getPropertyPriority(a);
+    const right = getPropertyPriority(b);
+
+    if (left.featured !== right.featured) return left.featured - right.featured;
+    if (left.status !== right.status) return left.status - right.status;
+    if (left.type !== right.type) return left.type - right.type;
+    return right.createdAt - left.createdAt;
+  });
+}
+
+    function getConstructionStatusLabel(status) {
+  const labels = {
+    completed: 'Now Open',
+    'ongoing-final': 'Under Construction',
+    pending: 'Pending Phase',
+    planning: 'Planning Phase'
+  };
+
+  return labels[status] || 'Coming Soon';
+}
+
+    function renderPropertiesEnhanced(properties) {
+  const grid = document.getElementById('propertiesGrid');
+  const sortedProperties = sortPropertiesForDisplay(properties);
+
+  if (sortedProperties.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full text-center py-12">
+        <i class="fas fa-home text-6xl text-gray-600 mb-4"></i>
+        <h3 class="text-2xl font-bold text-gray-400 mb-2">No Properties Found</h3>
+        <p class="text-gray-500">We're working on adding more properties. Check back soon!</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = sortedProperties.map(property => `
+    <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
+      <div class="relative">
+        <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/property-coming-soon.svg'}"
+             alt="${property.title} in ${property.location}" class="w-full h-64 object-cover"
+             loading="lazy" decoding="async"
+             onerror="this.src='/assets/images/property-coming-soon.svg'" />
+        ${property.construction_status && property.construction_status !== 'completed' ? `
+          <div class="absolute top-4 left-4">
+            <span class="bg-amber-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold">
+              ${getConstructionStatusLabel(property.construction_status)}
+            </span>
+          </div>
+        ` : ''}
+        ${property.construction_status === 'completed' ? '<div class="absolute top-4 left-4"><span class="bg-emerald-500 text-white px-3 py-1 rounded-full text-sm font-bold">Now Open</span></div>' : ''}
+        ${property.featured ? '<div class="absolute top-4 right-4"><span class="bg-slate-700 text-white px-3 py-1 rounded-full text-sm font-bold"><i class="fas fa-star mr-1"></i>Featured</span></div>' : ''}
+      </div>
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xl font-bold text-white">${property.title}</h3>
+          <span class="text-xs px-2 py-1 rounded-full ${
+            property.type === 'hostel' ? 'bg-slate-500' :
+            property.type === 'land' ? 'bg-pink-500' : 'bg-amber-500'
+          } text-white">${property.type?.charAt(0).toUpperCase() + property.type?.slice(1)}</span>
+        </div>
+        <div class="flex items-center text-gray-400 mb-3">
+          <i class="fas fa-map-marker-alt mr-2"></i>
+          <span class="text-sm">${property.location}</span>
+        </div>
+        <p class="text-gray-300 text-sm mb-4 line-clamp-2">${property.description}</p>
+        <div class="flex items-center justify-between">
+          <div class="text-slate-300 font-bold text-lg">
+            ${property.price ? `N${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
+          </div>
+          <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostel-detail.html' : '#contact'}"
              class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
             ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
           </a>

@@ -14,6 +14,7 @@ from datetime import datetime
 from time import time
 from collections import defaultdict
 import json
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 
 logging.basicConfig(level=logging.INFO)
@@ -166,16 +167,25 @@ class TeamMember(db.Model):
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Student hostels, land sales, homes and estate development',
-    'home.hero_title': 'Building trusted living solutions across Nigeria.',
-    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.',
-    'home.about_intro': 'BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.',
-    'about.hero_subtitle': 'A growing Nigerian property company building credibility through delivered projects, clear communication, and steady expansion.',
-    'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business serving students, families, and investors through student hostels, land opportunities, residential homes, and estate development. Phase 1 in Malete is the current flagship delivery, while the broader company pipeline continues to grow around real execution.',
+    'home.hero_title': 'Live where quality meets trust.',
+    'home.hero_subtitle': 'BrightWave Habitat Enterprise delivers student accommodation, land opportunities, residential homes, and estate development with Phase 1 already open in Malete.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is building a premium Nigerian property brand around student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is the first live signal of that standard.',
+    'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, clear communication, and a premium standard of presentation.',
+    'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to compete at the top end of trust and presentation. We serve students, families, and investors through student hostels, land opportunities, residential homes, and estate development, with Phase 1 in Malete as the first live proof of our standard.',
     'about.team_heading': 'Meet the Active Team',
     'about.team_subheading': 'The people currently responsible for delivery, operations, and client support at BrightWave.'
 }
 
 LEGACY_SITE_CONTENT = {
+    'home.hero_badge': 'Student hostels, land sales, homes and estate development',
+    'home.hero_title': 'Building trusted living solutions across Nigeria.',
+    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.',
+    'about.hero_subtitle': 'A growing Nigerian property company building credibility through delivered projects, clear communication, and steady expansion.',
+    'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business serving students, families, and investors through student hostels, land opportunities, residential homes, and estate development. Phase 1 in Malete is the current flagship delivery, while the broader company pipeline continues to grow around real execution.',
+}
+
+OLDER_LEGACY_SITE_CONTENT = {
     'home.hero_badge': 'Now Open: BrightWave Hostel Phase 1',
     'home.hero_title': 'Affordable student rooms that are ready in Malete.',
     'home.hero_subtitle': 'The first 10 self-contained rooms are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
@@ -226,7 +236,7 @@ def ensure_cms_baseline():
             if not existing_item:
                 db.session.add(SiteContent(slug=slug, value=value))
                 changes_made = True
-            elif existing_item.value == LEGACY_SITE_CONTENT.get(slug):
+            elif existing_item.value in {LEGACY_SITE_CONTENT.get(slug), OLDER_LEGACY_SITE_CONTENT.get(slug)}:
                 existing_item.value = value
                 changes_made = True
 
@@ -469,7 +479,23 @@ def get_properties():
         if featured:
             query = query.filter_by(featured=True)
         
-        properties = query.order_by(Property.created_at.desc()).all()
+        properties = query.order_by(
+            case((Property.featured.is_(True), 0), else_=1),
+            case(
+                (Property.construction_status == 'completed', 0),
+                (Property.construction_status == 'ongoing-final', 1),
+                (Property.construction_status == 'pending', 2),
+                (Property.construction_status == 'planning', 3),
+                else_=4
+            ),
+            case(
+                (Property.property_type == 'hostel', 0),
+                (Property.property_type == 'residential', 1),
+                (Property.property_type == 'land', 2),
+                else_=3
+            ),
+            Property.created_at.desc()
+        ).all()
         
         # Format response to match frontend expectations
         formatted_properties = []
