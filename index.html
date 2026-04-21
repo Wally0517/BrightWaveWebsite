@@ -48,6 +48,30 @@
   <!-- Your styles -->
   <style>
     /* Custom animations and styles */
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: -3rem;
+      z-index: 100;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: 700;
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus { top: 1rem; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .gradient-text {
       background: linear-gradient(45deg, #3B82F6, #60A5FA, #1D4ED8);
       -webkit-background-clip: text;
@@ -89,11 +113,18 @@
     .timeline-dot { position:relative; z-index:10; }
     .timeline-line { position:absolute; left:50%; transform:translateX(-50%); width:2px; height:100%; background:linear-gradient(to bottom,#64748B,#94A3B8); opacity:.3; }
     .menu-open { opacity:1 !important; transform:scale(1) !important; }
+    .proof-card img { transition: transform 0.4s ease; }
+    .proof-card:hover img { transform: scale(1.04); }
     .coming-soon-overlay::before {
       content: "COMING SOON"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       font-weight:800; letter-spacing:.25em; color:#e2e8f0; text-shadow:0 1px 2px rgba(0,0,0,.6);
       background:rgba(15,23,42,.55); transform:rotate(-12deg); border:2px dashed rgba(226,232,240,.45);
       box-shadow: inset 0 0 0 200vmax rgba(15,23,42,.15);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html:focus-within { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .hero-background { background-attachment: scroll; }
     }
   </style>
 
@@ -146,10 +177,11 @@
   </script>
 </head>
 <body class="font-sans bg-gray-900 text-white">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <!-- Navigation Bar -->
   <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
-    <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
+    <nav class="container mx-auto px-4 py-4 flex items-center justify-between" aria-label="Primary">
       <div class="flex items-center space-x-3">
         <div class="relative">
           <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-slate-400/30 shadow-lg" />
@@ -169,7 +201,7 @@
       
       <!-- Desktop Navigation -->
   <ul class="hidden md:flex space-x-8 text-lg font-semibold" role="menubar">
-    <li><a href="#home" class="text-slate-200 hover:text-slate-100 nav-link active transition-all duration-300 relative" role="menuitem" tabindex="0">Home</a></li>
+    <li><a href="#home" class="text-slate-200 hover:text-slate-100 nav-link active transition-all duration-300 relative" role="menuitem" tabindex="0" aria-current="page">Home</a></li>
     <li><a href="#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">Services</a></li>
     <li><a href="#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">Properties</a></li>
     <li><a href="/about.html" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">About</a></li>
@@ -190,10 +222,11 @@
         </ul>
     </div>
   </header>
+  <main id="main-content">
 
   <!-- Hero Section -->
   <section id="home" class="hero relative min-h-screen flex items-center justify-center overflow-hidden">
-    <div class="absolute inset-0 hero-background" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg'); background-size:cover; background-position:center; z-index:0;"></div>
+    <div class="absolute inset-0 hero-background" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg'); background-size:cover; background-position:center; z-index:0;"></div>
     <div class="absolute inset-0 hero-overlay z-0"></div>
     <div class="absolute inset-0 hero-pattern opacity-30 z-0"></div>
 
@@ -323,6 +356,46 @@
     </div>
   </section>
 
+  <section class="py-20 bg-slate-950" aria-labelledby="proof-heading" data-aos="fade-up" data-aos-duration="900">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-12">
+        <p class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">Real Project Images</p>
+        <h2 id="proof-heading" class="text-4xl md:text-5xl font-bold mb-4">Proof of <span class="gradient-text">Delivery</span></h2>
+        <p class="text-lg text-gray-300 max-w-3xl mx-auto">The homepage should show real BrightWave work. These are actual Phase 1 spaces and shared areas from Malete, not generic stock photography.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+          <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 main entrance in Malete" class="w-full h-72 object-cover" loading="eager" decoding="async" />
+          <div class="p-5">
+            <h3 class="text-xl font-bold text-slate-100 mb-2">Main Entrance</h3>
+            <p class="text-sm text-slate-300">The active Phase 1 building with the finished exterior frontage.</p>
+          </div>
+        </article>
+        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+          <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="BrightWave Hostel Phase 1 bedroom interior" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+          <div class="p-5">
+            <h3 class="text-xl font-bold text-slate-100 mb-2">Room Interior</h3>
+            <p class="text-sm text-slate-300">A real self-contained room showing the interior standard students can expect.</p>
+          </div>
+        </article>
+        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+          <img src="/assets/images/phase1/phase1-entrance-security.jpg" alt="BrightWave Hostel Phase 1 entry and security area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+          <div class="p-5">
+            <h3 class="text-xl font-bold text-slate-100 mb-2">Security Area</h3>
+            <p class="text-sm text-slate-300">Access, visibility, and controlled entry are part of the live site experience.</p>
+          </div>
+        </article>
+        <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+          <img src="/assets/images/phase1/phase1-courtyard-snooker.jpg" alt="BrightWave Hostel Phase 1 courtyard and recreation area" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
+          <div class="p-5">
+            <h3 class="text-xl font-bold text-slate-100 mb-2">Shared Recreation</h3>
+            <p class="text-sm text-slate-300">Courtyard and recreation space that make the property feel lived-in, not bare.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <!-- Featured Properties Section -->
   <section id="properties" class="py-20" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
@@ -334,10 +407,10 @@
       <!-- Property Filter -->
       <div class="flex justify-center mb-12">
         <div class="bg-gray-800 rounded-xl p-2 flex flex-wrap gap-2">
-          <button class="property-filter active bg-slate-600 text-white px-6 py-2 rounded-lg transition-all duration-300" data-filter="all">All</button>
-          <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="hostel">Hostels</button>
-          <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="land">Land</button>
-          <button class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="residential">Homes</button>
+          <button type="button" class="property-filter active bg-slate-600 text-white px-6 py-2 rounded-lg transition-all duration-300" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="hostel" aria-pressed="false">Hostels</button>
+          <button type="button" class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="land" aria-pressed="false">Land</button>
+          <button type="button" class="property-filter hover:bg-gray-700 px-6 py-2 rounded-lg transition-all duration-300" data-filter="residential" aria-pressed="false">Homes</button>
         </div>
       </div>
 
@@ -417,13 +490,17 @@
           <h3 class="text-2xl font-bold mb-6 text-slate-300">Send Us a Message</h3>
           <form id="contactForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" required 
+              <label class="sr-only" for="fullName">Full name</label>
+              <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" autocomplete="name" required 
                      class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
-              <input type="email" id="email" name="email" placeholder="Your Email" required 
+              <label class="sr-only" for="email">Email address</label>
+              <input type="email" id="email" name="email" placeholder="Your Email" autocomplete="email" required 
                      class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
             </div>
-            <input type="tel" id="phone" name="phone" placeholder="Your Phone Number" required 
+            <label class="sr-only" for="phone">Phone number</label>
+            <input type="tel" id="phone" name="phone" placeholder="Your Phone Number" autocomplete="tel" required 
                    class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
+            <label class="sr-only" for="interest">Area of interest</label>
             <select id="interest" name="interest" required 
                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300">
               <option value="">I'm interested in...</option>
@@ -433,6 +510,7 @@
               <option value="estate-development">Estate Development</option>
               <option value="general-inquiry">General Inquiry</option>
             </select>
+            <label class="sr-only" for="message">Your message</label>
             <textarea id="message" name="message" placeholder="Tell us more about what you're looking for..." rows="5" required 
                       class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300"></textarea>
             <button type="submit" id="submitButton" 
@@ -442,7 +520,7 @@
               <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
             </button>
           </form>
-          <div id="formStatus" class="text-center mt-4 font-semibold"></div>
+          <div id="formStatus" class="text-center mt-4 font-semibold" aria-live="polite"></div>
         </div>
         
         <!-- Contact Information -->
@@ -581,6 +659,7 @@
       </div>
     </div>
   </footer>
+  </main>
 
 <!-- Floating Action Buttons -->
 <div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
@@ -640,6 +719,7 @@
 
         mobileToggle.addEventListener('click', () => {
           mobileNav.classList.toggle('hidden');
+          mobileToggle.setAttribute('aria-expanded', String(!mobileNav.classList.contains('hidden')));
           toggleIcon.classList.toggle('fa-bars');
           toggleIcon.classList.toggle('fa-times');
           if (!mobileNav.classList.contains('hidden')) {
@@ -651,6 +731,7 @@
         document.addEventListener('click', (e) => {
           if (!mobileNav.contains(e.target) && !mobileToggle.contains(e.target)) {
             mobileNav.classList.add('hidden');
+            mobileToggle.setAttribute('aria-expanded', 'false');
             toggleIcon.classList.add('fa-bars');
             toggleIcon.classList.remove('fa-times');
           }
@@ -658,6 +739,7 @@
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
             mobileNav.classList.add('hidden');
+            mobileToggle.setAttribute('aria-expanded', 'false');
             toggleIcon.classList.add('fa-bars');
             toggleIcon.classList.remove('fa-times');
           }
@@ -722,7 +804,9 @@
           button.addEventListener('click', () => {
             // Update active filter button
             filterButtons.forEach(btn => btn.classList.remove('active', 'bg-slate-600', 'text-white'));
+            filterButtons.forEach(btn => btn.setAttribute('aria-pressed', 'false'));
             button.classList.add('active', 'bg-slate-600', 'text-white');
+            button.setAttribute('aria-pressed', 'true');
           
             // Filter properties
             const filter = button.dataset.filter;
@@ -955,7 +1039,8 @@ document.addEventListener('keydown', (e) => {
     <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
       <div class="relative">
         <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/property-coming-soon.svg'}" 
-             alt="${property.title}" class="w-full h-64 object-cover"
+             alt="${property.title} in ${property.location}" class="w-full h-64 object-cover"
+             loading="lazy" decoding="async"
              onerror="this.src='/assets/images/property-coming-soon.svg'" />
         ${property.construction_status && property.construction_status !== 'completed' ? `
           <div class="absolute top-4 left-4">
