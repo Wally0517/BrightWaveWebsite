@@ -201,6 +201,13 @@ h1, h2, h3, h4, .brand-display {
   overflow: hidden;
 }
 
+.hero-stage-wrap {
+  background:
+    radial-gradient(circle at top right, rgba(113, 193, 186, 0.16), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(208, 176, 122, 0.2), transparent 28%),
+    linear-gradient(180deg, rgba(6, 12, 22, 0.96) 0%, rgba(8, 15, 28, 0.98) 54%, rgba(9, 17, 30, 1) 100%);
+}
+
 .hero-background {
   background-size: cover;
   background-position: center;
@@ -230,6 +237,30 @@ h1, h2, h3, h4, .brand-display {
   width: min(1240px, calc(100vw - 2rem));
 }
 
+.hero-aurora {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(18px);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.hero-aurora-one {
+  width: 22rem;
+  height: 22rem;
+  top: 5rem;
+  right: min(12vw, 8rem);
+  background: radial-gradient(circle, rgba(113, 193, 186, 0.34) 0%, rgba(113, 193, 186, 0.08) 52%, transparent 72%);
+}
+
+.hero-aurora-two {
+  width: 18rem;
+  height: 18rem;
+  bottom: 4rem;
+  left: min(10vw, 7rem);
+  background: radial-gradient(circle, rgba(208, 176, 122, 0.3) 0%, rgba(208, 176, 122, 0.06) 56%, transparent 74%);
+}
+
 .hero-panel,
 .surface-panel {
   background: linear-gradient(180deg, rgba(19, 33, 56, 0.94) 0%, rgba(10, 16, 29, 0.95) 100%);
@@ -237,6 +268,75 @@ h1, h2, h3, h4, .brand-display {
   box-shadow: var(--bw-shadow);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+.hero-stage-panel {
+  border: 1px solid var(--bw-border);
+  background: linear-gradient(180deg, rgba(17, 28, 45, 0.96) 0%, rgba(10, 16, 29, 0.98) 100%);
+  box-shadow: var(--bw-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.hero-proof-card {
+  overflow: hidden;
+  border-radius: 1.65rem;
+  border: 1px solid rgba(204, 183, 147, 0.18);
+  background: linear-gradient(180deg, rgba(14, 24, 40, 0.94) 0%, rgba(8, 14, 25, 0.98) 100%);
+}
+
+.hero-proof-primary {
+  position: relative;
+}
+
+.hero-proof-image,
+.hero-proof-thumb {
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hero-proof-image {
+  height: 18.5rem;
+}
+
+.hero-proof-thumb {
+  height: 10.5rem;
+}
+
+.hero-proof-copy {
+  padding: 1.25rem;
+}
+
+.hero-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.hero-trust-card {
+  border: 1px solid rgba(204, 183, 147, 0.16);
+  background: rgba(8, 14, 25, 0.66);
+  border-radius: 1.35rem;
+  padding: 1.15rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.hero-trust-card p {
+  margin: 0;
+  color: var(--bw-text-soft);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.hero-trust-label {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--bw-accent);
 }
 
 .hero-kicker,
@@ -341,6 +441,35 @@ h1, h2, h3, h4, .brand-display {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hero-trust-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-proof-image {
+    height: 15rem;
+  }
+
+  .hero-proof-thumb {
+    height: 9rem;
+  }
+
+  .hero-aurora-one {
+    width: 16rem;
+    height: 16rem;
+    right: -3rem;
+  }
+
+  .hero-aurora-two {
+    width: 14rem;
+    height: 14rem;
+    left: -2rem;
+    bottom: 6rem;
   }
 }
 

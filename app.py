@@ -50,8 +50,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db = SQLAlchemy(app)
 
 # ========== CORS CONFIGURATION ==========
-SITE_URL = os.environ.get("SITE_URL", "https://brightwavehabitat.com").rstrip("/")
-default_allowed_origins = f"{SITE_URL},https://www.brightwavehabitat.com"
+SITE_URL = os.environ.get("SITE_URL", "https://www.brightwavehabitat.com").rstrip("/")
+default_allowed_origins = f"{SITE_URL},https://brightwavehabitat.com"
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", default_allowed_origins).split(",")
 allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
 if not allowed_origins:
