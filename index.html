@@ -186,21 +186,34 @@
 
   <!-- Hero Section -->
   <section id="home" class="brand-hero hero-stage-wrap relative min-h-screen flex items-center overflow-hidden">
-    <div class="absolute inset-0 hero-overlay z-0"></div>
-    <div class="absolute inset-0 hero-pattern opacity-20 z-0"></div>
+
+    <!-- Background: video (drop MP4 at /assets/videos/brightwave-hero.mp4) with Ken Burns photo fallback -->
+    <div class="hero-bg-wrap">
+      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline>
+        <source src="/assets/videos/brightwave-hero.mp4" type="video/mp4">
+      </video>
+      <div class="hero-slides" id="heroSlides">
+        <div class="hero-slide active" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('/assets/images/phase1/phase1-main-entrance.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('/assets/images/lands/brightwave-obada_ikija.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('/assets/images/brightwave-project-1.jpg')"></div>
+      </div>
+      <div class="hero-bg-overlay"></div>
+    </div>
 
     <div class="hero-shell relative px-4 py-24 md:py-32 z-10 w-full" data-aos="fade-up" data-aos-duration="1200">
       <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] gap-10 items-start">
-        <div class="text-slate-950">
-          <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-[var(--bw-border)] bg-white/85 px-4 py-2 text-sm font-semibold text-slate-900 mb-6">
+        <div class="text-white">
+          <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white mb-6">
             <i class="fas fa-building text-[var(--bw-accent)]"></i>
-            <span class="hero-kicker">Trusted property for students, families, and investors</span>
+            <span class="hero-kicker" style="color:var(--bw-accent)">Trusted property for students, families, and investors</span>
           </div>
           <p class="eyebrow mb-5">BrightWave Habitat Enterprise</p>
-          <h1 id="homeHeroTitle" class="brand-display text-5xl md:text-7xl xl:text-[5.2rem] font-semibold leading-[0.96] mb-6 max-w-5xl text-slate-950">
+          <h1 id="homeHeroTitle" class="brand-display text-5xl md:text-7xl xl:text-[5.2rem] font-semibold leading-[0.96] mb-6 max-w-5xl">
             Property opportunities in Nigeria, presented with <span class="gradient-text">real proof and clear process</span>.
           </h1>
-          <p id="homeHeroSubtitle" class="text-lg md:text-[1.28rem] mb-8 font-medium max-w-3xl leading-relaxed text-slate-700">
+          <p id="homeHeroSubtitle" class="text-lg md:text-[1.28rem] mb-8 font-medium max-w-3xl leading-relaxed text-slate-200">
             BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.
           </p>
 
@@ -1222,6 +1235,31 @@ document.addEventListener('keydown', (e) => {
         }
       ];
     }
+
+    // ── Hero background: Ken Burns slideshow + MP4 video detection ──
+    (function () {
+      var video = document.getElementById('heroBgVideo');
+      var slidesWrap = document.getElementById('heroSlides');
+      var slides = slidesWrap ? slidesWrap.querySelectorAll('.hero-slide') : [];
+      var idx = 0;
+
+      // If the browser can play the MP4, show video and hide the photo slides
+      if (video) {
+        video.addEventListener('canplay', function () {
+          video.style.display = 'block';
+          if (slidesWrap) slidesWrap.style.display = 'none';
+        });
+      }
+
+      // Cycle through photo slides every 7 seconds
+      if (slides.length > 1) {
+        setInterval(function () {
+          slides[idx].classList.remove('active');
+          idx = (idx + 1) % slides.length;
+          slides[idx].classList.add('active');
+        }, 7000);
+      }
+    }());
   </script>
 </body>
 </html>
