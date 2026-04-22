@@ -203,9 +203,8 @@ h1, h2, h3, h4, .brand-display {
 
 .hero-stage-wrap {
   background:
-    radial-gradient(circle at top right, rgba(113, 193, 186, 0.16), transparent 24%),
-    radial-gradient(circle at bottom left, rgba(208, 176, 122, 0.2), transparent 28%),
-    linear-gradient(180deg, rgba(6, 12, 22, 0.96) 0%, rgba(8, 15, 28, 0.98) 54%, rgba(9, 17, 30, 1) 100%);
+    radial-gradient(circle at top right, rgba(208, 176, 122, 0.14), transparent 22%),
+    linear-gradient(180deg, #f6f1e6 0%, #efe5d5 44%, #e4d6c0 100%);
 }
 
 .hero-background {
@@ -221,44 +220,19 @@ h1, h2, h3, h4, .brand-display {
 
 .hero-overlay {
   background:
-    linear-gradient(110deg, rgba(5, 11, 21, 0.94) 8%, rgba(9, 18, 31, 0.78) 46%, rgba(8, 17, 31, 0.9) 100%),
-    radial-gradient(circle at top right, rgba(208, 176, 122, 0.18), transparent 25%);
+    linear-gradient(110deg, rgba(255, 248, 238, 0.68) 6%, rgba(247, 240, 229, 0.28) 46%, rgba(228, 214, 192, 0.16) 100%);
 }
 
 .hero-pattern {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 70px 70px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 75%);
+    linear-gradient(90deg, rgba(100, 78, 49, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(100, 78, 49, 0.06) 1px, transparent 1px);
+  background-size: 84px 84px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 75%);
 }
 
 .hero-shell {
   width: min(1240px, calc(100vw - 2rem));
-}
-
-.hero-aurora {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(18px);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.hero-aurora-one {
-  width: 22rem;
-  height: 22rem;
-  top: 5rem;
-  right: min(12vw, 8rem);
-  background: radial-gradient(circle, rgba(113, 193, 186, 0.34) 0%, rgba(113, 193, 186, 0.08) 52%, transparent 72%);
-}
-
-.hero-aurora-two {
-  width: 18rem;
-  height: 18rem;
-  bottom: 4rem;
-  left: min(10vw, 7rem);
-  background: radial-gradient(circle, rgba(208, 176, 122, 0.3) 0%, rgba(208, 176, 122, 0.06) 56%, transparent 74%);
 }
 
 .hero-panel,
@@ -271,11 +245,9 @@ h1, h2, h3, h4, .brand-display {
 }
 
 .hero-stage-panel {
-  border: 1px solid var(--bw-border);
-  background: linear-gradient(180deg, rgba(17, 28, 45, 0.96) 0%, rgba(10, 16, 29, 0.98) 100%);
+  border: 1px solid rgba(116, 86, 48, 0.16);
+  background: linear-gradient(180deg, rgba(34, 28, 23, 0.9) 0%, rgba(24, 20, 16, 0.96) 100%);
   box-shadow: var(--bw-shadow);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .hero-proof-card {
@@ -315,16 +287,16 @@ h1, h2, h3, h4, .brand-display {
 }
 
 .hero-trust-card {
-  border: 1px solid rgba(204, 183, 147, 0.16);
-  background: rgba(8, 14, 25, 0.66);
+  border: 1px solid rgba(116, 86, 48, 0.16);
+  background: rgba(255, 252, 247, 0.74);
   border-radius: 1.35rem;
   padding: 1.15rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: 0 18px 40px rgba(83, 58, 30, 0.08);
 }
 
 .hero-trust-card p {
   margin: 0;
-  color: var(--bw-text-soft);
+  color: #4a4138;
   line-height: 1.7;
   font-size: 0.95rem;
 }
@@ -376,15 +348,15 @@ h1, h2, h3, h4, .brand-display {
 }
 
 .brand-button-secondary {
-  color: var(--bw-text);
-  background: rgba(15, 26, 43, 0.8);
-  border: 1px solid var(--bw-border);
+  color: #2e261e;
+  background: rgba(255, 251, 245, 0.82);
+  border: 1px solid rgba(116, 86, 48, 0.18);
 }
 
 .brand-button-tertiary {
-  color: var(--bw-text);
+  color: #2e261e;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .brand-button:hover,
@@ -457,19 +429,6 @@ h1, h2, h3, h4, .brand-display {
 
   .hero-proof-thumb {
     height: 9rem;
-  }
-
-  .hero-aurora-one {
-    width: 16rem;
-    height: 16rem;
-    right: -3rem;
-  }
-
-  .hero-aurora-two {
-    width: 14rem;
-    height: 14rem;
-    left: -2rem;
-    bottom: 6rem;
   }
 }
 

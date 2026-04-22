@@ -166,10 +166,10 @@ class TeamMember(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 DEFAULT_SITE_CONTENT = {
-    'home.hero_badge': 'Student hostels, land sales, homes and estate development',
-    'home.hero_title': 'Live where quality meets trust.',
-    'home.hero_subtitle': 'BrightWave Habitat Enterprise delivers student accommodation, land opportunities, residential homes, and estate development with Phase 1 already open in Malete.',
-    'home.about_intro': 'BrightWave Habitat Enterprise is building a premium Nigerian property brand around student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is the first live signal of that standard.',
+    'home.hero_badge': 'Trusted property for students, families, and investors',
+    'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
+    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
     'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, clear communication, and a premium standard of presentation.',
     'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to compete at the top end of trust and presentation. We serve students, families, and investors through student hostels, land opportunities, residential homes, and estate development, with Phase 1 in Malete as the first live proof of our standard.',
     'about.team_heading': 'Meet the Active Team',
@@ -177,10 +177,10 @@ DEFAULT_SITE_CONTENT = {
 }
 
 LEGACY_SITE_CONTENT = {
-    'home.hero_badge': 'Student hostels, land sales, homes and estate development',
-    'home.hero_title': 'Building trusted living solutions across Nigeria.',
-    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors, with Phase 1 now open in Malete and broader property opportunities growing in step with delivery.',
-    'home.about_intro': 'BrightWave Habitat Enterprise is a growing Nigerian property company focused on student accommodation, land opportunities, residential homes, and estate development. Phase 1 in Malete is our current flagship delivery, not the whole story.',
+    'home.hero_badge': 'Trusted property for students, families, and investors',
+    'home.hero_title': 'Building trusted property opportunities across Nigeria.',
+    'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors with live student accommodation in Malete and broader property opportunities presented with clearer process and stronger trust.',
+    'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
     'about.hero_subtitle': 'A growing Nigerian property company building credibility through delivered projects, clear communication, and steady expansion.',
     'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business serving students, families, and investors through student hostels, land opportunities, residential homes, and estate development. Phase 1 in Malete is the current flagship delivery, while the broader company pipeline continues to grow around real execution.',
 }
@@ -405,6 +405,40 @@ def login_required(f):
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
     return decorated_function
+
+CANONICAL_HOST = SITE_URL.replace("https://", "").replace("http://", "")
+REDIRECT_HOSTS = {
+    'brightwaveenterprises.online',
+    'www.brightwaveenterprises.online',
+    'brightwavehabitat.com',
+}
+CANONICAL_ROUTE_MAP = {
+    '/index.html': '/',
+    '/about.html': '/about',
+    '/faq.html': '/faq',
+    '/hostel-detail.html': '/hostels/detail',
+}
+
+
+@app.before_request
+def enforce_canonical_urls():
+    host = request.host.split(':', 1)[0].lower()
+    if request.path == '/health' or host in {'localhost', '127.0.0.1'}:
+        return None
+
+    if host in REDIRECT_HOSTS:
+        query = f"?{request.query_string.decode()}" if request.query_string else ""
+        return redirect(f"{SITE_URL}{request.path}{query}", code=301)
+
+    if request.path in CANONICAL_ROUTE_MAP:
+        query = f"?{request.query_string.decode()}" if request.query_string else ""
+        return redirect(f"{SITE_URL}{CANONICAL_ROUTE_MAP[request.path]}{query}", code=301)
+
+    if host != CANONICAL_HOST and host:
+        query = f"?{request.query_string.decode()}" if request.query_string else ""
+        return redirect(f"{SITE_URL}{request.path}{query}", code=301)
+
+    return None
 
 # ========== STATIC PAGE ROUTES ==========
 @app.route('/')
