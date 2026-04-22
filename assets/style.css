@@ -500,16 +500,6 @@ h1, h2, h3, h4, .brand-display {
   }
 }
 
-@media (max-width: 768px) {
-  .hero-proof-image {
-    height: 15rem;
-  }
-
-  .hero-proof-thumb {
-    height: 9rem;
-  }
-}
-
 @media (max-width: 900px) {
   body::before {
     background-size: 38px 38px;
@@ -517,5 +507,108 @@ h1, h2, h3, h4, .brand-display {
 
   .section-shell {
     padding-block: 4.5rem;
+  }
+}
+
+/* ── Mobile layout fixes (≤ 767px) ─────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Hero shell: tighter vertical padding on phones */
+  .hero-shell {
+    padding-top: 3.5rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Badge: smaller on phones */
+  #homeHeroBadge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.85rem;
+    margin-bottom: 0.85rem;
+  }
+
+  /* Eyebrow text: tighten spacing */
+  .eyebrow {
+    margin-bottom: 0.75rem;
+    font-size: 0.78rem;
+  }
+
+  /* Hero headline: ensure it wraps cleanly on narrow screens */
+  #homeHeroTitle {
+    margin-bottom: 1rem;
+    word-break: break-word;
+  }
+
+  /* Hero subtitle: slightly smaller on phones */
+  #homeHeroSubtitle {
+    font-size: 0.97rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.65;
+  }
+
+  /* CTA button grid: stack vertically on phones */
+  .hero-shell .grid.grid-cols-1.md\:grid-cols-2 {
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Trust cards: compact row layout on phones */
+  .hero-trust-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .hero-trust-card {
+    padding: 0.75rem 1rem;
+    border-radius: 0.85rem;
+  }
+
+  .hero-trust-card p {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  /* Scroll caret: less space above */
+  .hero-shell .mt-12 {
+    margin-top: 2rem;
+  }
+
+  /* Brand buttons: full width on small phones */
+  .brand-button,
+  .brand-button-secondary {
+    justify-content: center;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    font-size: 0.92rem;
+  }
+
+  /* Section headings: scale down */
+  .section-shell h2,
+  .section-shell .brand-display {
+    font-size: 1.9rem;
+  }
+
+  /* Property cards: single column already handled by Tailwind, but tighten gap */
+  .property-grid {
+    gap: 1.25rem;
+  }
+
+  /* Contact form: remove excess side padding */
+  .contact-form-wrap {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* ── Small phones (≤ 380px) ─────────────────────────────────────────── */
+@media (max-width: 380px) {
+  #homeHeroTitle {
+    font-size: 1.9rem;
+    line-height: 1.1;
+  }
+
+  #homeHeroSubtitle {
+    font-size: 0.9rem;
+  }
+
+  .hero-shell {
+    padding-top: 3rem;
   }
 }

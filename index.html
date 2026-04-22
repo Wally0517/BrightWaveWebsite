@@ -202,7 +202,7 @@
       <div class="hero-bg-overlay"></div>
     </div>
 
-    <div class="hero-shell relative px-4 py-24 md:py-32 z-10 w-full" data-aos="fade-up" data-aos-duration="1200">
+    <div class="hero-shell relative px-4 py-14 md:py-28 xl:py-32 z-10 w-full" data-aos="fade-up" data-aos-duration="1200">
       <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] gap-10 items-start">
         <div class="text-white">
           <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white mb-6">
@@ -210,7 +210,7 @@
             <span class="hero-kicker" style="color:var(--bw-accent)">Trusted property for students, families, and investors</span>
           </div>
           <p class="eyebrow mb-5">BrightWave Habitat Enterprise</p>
-          <h1 id="homeHeroTitle" class="brand-display text-5xl md:text-7xl xl:text-[5.2rem] font-semibold leading-[0.96] mb-6 max-w-5xl">
+          <h1 id="homeHeroTitle" class="brand-display text-4xl sm:text-5xl md:text-6xl xl:text-[5.2rem] font-semibold leading-[1.05] xl:leading-[0.96] mb-6 max-w-5xl">
             Property opportunities in Nigeria, presented with <span class="gradient-text">real proof and clear process</span>.
           </h1>
           <p id="homeHeroSubtitle" class="text-lg md:text-[1.28rem] mb-8 font-medium max-w-3xl leading-relaxed text-slate-200">
@@ -244,7 +244,7 @@
           </div>
         </div>
 
-        <aside class="hero-stage-panel rounded-[2rem] p-5 md:p-6 text-white">
+        <aside class="hero-stage-panel rounded-[2rem] p-5 md:p-6 text-white hidden xl:flex xl:flex-col">
           <article class="hero-proof-card hero-proof-primary mb-5">
             <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 frontage in Malete" class="hero-proof-image" loading="eager" decoding="async" />
             <div class="hero-proof-copy">
@@ -777,6 +777,16 @@
             toggleIcon.classList.add('fa-bars');
             toggleIcon.classList.remove('fa-times');
           }
+        });
+
+        // Close mobile menu when a nav link is clicked
+        mobileNav.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', () => {
+            mobileNav.classList.add('hidden');
+            mobileToggle.setAttribute('aria-expanded', 'false');
+            toggleIcon.classList.add('fa-bars');
+            toggleIcon.classList.remove('fa-times');
+          });
         });
 
         // Smooth scrolling for navigation links
