@@ -388,12 +388,49 @@ def init_sample_data():
     db.session.commit()
 
 
+def reconcile_property_catalog():
+    """Keep live catalog visibility aligned with the current market-facing site."""
+    hidden_titles = {
+        'Investment Land - Fate Road',
+        '3-Bedroom Bungalow - Adewole',
+    }
+    coming_soon_titles = {
+        'BrightWave Hostel Phase 2',
+        'BrightWave Hostel Phase 3',
+        'BrightWave Estate - Obada Ikija',
+    }
+
+    properties = Property.query.all()
+    changed = False
+
+    for prop in properties:
+        if prop.title in hidden_titles:
+            if prop.status != 'inactive':
+                prop.status = 'inactive'
+                changed = True
+            if prop.featured:
+                prop.featured = False
+                changed = True
+
+        if prop.title in coming_soon_titles:
+            if prop.construction_status != 'coming-soon':
+                prop.construction_status = 'coming-soon'
+                changed = True
+            if prop.title == 'BrightWave Estate - Obada Ikija' and prop.featured:
+                prop.featured = False
+                changed = True
+
+    if changed:
+        db.session.commit()
+
+
 def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     """Run one-time database initialization outside the web worker startup path."""
     db.create_all()
     ensure_cms_baseline()
     if include_sample_data:
         init_sample_data()
+    reconcile_property_catalog()
     if bootstrap_admin:
         create_admin_user()
 
@@ -518,8 +555,9 @@ def get_properties():
             case(
                 (Property.construction_status == 'completed', 0),
                 (Property.construction_status == 'ongoing-final', 1),
-                (Property.construction_status == 'pending', 2),
-                (Property.construction_status == 'planning', 3),
+                (Property.construction_status == 'coming-soon', 2),
+                (Property.construction_status == 'pending', 3),
+                (Property.construction_status == 'planning', 4),
                 else_=4
             ),
             case(
