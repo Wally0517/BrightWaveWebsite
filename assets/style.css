@@ -29,13 +29,11 @@
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
   font-family: 'Manrope', system-ui, sans-serif;
   background:
     radial-gradient(circle at top right, rgba(113, 193, 186, 0.12), transparent 28%),
