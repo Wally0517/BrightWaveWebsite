@@ -522,17 +522,39 @@ h1, h2, h3, h4, .brand-display {
     padding-bottom: 3rem;
   }
 
-  /* Badge: smaller on phones */
+  /* Badge: constrain to screen width — letter-spacing makes the text ~500px wide otherwise */
   #homeHeroBadge {
-    font-size: 0.75rem;
-    padding: 0.35rem 0.85rem;
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+    font-size: 0.72rem;
+    padding: 0.45rem 0.9rem;
     margin-bottom: 0.85rem;
+    border-radius: 1rem;
+  }
+  #homeHeroBadge .hero-kicker {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    letter-spacing: 0.1em;
+  }
+
+  /* Reduce all kicker/eyebrow letter-spacing on mobile — 0.28em on 50+ chars creates overflow */
+  .hero-kicker,
+  .section-kicker,
+  .eyebrow {
+    letter-spacing: 0.12em;
   }
 
   /* Eyebrow text: tighten spacing */
   .eyebrow {
     margin-bottom: 0.75rem;
     font-size: 0.78rem;
+  }
+
+  /* gradient-text drop-shadow: iOS Safari filter can escape overflow:hidden containers */
+  .gradient-text {
+    filter: none;
   }
 
   /* Hero headline: ensure it wraps cleanly on narrow screens */
