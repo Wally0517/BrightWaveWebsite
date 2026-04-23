@@ -189,10 +189,10 @@
 
     <!-- Background: video (drop MP4 at /assets/videos/brightwave-hero.mp4) with Ken Burns photo fallback -->
     <div class="hero-bg-wrap">
-      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline>
+      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline aria-hidden="true" tabindex="-1" poster="/assets/images/phase1/phase1-aerial-topview.jpg">
         <source src="/assets/videos/brightwave-hero.mp4" type="video/mp4">
       </video>
-      <div class="hero-slides" id="heroSlides">
+      <div class="hero-slides" id="heroSlides" aria-hidden="true">
         <div class="hero-slide active" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg')"></div>
         <div class="hero-slide" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg')"></div>
         <div class="hero-slide" style="background-image:url('/assets/images/phase1/phase1-main-entrance.jpg')"></div>
@@ -202,9 +202,9 @@
       <div class="hero-bg-overlay"></div>
     </div>
 
-    <div class="hero-shell relative px-4 py-14 md:py-28 xl:py-32 z-10 w-full" data-aos="fade-up" data-aos-duration="1200">
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] gap-10 items-start">
-        <div class="text-white">
+    <div class="hero-shell relative px-4 py-14 md:py-28 xl:py-32 z-10 w-full">
+      <div class="hero-main-grid grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] gap-10 items-start">
+        <div class="hero-copy text-white">
           <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white mb-6">
             <i class="fas fa-building text-[var(--bw-accent)]"></i>
             <span class="hero-kicker" style="color:var(--bw-accent)">Trusted property for students, families, and investors</span>
@@ -217,7 +217,7 @@
             BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.
           </p>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-3xl">
+          <div class="hero-cta-group grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-3xl">
             <a href="#properties" class="brand-button">
               <i class="fas fa-search text-lg"></i>
               <span>View available opportunities</span>
@@ -231,17 +231,40 @@
           <div class="hero-trust-grid max-w-4xl">
             <div class="hero-trust-card">
               <span class="hero-trust-label">Live flagship</span>
-              <p>BrightWave Hostel Phase 1 is open in Malete and available for serious enquiries.</p>
+              <p>Active student accommodation already operating in Malete, Kwara State.</p>
             </div>
             <div class="hero-trust-card">
               <span class="hero-trust-label">Clear process</span>
-              <p>Inspections, enquiries, and next steps are handled directly with the BrightWave team.</p>
+              <p>Current offers, future pipeline, and buyer next steps are separated clearly.</p>
             </div>
             <div class="hero-trust-card">
               <span class="hero-trust-label">Broader portfolio</span>
-              <p>Student housing leads today, with land, homes, and estate growth presented in the same brand.</p>
+              <p>Student housing, land, homes, and estate projects under one brand.</p>
             </div>
           </div>
+
+          <article class="hero-proof-card hero-proof-mobile xl:hidden mt-8">
+            <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave Hostel Phase 1 frontage in Malete" class="hero-proof-image" loading="eager" decoding="async" />
+            <div class="hero-proof-copy">
+              <p class="hero-kicker text-[var(--bw-accent)]">Current flagship</p>
+              <h2 class="brand-display text-2xl sm:text-3xl font-semibold mt-3">BrightWave Hostel Phase 1</h2>
+              <p class="text-slate-200 mt-4 leading-7">A live student accommodation asset in Malete, Kwara State, built to answer the practical concerns buyers, parents, and occupants care about first.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 text-sm text-slate-200">
+                <div class="hero-proof-pill">
+                  <i class="fas fa-check-circle text-[var(--bw-sea)]"></i>
+                  <span>Now open and operating</span>
+                </div>
+                <div class="hero-proof-pill">
+                  <i class="fas fa-bed text-[var(--bw-accent)]"></i>
+                  <span>Self-contained rooms</span>
+                </div>
+              </div>
+              <a href="/hostels/detail" class="brand-button-secondary mt-5">
+                <i class="fas fa-arrow-right text-sm"></i>
+                <span>View flagship details</span>
+              </a>
+            </div>
+          </article>
         </div>
 
         <aside class="hero-stage-panel rounded-[2rem] p-5 md:p-6 text-white hidden xl:flex xl:flex-col">
@@ -269,7 +292,12 @@
             </article>
 
             <article class="hero-proof-card">
-              <img src="/assets/images/lands/brightwave-obada_ikija.jpg" alt="BrightWave land opportunity visual in Nigeria" class="hero-proof-thumb" loading="lazy" decoding="async" />
+              <div class="relative overflow-hidden">
+                <img src="/assets/images/lands/brightwave-obada_ikija.jpg" alt="BrightWave land opportunity — real aerial view coming soon" class="hero-proof-thumb opacity-40" loading="lazy" decoding="async" />
+                <div class="absolute inset-0 flex items-center justify-center bg-slate-900/50">
+                  <span class="bg-amber-500 text-slate-900 px-4 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase">Coming Soon</span>
+                </div>
+              </div>
               <div class="hero-proof-copy">
                 <p class="hero-kicker text-[var(--bw-accent)]">Beyond the hostel</p>
                 <h3 class="brand-display text-2xl font-semibold mt-2">Land and residential growth</h3>
@@ -284,7 +312,7 @@
         </aside>
       </div>
 
-      <div class="mt-12 animate-bounce">
+      <div class="hero-scroll-cue mt-12 animate-bounce">
         <a href="#services" class="text-white text-4xl hover:text-slate-300 transition-colors duration-300">
           <i class="fas fa-chevron-down"></i>
         </a>
@@ -293,25 +321,25 @@
   </section>
 
   <!-- Services Overview Section -->
-  <section id="services" class="section-shell" data-aos="fade-up" data-aos-duration="1000">
+  <section id="services" class="section-shell services-section" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
+      <div class="services-intro text-center mb-16">
         <p class="section-kicker mb-4">Business lines</p>
-        <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-4">Our <span class="gradient-text">Services</span></h2>
+        <h2 class="services-heading brand-display text-4xl md:text-5xl font-semibold mb-4">Our <span class="gradient-text">Services</span></h2>
         <p class="section-lead text-lg mx-auto">
           BrightWave operates across student accommodation, land transactions, homes, and estate development, with each offer presented according to its real stage and readiness.
         </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="services-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <!-- Student Hostels -->
-        <div id="student-hostels" class="service-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
-          <div class="bg-[var(--bw-sea-soft)] border border-[rgba(113,193,186,0.24)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div id="student-hostels" class="service-card services-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
+          <div class="services-icon bg-[var(--bw-sea-soft)] border border-[rgba(113,193,186,0.24)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-graduation-cap text-3xl text-white"></i>
           </div>
-          <h3 class="brand-display text-2xl font-semibold mb-4 text-slate-50">Student Hostels</h3>
-          <p class="text-slate-300 mb-6 leading-7">Purpose-built student accommodation remains our active flagship, with BrightWave Hostel Phase 1 now open in Malete and future phases in the pipeline.</p>
-          <ul class="text-sm text-slate-400 space-y-2 mb-6">
+          <h3 class="services-card-title brand-display text-2xl font-semibold mb-4 text-slate-50">Student Hostels</h3>
+          <p class="services-card-copy text-slate-300 mb-6 leading-7">Purpose-built student accommodation remains our active flagship, with BrightWave Hostel Phase 1 now open in Malete and future phases in the pipeline.</p>
+          <ul class="services-feature-list text-sm text-slate-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Self-contained rooms</li>
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>24/7 Security & CCTV</li>
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Solar power backup</li>
@@ -321,13 +349,13 @@
         </div>
 
         <!-- Land Sales -->
-        <div id="land-sales" class="service-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
-          <div class="bg-[var(--bw-accent-soft)] border border-[var(--bw-border)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div id="land-sales" class="service-card services-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
+          <div class="services-icon bg-[var(--bw-accent-soft)] border border-[var(--bw-border)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-map-marked-alt text-3xl text-white"></i>
           </div>
-          <h3 class="brand-display text-2xl font-semibold mb-4 text-slate-50">Land Sales</h3>
-          <p class="text-slate-300 mb-6 leading-7">BrightWave presents land opportunities with clearer location context, documentation standards, and buyer guidance for personal and investment use.</p>
-          <ul class="text-sm text-slate-400 space-y-2 mb-6">
+          <h3 class="services-card-title brand-display text-2xl font-semibold mb-4 text-slate-50">Land Sales</h3>
+          <p class="services-card-copy text-slate-300 mb-6 leading-7">BrightWave presents land opportunities with clearer location context, documentation standards, and buyer guidance for personal and investment use.</p>
+          <ul class="services-feature-list text-sm text-slate-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Clear documentation</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Location clarity</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Buyer support</li>
@@ -337,13 +365,13 @@
         </div>
 
         <!-- Residential Properties -->
-        <div id="residential" class="service-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
-          <div class="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div id="residential" class="service-card services-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
+          <div class="services-icon bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-home text-3xl text-white"></i>
           </div>
-          <h3 class="brand-display text-2xl font-semibold mb-4 text-slate-50">Residential Homes</h3>
-          <p class="text-slate-300 mb-6 leading-7">Our residential direction is focused on clean, practical homes for buyers who want better living standards, sensible layouts, and dependable presentation.</p>
-          <ul class="text-sm text-slate-400 space-y-2 mb-6">
+          <h3 class="services-card-title brand-display text-2xl font-semibold mb-4 text-slate-50">Residential Homes</h3>
+          <p class="services-card-copy text-slate-300 mb-6 leading-7">Our residential direction is focused on clean, practical homes for buyers who want better living standards, sensible layouts, and dependable presentation.</p>
+          <ul class="services-feature-list text-sm text-slate-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-slate-200 mr-2"></i>Family-friendly layouts</li>
             <li><i class="fas fa-check text-slate-200 mr-2"></i>Credible presentation</li>
             <li><i class="fas fa-check text-slate-200 mr-2"></i>Better living standards</li>
@@ -353,75 +381,19 @@
         </div>
 
         <!-- Estate Development -->
-        <div class="service-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
-          <div class="bg-[var(--bw-accent-soft)] border border-[var(--bw-border)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div class="service-card services-card glass-effect p-8 rounded-[1.8rem] text-center hover-lift">
+          <div class="services-icon bg-[var(--bw-accent-soft)] border border-[var(--bw-border)] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-city text-3xl text-white"></i>
           </div>
-          <h3 class="brand-display text-2xl font-semibold mb-4 text-slate-50">Estate Development</h3>
-          <p class="text-slate-300 mb-6 leading-7">Estate development brings BrightWaveâ€™s land, housing, and long-term planning together into better organised communities and phased delivery.</p>
-          <ul class="text-sm text-slate-400 space-y-2 mb-6">
+          <h3 class="services-card-title brand-display text-2xl font-semibold mb-4 text-slate-50">Estate Development</h3>
+          <p class="services-card-copy text-slate-300 mb-6 leading-7">Estate development brings BrightWave's land, housing, and long-term planning together into better organised communities and phased delivery.</p>
+          <ul class="services-feature-list text-sm text-slate-400 space-y-2 mb-6">
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Master planning</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Infrastructure development</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Phased execution</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Community planning</li>
           </ul>
           <a href="#contact" class="brand-button-secondary w-full">Discuss a Project</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="pathways" class="py-20 bg-slate-950" aria-labelledby="pathways-heading" data-aos="fade-up" data-aos-duration="900">
-    <div class="container mx-auto px-4">
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-10 items-center">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400 mb-3">Who We Serve</p>
-          <h2 id="pathways-heading" class="text-4xl md:text-5xl font-bold mb-4">Property routes for <span class="gradient-text">different buyer needs</span></h2>
-          <p class="text-lg text-gray-300 max-w-2xl">BrightWave serves clients with different goals, from immediate student housing needs to land acquisition, family housing, and longer-term investment conversations.</p>
-          <div class="space-y-4 mt-8">
-            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Students and parents</h3>
-              <p class="text-slate-300">Students and parents can start with the live Malete hostel, real images, FAQs, and direct booking support.</p>
-            </div>
-            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Families and homebuyers</h3>
-              <p class="text-slate-300">Families and homebuyers can review the housing direction, location quality, and upcoming residential opportunities.</p>
-            </div>
-            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Investors and partners</h3>
-              <p class="text-slate-300">Investors and partners can assess visible delivery, land positioning, and the companyâ€™s broader pipeline.</p>
-            </div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-            <img src="/assets/images/phase1/phase1-main-entrance.jpg" alt="BrightWave current flagship hostel in Malete" class="w-full h-72 object-cover" loading="eager" decoding="async" />
-            <div class="p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Live flagship</h3>
-              <p class="text-sm text-slate-300">Phase 1 remains the strongest proof that BrightWave is already executing in the real market.</p>
-            </div>
-          </article>
-          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-            <img src="/assets/images/brightwave-hero-water-estate.jpg" alt="BrightWave premium estate concept" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-            <div class="p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Premium direction</h3>
-              <p class="text-sm text-slate-300">BrightWave is building a cleaner premium presentation around property, not just around one active asset.</p>
-            </div>
-          </article>
-          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-            <img src="/assets/images/lands/brightwave-obada_ikija.jpg" alt="BrightWave land sales opportunity visual" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-            <div class="p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Land opportunity</h3>
-              <p class="text-sm text-slate-300">Selected land opportunities support the companyâ€™s wider property direction and investor conversations.</p>
-            </div>
-          </article>
-          <article class="proof-card overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-            <img src="/assets/images/brightwave-project-1.jpg" alt="BrightWave future project visual" class="w-full h-72 object-cover" loading="lazy" decoding="async" />
-            <div class="p-5">
-              <h3 class="text-xl font-bold text-slate-100 mb-2">Growth with discipline</h3>
-              <p class="text-sm text-slate-300">Future projects stay in supporting view while live delivery remains the clearest proof on the page.</p>
-            </div>
-          </article>
         </div>
       </div>
     </div>
@@ -451,62 +423,59 @@
     </div>
   </section>
 
-  <!-- About Section -->
-  <section id="about" class="section-shell" data-aos="fade-up" data-aos-duration="1000">
+  <!-- Mission Section -->
+  <section id="about" class="section-shell about-section" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] gap-10 items-start">
-        <div>
-          <p class="section-kicker mb-3">Company position</p>
-          <h2 class="brand-display text-4xl md:text-5xl font-semibold mb-4">About <span class="gradient-text">BrightWave</span></h2>
+      <div class="about-main-grid grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] gap-10 items-start">
+        <div class="about-copy">
+          <p class="section-kicker mb-3">Who we are</p>
+          <h2 class="about-heading brand-display text-4xl md:text-5xl font-semibold mb-4">Our <span class="gradient-text">Mission</span></h2>
           <p id="homeAboutIntro" class="section-lead text-lg max-w-3xl">
             BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.
           </p>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            <div class="surface-panel rounded-2xl p-5">
+          <div class="about-pillars-grid grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <div class="surface-panel about-pillar-card rounded-2xl p-5">
               <p class="section-kicker mb-2">01</p>
               <h3 class="brand-display text-xl font-semibold text-slate-100 mb-2">Real delivery first</h3>
               <p class="text-sm text-slate-300">BrightWave leads with what is active now and keeps future opportunities clearly separated.</p>
             </div>
-            <div class="surface-panel rounded-2xl p-5">
+            <div class="surface-panel about-pillar-card rounded-2xl p-5">
               <p class="section-kicker mb-2">02</p>
               <h3 class="brand-display text-xl font-semibold text-slate-100 mb-2">Clear buyer guidance</h3>
               <p class="text-sm text-slate-300">Students, families, and investors can identify the right entry point without confusion.</p>
             </div>
-            <div class="surface-panel rounded-2xl p-5">
+            <div class="surface-panel about-pillar-card rounded-2xl p-5">
               <p class="section-kicker mb-2">03</p>
               <h3 class="brand-display text-xl font-semibold text-slate-100 mb-2">Measured expansion</h3>
               <p class="text-sm text-slate-300">Growth is built around visible execution, market trust, and disciplined next steps.</p>
             </div>
           </div>
+          <a href="/about" class="brand-button-secondary about-cta mt-8 inline-flex">
+            <i class="fas fa-users mr-2"></i>Meet the team
+          </a>
         </div>
 
-        <div class="surface-panel rounded-[2rem] p-8">
-          <div class="grid grid-cols-2 gap-4 mb-8">
-            <div class="brand-metric rounded-2xl p-5">
+        <div class="surface-panel about-metrics-panel rounded-[2rem] p-8">
+          <div class="about-metrics-grid grid grid-cols-2 gap-4">
+            <div class="brand-metric about-metric-card rounded-2xl p-5">
               <p class="text-3xl font-bold text-[var(--bw-sea)]">1</p>
               <p class="text-sm text-slate-300 mt-2">live flagship currently operating in Malete</p>
             </div>
-            <div class="brand-metric rounded-2xl p-5">
+            <div class="brand-metric about-metric-card rounded-2xl p-5">
               <p class="text-3xl font-bold text-[var(--bw-accent)]">24/7</p>
               <p class="text-sm text-slate-300 mt-2">security mindset around student accommodation</p>
             </div>
-            <div class="brand-metric rounded-2xl p-5">
+            <div class="brand-metric about-metric-card rounded-2xl p-5">
               <p class="text-3xl font-bold text-slate-100">4</p>
               <p class="text-sm text-slate-300 mt-2">property lines under one BrightWave brand</p>
             </div>
-            <div class="brand-metric rounded-2xl p-5">
+            <div class="brand-metric about-metric-card rounded-2xl p-5">
               <p class="text-3xl font-bold text-[var(--bw-accent-strong)]">NG</p>
               <p class="text-sm text-slate-300 mt-2">market focus built around Nigerian buyers and locations</p>
             </div>
           </div>
-          <h3 class="brand-display text-2xl font-semibold text-white mb-3">Why clients trust BrightWave</h3>
-          <p class="text-slate-300 mb-6">BrightWave combines visible delivery, cleaner presentation, direct communication, and broader property ambition in one focused Nigerian brand.</p>
-          <a href="/about" class="brand-button-secondary">
-            <i class="fas fa-users mr-2"></i>Meet the team
-          </a>
         </div>
       </div>
-
     </div>
   </section>
 
@@ -1273,4 +1242,3 @@ document.addEventListener('keydown', (e) => {
   </script>
 </body>
 </html>
-

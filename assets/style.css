@@ -29,6 +29,8 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  background: #07111d;
 }
 
 body {
@@ -236,6 +238,15 @@ h1, h2, h3, h4, .brand-display {
   margin-inline: auto;
 }
 
+.hero-main-grid,
+.hero-copy {
+  min-width: 0;
+}
+
+.hero-cta-group {
+  align-items: stretch;
+}
+
 /* ── Hero background: video + Ken Burns slideshow ── */
 .hero-bg-wrap {
   position: absolute;
@@ -358,6 +369,21 @@ h1, h2, h3, h4, .brand-display {
   padding: 1.25rem;
 }
 
+.hero-proof-mobile {
+  display: block;
+}
+
+.hero-proof-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  border: 1px solid rgba(204, 183, 147, 0.14);
+  border-radius: 999px;
+  padding: 0.8rem 0.95rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .hero-trust-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -455,6 +481,21 @@ h1, h2, h3, h4, .brand-display {
   line-height: 1.75;
 }
 
+.services-card,
+.about-copy,
+.about-metrics-panel,
+.about-pillar-card,
+.about-metric-card {
+  min-width: 0;
+}
+
+.services-card-copy,
+.services-feature-list,
+.about-pillar-card p,
+.about-metric-card p {
+  overflow-wrap: anywhere;
+}
+
 .map-container {
   position: relative;
   border: 1px solid var(--bw-border);
@@ -498,7 +539,7 @@ h1, h2, h3, h4, .brand-display {
 
 @media (max-width: 1024px) {
   .hero-trust-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -510,68 +551,110 @@ h1, h2, h3, h4, .brand-display {
   .section-shell {
     padding-block: 4.5rem;
   }
+
+  .services-grid {
+    gap: 1.5rem;
+  }
+
+  .about-main-grid {
+    gap: 2rem;
+  }
+
+  .about-metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Mobile layout fixes (≤ 767px) ─────────────────────────────────── */
 @media (max-width: 767px) {
-  /* Hero shell: tighter vertical padding on phones */
+  /* Hero section: drop flex on mobile — flex cross-axis sizing in iOS WebKit
+     causes the shell to drift right. Block layout gives full, unambiguous width. */
+  #home {
+    display: block;
+    min-height: calc(100svh - 5rem);
+  }
+
+  /* Hero shell: full-width, no auto margins, proper clearance for fixed header */
   .hero-shell {
-    padding-top: 3.5rem;
-    padding-bottom: 3rem;
+    margin: 0;
+    max-width: 100%;
+    padding-top: calc(5.5rem + env(safe-area-inset-top, 0px));
+    padding-right: 1rem;
+    padding-bottom: 2.25rem;
+    padding-left: 1rem;
+  }
+
+  .hero-main-grid {
+    gap: 1.5rem;
+  }
+
+  .hero-copy {
+    max-width: 100%;
   }
 
   /* Badge: constrain to screen width — letter-spacing makes the text ~500px wide otherwise */
   #homeHeroBadge {
+    display: flex;
+    width: 100%;
     max-width: 100%;
     flex-wrap: wrap;
-    row-gap: 0.25rem;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.35rem 0.5rem;
     font-size: 0.72rem;
-    padding: 0.45rem 0.9rem;
-    margin-bottom: 0.85rem;
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 0.9rem;
     border-radius: 1rem;
   }
   #homeHeroBadge .hero-kicker {
+    display: block;
+    flex: 1 1 12rem;
     min-width: 0;
     white-space: normal;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
     letter-spacing: 0.1em;
   }
 
   /* Reduce all kicker/eyebrow letter-spacing on mobile — 0.28em on 50+ chars creates overflow */
-  .hero-kicker,
-  .section-kicker,
-  .eyebrow {
+  #home .hero-kicker,
+  #home .eyebrow,
+  #home .hero-trust-label {
     letter-spacing: 0.12em;
   }
 
   /* Eyebrow text: tighten spacing */
-  .eyebrow {
+  #home .eyebrow {
     margin-bottom: 0.75rem;
     font-size: 0.78rem;
   }
 
   /* gradient-text drop-shadow: iOS Safari filter can escape overflow:hidden containers */
-  .gradient-text {
+  #homeHeroTitle .gradient-text {
     filter: none;
   }
 
   /* Hero headline: ensure it wraps cleanly on narrow screens */
   #homeHeroTitle {
+    max-width: 100%;
     margin-bottom: 1rem;
-    word-break: break-word;
+    font-size: clamp(2.5rem, 10vw, 3.6rem);
+    line-height: 1.02;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   /* Hero subtitle: slightly smaller on phones */
   #homeHeroSubtitle {
-    font-size: 0.97rem;
-    margin-bottom: 1.25rem;
-    line-height: 1.65;
+    max-width: 100%;
+    font-size: 1rem;
+    margin-bottom: 1.4rem;
+    line-height: 1.7;
   }
 
   /* CTA button grid: stack vertically on phones */
-  .hero-shell .grid.grid-cols-1.md\:grid-cols-2 {
-    gap: 0.65rem;
-    margin-bottom: 1.25rem;
+  .hero-cta-group {
+    gap: 0.75rem;
+    margin-bottom: 1.35rem;
   }
 
   /* Trust cards: compact row layout on phones */
@@ -590,42 +673,152 @@ h1, h2, h3, h4, .brand-display {
     line-height: 1.5;
   }
 
-  /* Scroll caret: less space above */
-  .hero-shell .mt-12 {
-    margin-top: 2rem;
+  .hero-proof-mobile {
+    margin-top: 1.5rem;
   }
 
   /* Brand buttons: full width on small phones */
-  .brand-button,
-  .brand-button-secondary {
+  .hero-proof-mobile .brand-button-secondary,
+  .hero-cta-group .brand-button,
+  .hero-cta-group .brand-button-secondary {
     justify-content: center;
     width: 100%;
     padding: 0.85rem 1rem;
     font-size: 0.92rem;
   }
 
-  /* Section headings: scale down */
-  .section-shell h2,
-  .section-shell .brand-display {
-    font-size: 1.9rem;
+  .hero-scroll-cue {
+    display: none;
   }
 
-  /* Property cards: single column already handled by Tailwind, but tighten gap */
-  .property-grid {
-    gap: 1.25rem;
+  #services,
+  #about {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
   }
 
-  /* Contact form: remove excess side padding */
-  .contact-form-wrap {
-    padding: 1.5rem 1rem;
+  .services-intro,
+  .about-copy {
+    margin-bottom: 0;
+  }
+
+  .services-heading,
+  .about-heading {
+    font-size: clamp(2rem, 8vw, 2.6rem);
+    line-height: 1.04;
+  }
+
+  #services .section-kicker,
+  #about .section-kicker {
+    letter-spacing: 0.12em;
+  }
+
+  #services .section-lead,
+  #about .section-lead {
+    max-width: 100%;
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+
+  .services-grid {
+    gap: 1.1rem;
+  }
+
+  .services-card {
+    padding: 1.35rem;
+    text-align: left;
+    border-radius: 1.4rem;
+  }
+
+  .services-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-right: 0;
+    margin-bottom: 1rem;
+  }
+
+  .services-card-title {
+    font-size: 1.45rem;
+    line-height: 1.1;
+    margin-bottom: 0.85rem;
+  }
+
+  .services-card-copy {
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .services-feature-list {
+    margin-bottom: 1rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .services-feature-list li {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .services-card .brand-button-secondary {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    font-size: 0.92rem;
+  }
+
+  .about-main-grid {
+    gap: 1.5rem;
+  }
+
+  .about-pillars-grid,
+  .about-metrics-grid {
+    gap: 0.85rem;
+  }
+
+  .about-pillar-card,
+  .about-metric-card {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  .about-pillar-card h3 {
+    font-size: 1.1rem;
+    line-height: 1.2;
+  }
+
+  .about-pillar-card p,
+  .about-metric-card p.text-sm {
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .about-metrics-panel {
+    padding: 1.15rem;
+    border-radius: 1.5rem;
+  }
+
+  .about-metric-card p.text-3xl {
+    font-size: 1.6rem;
+    line-height: 1;
+  }
+
+  .about-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 1280px) {
+  .hero-proof-mobile {
+    display: none;
   }
 }
 
 /* ── Small phones (≤ 380px) ─────────────────────────────────────────── */
 @media (max-width: 380px) {
   #homeHeroTitle {
-    font-size: 1.9rem;
-    line-height: 1.1;
+    font-size: 2.15rem;
+    line-height: 1.04;
   }
 
   #homeHeroSubtitle {
@@ -633,6 +826,24 @@ h1, h2, h3, h4, .brand-display {
   }
 
   .hero-shell {
-    padding-top: 3rem;
+    padding-top: calc(5rem + env(safe-area-inset-top, 0px));
+    padding-right: 0.9rem;
+    padding-left: 0.9rem;
+  }
+
+  .services-card {
+    padding: 1.1rem;
+  }
+
+  .services-card-title {
+    font-size: 1.3rem;
+  }
+
+  .about-metrics-panel {
+    padding: 1rem;
+  }
+
+  .about-metric-card p.text-3xl {
+    font-size: 1.45rem;
   }
 }
