@@ -2889,8 +2889,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
             const response = await fetch(url, {
                 credentials: 'include',
+                ...options,
                 headers,
-                ...options
             });
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -4044,7 +4044,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (adminCsrfToken && ['POST','PUT','DELETE'].includes((options.method || 'GET').toUpperCase())) {
                 headers.set('X-CSRF-Token', adminCsrfToken);
             }
-            const response = await fetch(url, { credentials: 'include', headers, ...options });
+            const response = await fetch(url, { credentials: 'include', ...options, headers });
             if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
             return response.json();
         }
