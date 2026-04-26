@@ -3504,7 +3504,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2 pr-3 text-xs ${statusColors[a.contract_status] || 'text-gray-500'}">${statusLabels[a.contract_status] || a.contract_status}</td>
                         <td class="py-2 pr-3"><span class="text-xs ${a.is_active ? 'text-green-400' : 'text-red-400'}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
                         <td class="py-2 flex gap-2 flex-wrap">
-                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username)}, '${a.role}', ${JSON.stringify(a.secondary_roles || [])})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username).replace(/"/g, '&quot;')}, '${a.role}', ${JSON.stringify(a.secondary_roles || []).replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                             <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}">${a.is_active ? 'Deactivate' : 'Activate'}</button>
                         </td>
                     </tr>`;
