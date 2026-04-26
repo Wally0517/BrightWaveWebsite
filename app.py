@@ -856,7 +856,7 @@ def pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v2';
+const CACHE_NAME = 'brightwave-portal-v3';
 const STATIC_ASSETS = ['/admin/login'];
 
 self.addEventListener('install', event => {
@@ -896,7 +896,9 @@ self.addEventListener('fetch', event => {
 });
 """
     from flask import Response
-    return Response(sw_code, mimetype='application/javascript')
+    resp = Response(sw_code, mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return resp
 
 @app.route('/api/site-content', methods=['GET'])
 def get_public_site_content():
@@ -1448,15 +1450,24 @@ def admin_dashboard():
 
     user_name = admin.display_name or admin.username
 
+    no_cache_headers = {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+    }
+
     if admin.role == 'CEO':
         pending_sigs_count = UserContract.query.filter_by(status='pending_ceo_signature').count()
-        return render_template_string(
+        from flask import make_response
+        resp = make_response(render_template_string(
             ENHANCED_ADMIN_DASHBOARD_TEMPLATE,
             csrf_token=get_csrf_token(),
             user_role='CEO',
             user_name=user_name,
             pending_sigs_count=pending_sigs_count,
-        )
+        ))
+        for k, v in no_cache_headers.items():
+            resp.headers[k] = v
+        return resp
 
     # Non-CEO: handle contract signing flow
     contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
@@ -1479,7 +1490,8 @@ def admin_dashboard():
 
     all_roles = [admin.role] + (admin.secondary_roles or [])
 
-    return render_template_string(
+    from flask import make_response
+    resp = make_response(render_template_string(
         ROLE_DASHBOARD_TEMPLATE,
         csrf_token=get_csrf_token(),
         user_role=admin.role,
@@ -1493,7 +1505,10 @@ def admin_dashboard():
         contract_title=CONTRACT_TEXTS.get(admin.role, {}).get('title', 'Agreement'),
         contract_body=CONTRACT_TEXTS.get(admin.role, {}).get('body', ''),
         investor_profile=investor_profile,
-    )
+    ))
+    for k, v in no_cache_headers.items():
+        resp.headers[k] = v
+    return resp
 
 @app.route('/admin/api/properties', methods=['GET', 'POST'])
 @login_required
@@ -2147,7 +2162,7 @@ LOGIN_TEMPLATE = """
     </div>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
         }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -3790,7 +3805,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
         }
     </script>
 </body>
@@ -4279,7 +4294,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
         }
     </script>
 </body>
