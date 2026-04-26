@@ -170,6 +170,10 @@
       <i class="fa-solid fa-building-columns"></i>
       <span>Properties</span>
     </div>
+    <div class="nav-item admin-only" data-tab="accounts" style="display:none">
+      <i class="fa-solid fa-user-shield"></i>
+      <span>Accounts</span>
+    </div>
   </nav>
 
   <div class="sidebar-footer">
@@ -370,6 +374,61 @@
     </div>
   </div>
 
+  <!-- ══ ACCOUNTS ══ -->
+  <div class="tab-panel" id="panel-accounts">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Account list -->
+      <div class="panel lg:col-span-2">
+        <div class="panel-header">
+          <span class="font-semibold text-sm">Team Accounts</span>
+          <button class="btn btn-teal btn-sm" onclick="openAccountModal()">
+            <i class="fa-solid fa-plus mr-1"></i>Add Account
+          </button>
+        </div>
+        <div class="panel-body overflow-x-auto">
+          <table class="data-table" id="accountsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Last IP</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="7" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Login history -->
+      <div class="panel lg:col-span-2">
+        <div class="panel-header">
+          <span class="font-semibold text-sm">Login History</span>
+          <span class="text-slate-500 text-xs">Last 50 logins</span>
+        </div>
+        <div class="panel-body overflow-x-auto">
+          <table class="data-table" id="loginLogsTable">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Username</th>
+                <th>Name</th>
+                <th>IP Address</th>
+                <th>Device / Browser</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="5" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </main>
 
 <!-- ════════════ MODALS ════════════ -->
@@ -540,6 +599,44 @@
   </div>
 </div>
 
+<!-- Account modal -->
+<div class="modal-backdrop" id="accountModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="accountModalTitle">Add Account</h3>
+      <button onclick="closeAccountModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="accountForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="accountId" />
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Full Name</label><input type="text" id="ac_name" class="f-input" placeholder="e.g. Al-Ameen A." /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Username *</label><input type="text" id="ac_username" required class="f-input" placeholder="e.g. alameen" autocomplete="off" /></div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Email *</label><input type="email" id="ac_email" required class="f-input" autocomplete="off" /></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Password <span id="ac_pw_hint" class="text-slate-600">(required for new account)</span></label>
+          <input type="password" id="ac_password" class="f-input" placeholder="Min. 8 characters" autocomplete="new-password" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Role</label>
+          <select id="ac_role" class="f-input">
+            <option value="viewer">Viewer — read-only access</option>
+            <option value="admin">Admin — full access</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 sm:col-span-2" id="ac_active_row">
+          <input type="checkbox" id="ac_active" checked class="w-4 h-4 accent-teal-500" />
+          <label for="ac_active" class="text-sm text-slate-300">Account active (can log in)</label>
+        </div>
+      </form>
+      <p id="accountFormMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAccountModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="saveAccount()" id="saveAccountBtn">Create Account</button>
+    </div>
+  </div>
+</div>
+
 <!-- Detail / view modal (inquiries & messages) -->
 <div class="modal-backdrop" id="detailModal">
   <div class="modal">
@@ -560,15 +657,6 @@
 let csrfToken = '';
 let tenantsCache = [];
 let propertiesCache = [];
-
-// ── CSRF / auth ──
-async function initSession() {
-  try {
-    const res = await apiFetch('/management/api/me');
-    csrfToken = res.csrf_token || '';
-    document.getElementById('headerUsername').textContent = res.username || '';
-  } catch { window.location.href = '/management/login'; }
-}
 
 // ── Fetch helper ──
 async function apiFetch(url, options = {}) {
@@ -594,7 +682,8 @@ function statusBadge(s) {
 
 // ── Sidebar nav ──
 const tabTitles = { overview:'Overview', tenants:'Tenants', payments:'Payments',
-                    inquiries:'Inquiries', messages:'Messages', website:'Website', properties:'Properties' };
+                    inquiries:'Inquiries', messages:'Messages', website:'Website',
+                    properties:'Properties', accounts:'Accounts' };
 
 document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
   item.addEventListener('click', () => {
@@ -1130,9 +1219,152 @@ document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
   });
 });
 
+// ── Accounts ──
+let accountsCache = [];
+let currentUserRole = 'viewer';
+let currentUserId = null;
+
+function parseUA(ua) {
+  if (!ua) return '—';
+  if (/Mobile|Android|iPhone|iPad/.test(ua)) {
+    if (/Chrome/.test(ua)) return 'Chrome (Mobile)';
+    if (/Safari/.test(ua)) return 'Safari (Mobile)';
+    return 'Mobile browser';
+  }
+  if (/Chrome/.test(ua) && !/Edge|OPR/.test(ua)) return 'Chrome';
+  if (/Firefox/.test(ua)) return 'Firefox';
+  if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari';
+  if (/Edge/.test(ua)) return 'Edge';
+  return ua.substring(0, 40);
+}
+
+async function loadAccounts() {
+  try {
+    accountsCache = await apiFetch('/management/api/accounts') || [];
+    document.getElementById('accountsTable').querySelector('tbody').innerHTML =
+      accountsCache.length ? accountsCache.map(a => {
+        const isSelf = a.id === currentUserId;
+        return `<tr>
+          <td class="font-medium">${a.full_name || '<span class="text-slate-600">—</span>'}</td>
+          <td class="text-slate-300">${a.username}${isSelf ? ' <span class="badge badge-teal ml-1">you</span>' : ''}</td>
+          <td>${a.role === 'admin'
+            ? '<span class="badge badge-teal">Admin</span>'
+            : '<span class="badge badge-slate">Viewer</span>'}</td>
+          <td>${a.is_active
+            ? '<span class="badge badge-green">Active</span>'
+            : '<span class="badge badge-red">Disabled</span>'}</td>
+          <td class="text-slate-400 text-xs">${a.last_login ? fmtDate(a.last_login) + '<br><span class="text-slate-600">' + a.last_login.slice(11,16) + ' UTC</span>' : '<span class="text-slate-600">Never</span>'}</td>
+          <td class="text-slate-500 text-xs font-mono">${a.last_login_ip || '—'}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn btn-ghost btn-sm mr-1" onclick="editAccount(${a.id})"><i class="fa-solid fa-pen text-xs"></i></button>
+            ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id})"><i class="fa-solid fa-trash text-xs"></i></button>` : ''}
+          </td>
+        </tr>`;
+      }).join('') :
+      '<tr><td colspan="7" class="text-slate-600 text-center py-6">No accounts found</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+async function loadLoginLogs() {
+  try {
+    const logs = await apiFetch('/management/api/login-logs?limit=50') || [];
+    document.getElementById('loginLogsTable').querySelector('tbody').innerHTML =
+      logs.length ? logs.map(l => `
+        <tr>
+          <td class="text-slate-300 text-xs whitespace-nowrap">${fmtDate(l.created_at)} ${l.created_at.slice(11,16)} UTC</td>
+          <td class="font-medium">${l.username}</td>
+          <td class="text-slate-400">${l.full_name || '—'}</td>
+          <td class="font-mono text-xs text-slate-400">${l.ip_address || '—'}</td>
+          <td class="text-slate-500 text-xs">${parseUA(l.user_agent)}</td>
+        </tr>`).join('') :
+      '<tr><td colspan="5" class="text-slate-600 text-center py-6">No login history yet</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+function openAccountModal(id) {
+  const isEdit = !!id;
+  document.getElementById('accountModalTitle').textContent = isEdit ? 'Edit Account' : 'Add Account';
+  document.getElementById('saveAccountBtn').textContent = isEdit ? 'Save Changes' : 'Create Account';
+  document.getElementById('accountId').value = id || '';
+  document.getElementById('ac_pw_hint').textContent = isEdit ? '(leave blank to keep current)' : '(required)';
+  document.getElementById('ac_active_row').style.display = isEdit ? 'flex' : 'none';
+  if (!isEdit) document.getElementById('accountForm').reset();
+  document.getElementById('accountFormMsg').classList.add('hidden');
+  document.getElementById('accountModal').classList.add('open');
+}
+function closeAccountModal() { document.getElementById('accountModal').classList.remove('open'); }
+
+function editAccount(id) {
+  const a = accountsCache.find(x => x.id === id);
+  if (!a) return;
+  openAccountModal(id);
+  document.getElementById('ac_name').value = a.full_name || '';
+  document.getElementById('ac_username').value = a.username;
+  document.getElementById('ac_email').value = a.email;
+  document.getElementById('ac_password').value = '';
+  document.getElementById('ac_role').value = a.role;
+  document.getElementById('ac_active').checked = a.is_active;
+}
+
+async function saveAccount() {
+  const id = document.getElementById('accountId').value;
+  const password = document.getElementById('ac_password').value;
+  const body = {
+    full_name: document.getElementById('ac_name').value.trim(),
+    username: document.getElementById('ac_username').value.trim(),
+    email: document.getElementById('ac_email').value.trim(),
+    role: document.getElementById('ac_role').value,
+    is_active: document.getElementById('ac_active').checked,
+  };
+  if (password) body.new_password = password;
+  if (!id) body.password = password;
+
+  if (!body.username || !body.email) { showFormMsg('accountFormMsg', 'Username and email are required.', 'error'); return; }
+  if (!id && !password) { showFormMsg('accountFormMsg', 'Password is required for new accounts.', 'error'); return; }
+  if (password && password.length < 8) { showFormMsg('accountFormMsg', 'Password must be at least 8 characters.', 'error'); return; }
+
+  const btn = document.getElementById('saveAccountBtn');
+  btn.disabled = true;
+  try {
+    const url = id ? `/management/api/accounts/${id}` : '/management/api/accounts';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+    if (res && res.success) { closeAccountModal(); loadAccounts(); }
+    else showFormMsg('accountFormMsg', (res && res.message) || 'Error saving account', 'error');
+  } catch { showFormMsg('accountFormMsg', 'Network error', 'error'); }
+  btn.disabled = false;
+}
+
+async function deleteAccount(id) {
+  const a = accountsCache.find(x => x.id === id);
+  if (!confirm(`Delete account "${a ? a.username : id}"? This cannot be undone.`)) return;
+  const res = await apiFetch(`/management/api/accounts/${id}`, { method: 'DELETE' });
+  if (res && res.success) loadAccounts();
+  else alert((res && res.message) || 'Error deleting account');
+}
+
+// Update loadTab to handle accounts
+const _origLoadTab = loadTab;
+// Override to add accounts
+function loadTab(tab) {
+  if (tab === 'accounts') { loadAccounts(); loadLoginLogs(); return; }
+  _origLoadTab(tab);
+}
+
 // ── Init ──
 (async () => {
-  await initSession();
+  const me = await apiFetch('/management/api/me');
+  if (!me) return;
+  csrfToken = me.csrf_token || '';
+  currentUserRole = me.role || 'viewer';
+  currentUserId = me.id || null;
+  document.getElementById('headerUsername').textContent = me.full_name || me.username || '';
+
+  // Show Accounts tab only for admins
+  if (currentUserRole === 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+  }
+
   // Pre-load tenants so payment modal can populate dropdown immediately
   tenantsCache = await apiFetch('/management/api/tenants') || [];
   loadOverview();

@@ -98,11 +98,21 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ========== DATABASE MODELS ==========
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(120), nullable=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
+    role = db.Column(db.String(20), default='admin')  # 'admin' or 'viewer'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    login_logs = db.relationship('LoginLog', backref='admin', lazy='dynamic')
+
+class LoginLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Property(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1090,7 +1100,15 @@ def admin_login():
             admin = Admin.query.filter_by(username=username, is_active=True).first()
             if admin and check_password_hash(admin.password_hash, password):
                 session['admin_id'] = admin.id
+                session['admin_role'] = admin.role
                 session['csrf_token'] = secrets.token_urlsafe(32)
+                try:
+                    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+                    ua = (request.user_agent.string or '')[:300]
+                    db.session.add(LoginLog(admin_id=admin.id, ip_address=ip, user_agent=ua))
+                    db.session.commit()
+                except Exception:
+                    pass
                 return jsonify({"success": True, "message": "Login successful", "redirect": "/management/dashboard"})
             else:
                 return jsonify({"success": False, "message": "Invalid credentials"}), 401
@@ -1342,7 +1360,10 @@ def management_me():
     try:
         admin = Admin.query.get(session['admin_id'])
         return jsonify({
+            'id': admin.id if admin else None,
             'username': admin.username if admin else '',
+            'full_name': admin.full_name if admin else '',
+            'role': admin.role if admin else 'viewer',
             'csrf_token': get_csrf_token()
         })
     except Exception as e:
@@ -1611,6 +1632,147 @@ def management_payment_detail(payment_id):
         return jsonify({"success": True, "message": "Payment record updated"})
     except Exception as e:
         logger.error(f"Error managing payment {payment_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+# ========== ACCOUNTS & LOGIN LOG API ==========
+
+def admin_only(f):
+    """Extra decorator: rejects non-admin roles with 403."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        admin = Admin.query.get(session.get('admin_id'))
+        if not admin or admin.role != 'admin':
+            return jsonify({"success": False, "message": "Admin role required"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+def serialize_admin(a, include_last_login=False):
+    data = {
+        'id': a.id,
+        'full_name': a.full_name or '',
+        'username': a.username,
+        'email': a.email,
+        'role': a.role,
+        'is_active': a.is_active,
+        'created_at': a.created_at.isoformat(),
+    }
+    if include_last_login:
+        last = LoginLog.query.filter_by(admin_id=a.id).order_by(LoginLog.created_at.desc()).first()
+        data['last_login'] = last.created_at.isoformat() if last else None
+        data['last_login_ip'] = last.ip_address if last else None
+    return data
+
+
+@app.route('/management/api/accounts', methods=['GET', 'POST'])
+@login_required
+@admin_only
+def management_accounts():
+    try:
+        if request.method == 'GET':
+            accounts = Admin.query.order_by(Admin.created_at.asc()).all()
+            return jsonify([serialize_admin(a, include_last_login=True) for a in accounts])
+
+        data = request.get_json() or {}
+        username = (data.get('username') or '').strip()
+        password = (data.get('password') or '').strip()
+        email = (data.get('email') or '').strip()
+        full_name = (data.get('full_name') or '').strip()
+        role = data.get('role', 'viewer')
+
+        if not username or not password or not email:
+            return jsonify({"success": False, "message": "Username, email, and password are required"}), 400
+        if len(password) < 8:
+            return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
+        if role not in ('admin', 'viewer'):
+            return jsonify({"success": False, "message": "Role must be admin or viewer"}), 400
+        if Admin.query.filter_by(username=username).first():
+            return jsonify({"success": False, "message": "Username already taken"}), 400
+        if Admin.query.filter_by(email=email).first():
+            return jsonify({"success": False, "message": "Email already in use"}), 400
+
+        new_admin = Admin(
+            full_name=full_name or None,
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            role=role,
+            is_active=True
+        )
+        db.session.add(new_admin)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Account created", "account": serialize_admin(new_admin)})
+    except Exception as e:
+        logger.error(f"Error managing accounts: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/accounts/<int:account_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+@admin_only
+def management_account_detail(account_id):
+    try:
+        account = Admin.query.get_or_404(account_id)
+
+        if request.method == 'GET':
+            return jsonify(serialize_admin(account, include_last_login=True))
+
+        if request.method == 'DELETE':
+            if account.id == session.get('admin_id'):
+                return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
+            db.session.delete(account)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Account deleted"})
+
+        data = request.get_json() or {}
+        if 'full_name' in data:
+            account.full_name = (data['full_name'] or '').strip() or None
+        if 'email' in data:
+            email = (data['email'] or '').strip()
+            existing = Admin.query.filter_by(email=email).first()
+            if existing and existing.id != account_id:
+                return jsonify({"success": False, "message": "Email already in use"}), 400
+            account.email = email
+        if 'role' in data:
+            if account.id == session.get('admin_id') and data['role'] != 'admin':
+                return jsonify({"success": False, "message": "Cannot demote your own account"}), 400
+            if data['role'] in ('admin', 'viewer'):
+                account.role = data['role']
+        if 'is_active' in data:
+            if account.id == session.get('admin_id') and not data['is_active']:
+                return jsonify({"success": False, "message": "Cannot disable your own account"}), 400
+            account.is_active = bool(data['is_active'])
+        if data.get('new_password'):
+            if len(data['new_password']) < 8:
+                return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
+            account.password_hash = generate_password_hash(data['new_password'])
+
+        db.session.commit()
+        return jsonify({"success": True, "message": "Account updated", "account": serialize_admin(account, include_last_login=True)})
+    except Exception as e:
+        logger.error(f"Error managing account {account_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/login-logs', methods=['GET'])
+@login_required
+@admin_only
+def management_login_logs():
+    try:
+        limit = min(int(request.args.get('limit', 50)), 200)
+        logs = LoginLog.query.order_by(LoginLog.created_at.desc()).limit(limit).all()
+        return jsonify([{
+            'id': log.id,
+            'admin_id': log.admin_id,
+            'username': log.admin.username if log.admin else '—',
+            'full_name': log.admin.full_name if log.admin else '',
+            'ip_address': log.ip_address,
+            'user_agent': log.user_agent,
+            'created_at': log.created_at.isoformat(),
+        } for log in logs])
+    except Exception as e:
+        logger.error(f"Error fetching login logs: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
