@@ -10,10 +10,13 @@ from dotenv import load_dotenv
 import os
 import logging
 import re
+import secrets
 from datetime import datetime
 from time import time
 from collections import defaultdict
+from functools import wraps
 import json
+import threading
 from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 
@@ -48,6 +51,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'sslmode': 'require'} if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else {}
 }
 db = SQLAlchemy(app)
+runtime_state_lock = threading.Lock()
+runtime_state_initialized = False
 
 # ========== CORS CONFIGURATION ==========
 SITE_URL = os.environ.get("SITE_URL", "https://www.brightwavehabitat.com").rstrip("/")
@@ -434,13 +439,50 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     if bootstrap_admin:
         create_admin_user()
 
+
+def env_flag(name, default="False"):
+    return os.environ.get(name, default).strip().lower() == "true"
+
+
+def ensure_runtime_state():
+    """Initialize DB-backed site state once per process, with a per-request fallback."""
+    global runtime_state_initialized
+
+    if runtime_state_initialized:
+        return
+
+    with runtime_state_lock:
+        if runtime_state_initialized:
+            return
+
+        initialize_app_state(
+            include_sample_data=env_flag("INIT_SAMPLE_DATA", "True"),
+            bootstrap_admin=env_flag("BOOTSTRAP_ADMIN", "False"),
+        )
+        runtime_state_initialized = True
+
+
+def get_csrf_token():
+    token = session.get('csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['csrf_token'] = token
+    return token
+
+
+def validate_csrf_token():
+    expected = session.get('csrf_token')
+    provided = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
+    return bool(expected and provided and secrets.compare_digest(expected, provided))
+
 # ========== AUTHENTICATION FUNCTIONS ==========
 def login_required(f):
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_id' not in session:
             return redirect(url_for('admin_login'))
+        ensure_runtime_state()
         return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
     return decorated_function
 
 CANONICAL_HOST = SITE_URL.replace("https://", "").replace("http://", "")
@@ -477,7 +519,38 @@ def enforce_canonical_urls():
 
     return None
 
-# ========== STATIC PAGE ROUTES ==========
+
+@app.before_request
+def enforce_admin_csrf():
+    if not request.path.startswith('/admin/'):
+        return None
+
+    if request.method not in {'POST', 'PUT', 'DELETE'}:
+        return None
+
+    if request.path == '/admin/login' or 'admin_id' not in session:
+        return None
+
+    if not validate_csrf_token():
+        return jsonify({"success": False, "message": "Invalid or missing CSRF token"}), 403
+
+    return None
+
+
+@app.after_request
+def apply_security_headers(response):
+    response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    response.headers.setdefault('X-XSS-Protection', '1; mode=block')
+
+    if request.path.startswith('/admin'):
+        response.headers.setdefault('Cache-Control', 'no-store')
+
+    return response
+
+# ========== STATIC PAGE ROUTES ========== 
 @app.route('/')
 def serve_homepage():
     return send_from_directory('.', 'index.html')
@@ -518,6 +591,7 @@ def health():
 @app.route('/api/site-content', methods=['GET'])
 def get_public_site_content():
     try:
+        ensure_runtime_state()
         return jsonify(get_site_content())
     except Exception as e:
         logger.error(f"Error fetching site content: {str(e)}")
@@ -526,7 +600,7 @@ def get_public_site_content():
 @app.route('/api/team-members', methods=['GET'])
 def get_public_team_members():
     try:
-        ensure_cms_baseline()
+        ensure_runtime_state()
         members = TeamMember.query.filter_by(is_active=True).order_by(TeamMember.sort_order.asc(), TeamMember.created_at.asc()).all()
         return jsonify([serialize_team_member(member) for member in members])
     except Exception as e:
@@ -538,6 +612,7 @@ def get_public_team_members():
 def get_properties():
     """Get all properties with filtering options - matches frontend expectations"""
     try:
+        ensure_runtime_state()
         property_type = request.args.get('type')
         status = request.args.get('status', 'active')
         featured = request.args.get('featured')
@@ -601,6 +676,7 @@ def get_properties():
 def get_property(property_id):
     """Get specific property details"""
     try:
+        ensure_runtime_state()
         property = Property.query.get_or_404(property_id)
         return jsonify({
             'id': property.id,
@@ -630,6 +706,7 @@ def get_property(property_id):
 def handle_contact_form():
     """Handle contact form submissions from both homepage and about page"""
     try:
+        ensure_runtime_state()
         data = request.get_json()
         full_name = data.get('fullName', '').strip()
         email = data.get('email', '').strip()
@@ -659,7 +736,7 @@ def handle_contact_form():
         db.session.add(contact_message)
         db.session.commit()
 
-        # Send notification emails
+        # Send notification emails in background so SMTP timeout never kills the worker
         if NOTIFICATION_EMAILS:
             email_subject = f"New {form_origin} - {subject or 'General Inquiry'}"
             email_body = f"""
@@ -670,27 +747,13 @@ def handle_contact_form():
             Email: {email}
             Phone: {phone or 'Not provided'}
             Subject: {subject or 'No subject'}
-            
+
             Message:
             {message}
 
             Submitted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
-            try:
-                # Send notification to admin
-                msg = Message(
-                    subject=email_subject,
-                    recipients=NOTIFICATION_EMAILS,
-                    body=email_body,
-                    reply_to=email
-                )
-                mail.send(msg)
-                
-                # Send confirmation to user
-                confirmation_msg = Message(
-                    subject="Thank You for Contacting BrightWave Habitat Enterprise",
-                    recipients=[email],
-                    body=f"""
+            confirmation_body = f"""
                     Dear {full_name},
 
                     Thank you for your message! We have received your inquiry and will get back to you within 24-48 hours.
@@ -700,15 +763,23 @@ def handle_contact_form():
 
                     Best regards,
                     BrightWave Habitat Enterprise Team
-                    
+
                     Email: brightwavehabitat@gmail.com
                     WhatsApp: +234 803 766 9462, +234 903 840 2914
                     Location: Malete, Kwara State, Nigeria
                     """
-                )
-                mail.send(confirmation_msg)
-            except Exception as e:
-                logger.error(f"Error sending email: {str(e)}")
+            def _send_contact_emails(subject, body, reply, conf_body, user_email, user_name):
+                try:
+                    with app.app_context():
+                        mail.send(Message(subject=subject, recipients=NOTIFICATION_EMAILS, body=body, reply_to=reply))
+                        mail.send(Message(subject="Thank You for Contacting BrightWave Habitat Enterprise", recipients=[user_email], body=conf_body))
+                except Exception as e:
+                    logger.error(f"Contact email send failed: {str(e)}")
+            threading.Thread(
+                target=_send_contact_emails,
+                args=(email_subject, email_body, email, confirmation_body, email, full_name),
+                daemon=True
+            ).start()
 
         return jsonify({"success": True, "message": "Thank you! Your message has been received."})
     except Exception as e:
@@ -720,6 +791,7 @@ def handle_contact_form():
 def handle_property_inquiry():
     """Handle property-specific inquiries"""
     try:
+        ensure_runtime_state()
         data = request.get_json()
         property_id = data.get('propertyId')
         full_name = data.get('fullName', '').strip()
@@ -786,29 +858,22 @@ def handle_property_inquiry():
 
             Submitted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
-            try:
-                msg = Message(
-                    subject=email_subject,
-                    recipients=NOTIFICATION_EMAILS,
-                    body=email_body,
-                    reply_to=email
-                )
-                mail.send(msg)
-                confirmation_msg = Message(
-                    subject="Thank You for Your Property Inquiry",
-                    recipients=[email],
-                    body=f"""
-                    Dear {full_name},
-
-                    Thank you for your interest in our properties! We have received your inquiry and our team will contact you within 24-48 hours.
-
-                    Best regards,
-                    BrightWave Habitat Enterprise Team
-                    """
-                )
-                mail.send(confirmation_msg)
-            except Exception as e:
-                logger.error(f"Error sending email: {str(e)}")
+            def _send_inquiry_emails(subject, body, reply, user_email, user_name):
+                try:
+                    with app.app_context():
+                        mail.send(Message(subject=subject, recipients=NOTIFICATION_EMAILS, body=body, reply_to=reply))
+                        mail.send(Message(
+                            subject="Thank You for Your Property Inquiry",
+                            recipients=[user_email],
+                            body=f"Dear {user_name},\n\nThank you for your interest in our properties! We have received your inquiry and our team will contact you within 24-48 hours.\n\nBest regards,\nBrightWave Habitat Enterprise Team"
+                        ))
+                except Exception as e:
+                    logger.error(f"Inquiry email send failed: {str(e)}")
+            threading.Thread(
+                target=_send_inquiry_emails,
+                args=(email_subject, email_body, email, email, full_name),
+                daemon=True
+            ).start()
 
         return jsonify({"success": True, "message": "Thank you! Your inquiry has been received."})
     except Exception as e:
@@ -977,6 +1042,7 @@ def admin_login():
     """Handle admin login"""
     if request.method == 'POST':
         try:
+            ensure_runtime_state()
             data = request.get_json()
             username = data.get('username')
             password = data.get('password')
@@ -988,6 +1054,7 @@ def admin_login():
             
             if admin and check_password_hash(admin.password_hash, password):
                 session['admin_id'] = admin.id
+                session['csrf_token'] = secrets.token_urlsafe(32)
                 return jsonify({"success": True, "message": "Login successful", "redirect": "/admin/dashboard"})
             else:
                 return jsonify({"success": False, "message": "Invalid credentials"}), 401
@@ -1002,6 +1069,7 @@ def admin_login():
 def admin_logout():
     """Handle admin logout"""
     session.pop('admin_id', None)
+    session.pop('csrf_token', None)
     return redirect(url_for('admin_login'))
 
 @app.route('/admin/api/update-password', methods=['POST'])
@@ -1029,7 +1097,10 @@ def update_admin_password():
 @login_required
 def admin_dashboard():
     """Render enhanced admin dashboard"""
-    return render_template_string(ENHANCED_ADMIN_DASHBOARD_TEMPLATE)
+    return render_template_string(
+        ENHANCED_ADMIN_DASHBOARD_TEMPLATE,
+        csrf_token=get_csrf_token()
+    )
 
 @app.route('/admin/api/properties', methods=['GET', 'POST'])
 @login_required
@@ -1296,6 +1367,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - BrightWave Habitat Enterprise</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
@@ -1573,10 +1645,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     </main>
 
     <script>
+        const adminCsrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
         // Enhanced dashboard functionality
         async function fetchData(url, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (adminCsrfToken && ['POST', 'PUT', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+                headers.set('X-CSRF-Token', adminCsrfToken);
+            }
             const response = await fetch(url, {
                 credentials: 'include',
+                headers,
                 ...options
             });
             if (!response.ok) throw new Error('Network response was not ok');
@@ -1781,6 +1860,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const response = await fetch('/admin/api/upload', {
                 method: 'POST',
                 credentials: 'include',
+                headers: {
+                    'X-CSRF-Token': adminCsrfToken
+                },
                 body: formData
             });
             const result = await response.json();
@@ -2026,4 +2108,6 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 """
 
 if __name__ == '__main__':
+    with app.app_context():
+        ensure_runtime_state()
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

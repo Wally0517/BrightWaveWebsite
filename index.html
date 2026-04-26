@@ -117,7 +117,7 @@
           {
             "@type": "ContactPoint",
             "contactType": "customer support",
-            "email": "brightwaveenterprise0@gmail.com",
+            "email": "brightwavehabitat@gmail.com",
             "telephone": "+2348037669462",
             "areaServed": "NG",
             "availableLanguage": ["en"]
@@ -187,11 +187,8 @@
   <!-- Hero Section -->
   <section id="home" class="brand-hero hero-stage-wrap relative min-h-screen flex items-center overflow-hidden">
 
-    <!-- Background: video (drop MP4 at /assets/videos/brightwave-hero.mp4) with Ken Burns photo fallback -->
+    <!-- Background: Ken Burns slideshow -->
     <div class="hero-bg-wrap">
-      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline aria-hidden="true" tabindex="-1" poster="/assets/images/phase1/phase1-aerial-topview.jpg">
-        <source src="/assets/videos/brightwave-hero.mp4" type="video/mp4">
-      </video>
       <div class="hero-slides" id="heroSlides" aria-hidden="true">
         <div class="hero-slide active" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg')"></div>
         <div class="hero-slide" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg')"></div>
@@ -516,9 +513,10 @@
             <label class="sr-only" for="message">Your message</label>
             <textarea id="message" name="message" placeholder="Tell us more about what you're looking for..." rows="5" required 
                       class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300"></textarea>
+            <p class="text-sm text-gray-400">This opens your device email app with your message drafted so you can send it directly from Gmail, Outlook, Apple Mail, or any mail app you use.</p>
             <button type="submit" id="submitButton" 
                     class="w-full bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition-all duration-300 font-semibold text-lg hover-lift flex items-center justify-center">
-              <span>Send Message</span>
+              <span>Open Email Draft</span>
               <i class="fas fa-paper-plane ml-2"></i>
               <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
             </button>
@@ -537,7 +535,7 @@
                 </div>
                 <div>
                   <h4 class="font-semibold">Email</h4>
-                  <a href="mailto:brightwaveenterprise0@gmail.com" class="text-slate-300 hover:text-slate-200">brightwaveenterprise0@gmail.com</a>
+                  <a href="mailto:brightwavehabitat@gmail.com" class="text-slate-300 hover:text-slate-200">brightwavehabitat@gmail.com</a>
                 </div>
               </div>
               
@@ -632,7 +630,7 @@
           <div class="space-y-2 text-sm text-gray-300">
             <div class="flex items-center space-x-2">
               <i class="fas fa-envelope text-slate-400"></i>
-              <span>brightwaveenterprise0@gmail.com</span>
+              <span>brightwavehabitat@gmail.com</span>
             </div>
             <div class="flex items-center space-x-2">
               <i class="fab fa-whatsapp text-pink-400"></i>
@@ -921,13 +919,18 @@ document.addEventListener('keydown', (e) => {
   }
 });
       
+      function openDraftEmail({ subject, body }) {
+        const mailto = `mailto:brightwavehabitat@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailto;
+      }
+
       // Form submission
       const contactForm = document.getElementById('contactForm');
       const submitButton = document.getElementById('submitButton');
       const submitSpinner = document.getElementById('submitSpinner');
       const formStatus = document.getElementById('formStatus');
 
-      contactForm.addEventListener('submit', async (e) => {
+      contactForm.addEventListener('submit', (e) => {
         e.preventDefault();
         
         // Show loading state
@@ -936,42 +939,41 @@ document.addEventListener('keydown', (e) => {
         formStatus.textContent = '';
 
         const formData = new FormData(contactForm);
-        const data = {
-          fullName: formData.get('fullName'),
-          email: formData.get('email'),
-          phone: formData.get('phone'),
-          interest: formData.get('interest'),
-          message: formData.get('message'),
-          formOrigin: 'Integrated Homepage Contact Form'
+        const fullName = formData.get('fullName');
+        const email = formData.get('email');
+        const phone = formData.get('phone');
+        const interest = formData.get('interest');
+        const message = formData.get('message');
+        const interestLabels = {
+          'student-hostel': 'Student Hostels',
+          'land-purchase': 'Land Purchase',
+          'residential-home': 'Residential Homes',
+          'estate-development': 'Estate Development',
+          'general-inquiry': 'General Inquiry'
         };
+        const interestLabel = interestLabels[interest] || interest || 'General Inquiry';
+        const subject = `BrightWave Website Enquiry - ${interestLabel}`;
+        const body = [
+          'Hello BrightWave,',
+          '',
+          'A visitor from the homepage wants to contact you.',
+          '',
+          `Full name: ${fullName}`,
+          `Email: ${email}`,
+          `Phone: ${phone}`,
+          `Interest: ${interestLabel}`,
+          '',
+          'Message:',
+          message,
+          '',
+          `Page: ${window.location.href}`
+        ].join('\n');
 
-        try {
-          const response = await fetch('/api/contact', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-          });
-
-          const result = await response.json();
-          
-          if (result.success) {
-            formStatus.textContent = 'Message sent successfully! We\'ll get back to you soon.';
-            formStatus.className = 'text-center mt-4 font-semibold text-pink-400';
-            contactForm.reset();
-          } else {
-            formStatus.textContent = result.message || 'Something went wrong. Please try again.';
-            formStatus.className = 'text-center mt-4 font-semibold text-red-400';
-          }
-        } catch (error) {
-          formStatus.textContent = 'Network error. Please check your connection and try again.';
-          formStatus.className = 'text-center mt-4 font-semibold text-red-400';
-          console.error('Form submission error:', error);
-        } finally {
-          submitButton.disabled = false;
-          submitSpinner.classList.add('hidden');
-        }
+        openDraftEmail({ subject, body });
+        formStatus.textContent = 'Your email app should open with this message drafted. If nothing opens, email brightwavehabitat@gmail.com directly.';
+        formStatus.className = 'text-center mt-4 font-semibold text-pink-400';
+        submitButton.disabled = false;
+        submitSpinner.classList.add('hidden');
       });
 
       fetch('/api/site-content')
@@ -1034,6 +1036,18 @@ document.addEventListener('keydown', (e) => {
       }
     }
 
+    function getPropertyDetailHref(property) {
+  if (
+    property.type === 'hostel' &&
+    property.construction_status === 'completed' &&
+    /phase\s*1/i.test(property.title || '')
+  ) {
+    return '/hostels/detail';
+  }
+
+  return '#contact';
+}
+
     function renderProperties(properties) {
   const grid = document.getElementById('propertiesGrid');
 
@@ -1083,7 +1097,7 @@ document.addEventListener('keydown', (e) => {
           <div class="text-slate-300 font-bold text-lg">
             ${property.price ? `N${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
           </div>
-          <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}" 
+          <a href="${getPropertyDetailHref(property)}" 
              class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
             ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
           </a>
@@ -1187,7 +1201,7 @@ document.addEventListener('keydown', (e) => {
           <div class="text-slate-300 font-bold text-lg">
             ${property.price ? `N${property.price.toLocaleString()} ${property.price_type || ''}` : property.price_type || 'Contact for Pricing'}
           </div>
-          <a href="${property.type === 'hostel' && property.id === 'hostel-phase1' ? '/hostels/detail' : '#contact'}"
+          <a href="${getPropertyDetailHref(property)}"
              class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold">
             ${property.construction_status === 'completed' ? 'View Details' : 'Learn More'}
           </a>
@@ -1215,20 +1229,11 @@ document.addEventListener('keydown', (e) => {
       ];
     }
 
-    // ── Hero background: Ken Burns slideshow + MP4 video detection ──
+    // ── Hero background: Ken Burns slideshow ──
     (function () {
-      var video = document.getElementById('heroBgVideo');
       var slidesWrap = document.getElementById('heroSlides');
       var slides = slidesWrap ? slidesWrap.querySelectorAll('.hero-slide') : [];
       var idx = 0;
-
-      // If the browser can play the MP4, show video and hide the photo slides
-      if (video) {
-        video.addEventListener('canplay', function () {
-          video.style.display = 'block';
-          if (slidesWrap) slidesWrap.style.display = 'none';
-        });
-      }
 
       // Cycle through photo slides every 7 seconds
       if (slides.length > 1) {

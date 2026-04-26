@@ -3,12 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="https://www.brightwavehabitat.com/hostels/detail" />
   <meta name="description" content="BrightWave Hostel Phase 1 is now open in Malete, Kwara State, with self-contained rooms, dependable utilities, security, and a better student living experience." />
   <meta property="og:title" content="BrightWave Hostel Phase 1 | BrightWave Habitat Enterprise" />
   <meta property="og:description" content="Explore the real Phase 1 hostel spaces now open in Malete, Kwara State." />
   <meta property="og:image" content="https://www.brightwavehabitat.com/assets/images/phase1/phase1-main-entrance.jpg" />
-  <meta property="og:url" content="https://www.brightwavehabitat.com/hostel-detail.html" />
+  <meta property="og:image:alt" content="BrightWave Hostel Phase 1 main entrance in Malete" />
+  <meta property="og:url" content="https://www.brightwavehabitat.com/hostels/detail" />
   <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="BrightWave Hostel Phase 1 | BrightWave Habitat Enterprise" />
+  <meta name="twitter:description" content="Explore the real Phase 1 hostel spaces now open in Malete, Kwara State." />
+  <meta name="twitter:image" content="https://www.brightwavehabitat.com/assets/images/phase1/phase1-main-entrance.jpg" />
+  <meta name="twitter:image:alt" content="BrightWave Hostel Phase 1 main entrance in Malete" />
   <title>BrightWave Hostel Phase 1 | BrightWave Habitat Enterprise</title>
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -92,8 +100,8 @@
         <li><a href="/#home" class="nav-link">Home</a></li>
         <li><a href="/#services" class="nav-link">Services</a></li>
         <li><a href="/#properties" class="nav-link active">Properties</a></li>
-        <li><a href="/about.html" class="nav-link">About</a></li>
-        <li><a href="/faq.html" class="nav-link">FAQ</a></li>
+        <li><a href="/about" class="nav-link">About</a></li>
+        <li><a href="/faq" class="nav-link">FAQ</a></li>
         <li><a href="/#contact" class="nav-link">Contact</a></li>
       </ul>
     </nav>
@@ -103,8 +111,8 @@
         <li><a href="/#home" class="block py-3">Home</a></li>
         <li><a href="/#services" class="block py-3">Services</a></li>
         <li><a href="/#properties" class="block py-3 text-white">Properties</a></li>
-        <li><a href="/about.html" class="block py-3">About</a></li>
-        <li><a href="/faq.html" class="block py-3">FAQ</a></li>
+        <li><a href="/about" class="block py-3">About</a></li>
+        <li><a href="/faq" class="block py-3">FAQ</a></li>
         <li><a href="/#contact" class="block py-3">Contact</a></li>
       </ul>
     </div>
@@ -316,7 +324,7 @@
             <div class="surface-panel rounded-[2rem] p-8">
               <p class="section-kicker mb-3">Direct contact</p>
               <div class="space-y-4 text-base leading-8 text-white/70">
-                <p><strong class="text-white">Email:</strong> brightwaveenterprise0@gmail.com</p>
+                <p><strong class="text-white">Email:</strong> brightwavehabitat@gmail.com</p>
                 <p><strong class="text-white">WhatsApp:</strong> +234 803 766 9462</p>
                 <p><strong class="text-white">Use case:</strong> bookings, inspection, room details, and student-parent enquiries</p>
               </div>
@@ -343,8 +351,9 @@
                 <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="message">What do you need?</label>
                 <textarea id="message" name="message" class="field-input min-h-[180px]" placeholder="Tell BrightWave whether you want current rates, an inspection, room details, or allocation guidance." required></textarea>
               </div>
+              <p class="text-sm leading-7 text-white/55">This opens your device email app with your request drafted so you can send it directly from your own mailbox.</p>
               <button id="submitButton" type="submit" class="brand-button justify-center">
-                Send request
+                Open Email Draft
                 <i id="submitSpinner" class="fas fa-spinner ml-2 hidden animate-spin"></i>
               </button>
               <p id="formStatus" class="text-sm font-medium text-white/70" aria-live="polite"></p>
@@ -392,14 +401,14 @@
           <div class="space-y-3 text-sm uppercase tracking-[0.16em] text-white/65">
             <a href="/#home" class="block">Home</a>
             <a href="/#properties" class="block">Properties</a>
-            <a href="/about.html" class="block">About</a>
-            <a href="/faq.html" class="block">FAQ</a>
+            <a href="/about" class="block">About</a>
+            <a href="/faq" class="block">FAQ</a>
           </div>
         </div>
         <div>
           <p class="section-kicker mb-4">Contact</p>
           <div class="space-y-3 text-sm leading-7 text-white/65">
-            <p>brightwaveenterprise0@gmail.com</p>
+            <p>brightwavehabitat@gmail.com</p>
             <p>+234 803 766 9462</p>
             <p>Malete, Kwara State, Nigeria</p>
           </div>
@@ -440,46 +449,44 @@
     const submitSpinner = document.getElementById('submitSpinner');
     const formStatus = document.getElementById('formStatus');
 
+    function openDraftEmail({ subject, body }) {
+      const mailto = `mailto:brightwavehabitat@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
+    }
+
     if (contactForm) {
-      contactForm.addEventListener('submit', async (event) => {
+      contactForm.addEventListener('submit', (event) => {
         event.preventDefault();
         submitButton.disabled = true;
         submitSpinner.classList.remove('hidden');
         formStatus.textContent = '';
 
         const formData = new FormData(contactForm);
-        const payload = {
-          fullName: formData.get('fullName'),
-          email: formData.get('email'),
-          phone: formData.get('phone'),
-          message: formData.get('message'),
-          formOrigin: 'Hostel Phase 1 Detail Page'
-        };
+        const fullName = formData.get('fullName');
+        const email = formData.get('email');
+        const phone = formData.get('phone');
+        const message = formData.get('message');
+        const subject = 'BrightWave Hostel Phase 1 Request';
+        const body = [
+          'Hello BrightWave,',
+          '',
+          'I want details for BrightWave Hostel Phase 1.',
+          '',
+          `Full name: ${fullName}`,
+          `Email: ${email}`,
+          `Phone: ${phone}`,
+          '',
+          'Request:',
+          message,
+          '',
+          `Page: ${window.location.href}`
+        ].join('\n');
 
-        try {
-          const response = await fetch('/api/contact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            formStatus.textContent = 'Request sent successfully. BrightWave will contact you soon.';
-            formStatus.className = 'text-sm font-medium text-emerald-300';
-            contactForm.reset();
-          } else {
-            formStatus.textContent = result.message || 'Something went wrong. Please try again.';
-            formStatus.className = 'text-sm font-medium text-red-300';
-          }
-        } catch (error) {
-          formStatus.textContent = 'Network error. Please check your connection and try again.';
-          formStatus.className = 'text-sm font-medium text-red-300';
-        } finally {
-          submitButton.disabled = false;
-          submitSpinner.classList.add('hidden');
-        }
+        openDraftEmail({ subject, body });
+        formStatus.textContent = 'Your email app should open with this request drafted. If nothing opens, email brightwavehabitat@gmail.com directly.';
+        formStatus.className = 'text-sm font-medium text-emerald-300';
+        submitButton.disabled = false;
+        submitSpinner.classList.add('hidden');
       });
     }
   </script>

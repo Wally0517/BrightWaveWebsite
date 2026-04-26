@@ -6,7 +6,18 @@
   <meta name="robots" content="index,follow" />
   <title>About Us | BrightWave Habitat Enterprise</title>
   <meta name="description" content="Learn how BrightWave Habitat Enterprise is building a premium Nigerian property brand through delivered student accommodation, disciplined growth, and credible housing strategy." />
-  <link rel="canonical" href="https://www.brightwavehabitat.com/about.html" />
+  <link rel="canonical" href="https://www.brightwavehabitat.com/about" />
+  <meta property="og:title" content="About BrightWave Habitat Enterprise" />
+  <meta property="og:description" content="Learn how BrightWave Habitat Enterprise is building a premium Nigerian property brand through delivered student accommodation, disciplined growth, and credible housing strategy." />
+  <meta property="og:url" content="https://www.brightwavehabitat.com/about" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://www.brightwavehabitat.com/assets/images/brightwave-hero-water-estate.jpg" />
+  <meta property="og:image:alt" content="BrightWave Habitat premium waterfront estate visual" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="About BrightWave Habitat Enterprise" />
+  <meta name="twitter:description" content="Learn how BrightWave Habitat Enterprise is building a premium Nigerian property brand through delivered student accommodation, disciplined growth, and credible housing strategy." />
+  <meta name="twitter:image" content="https://www.brightwavehabitat.com/assets/images/brightwave-hero-water-estate.jpg" />
+  <meta name="twitter:image:alt" content="BrightWave Habitat premium waterfront estate visual" />
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <link rel="apple-touch-icon" href="/assets/images/brightwave-logo.png" />
   <meta name="theme-color" content="#0b1220" />
@@ -56,8 +67,8 @@
         <li><a href="/" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Home</a></li>
         <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Services</a></li>
         <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Properties</a></li>
-        <li><a href="/about.html" class="text-slate-100 nav-link active transition-all duration-300" aria-current="page">About</a></li>
-        <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
+        <li><a href="/about" class="text-slate-100 nav-link active transition-all duration-300" aria-current="page">About</a></li>
+        <li><a href="/faq" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
         <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Contact</a></li>
       </ul>
     </nav>
@@ -67,8 +78,8 @@
         <li><a href="/" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Home</a></li>
         <li><a href="/#services" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Services</a></li>
         <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Properties</a></li>
-        <li><a href="/about.html" class="text-slate-100 nav-link active transition-all duration-300">About</a></li>
-        <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
+        <li><a href="/about" class="text-slate-100 nav-link active transition-all duration-300">About</a></li>
+        <li><a href="/faq" class="text-slate-400 hover:text-slate-200 transition-all duration-300">FAQ</a></li>
         <li><a href="/#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300">Contact</a></li>
       </ul>
     </div>
@@ -250,7 +261,7 @@
             <li><a href="/" class="text-slate-400 hover:text-slate-200 transition-colors duration-300">Home</a></li>
             <li><a href="/#services" class="text-slate-400 hover:text-slate-200 transition-colors duration-300">Services</a></li>
             <li><a href="/#properties" class="text-slate-400 hover:text-slate-200 transition-colors duration-300">Properties</a></li>
-            <li><a href="/faq.html" class="text-slate-400 hover:text-slate-200 transition-colors duration-300">FAQ</a></li>
+            <li><a href="/faq" class="text-slate-400 hover:text-slate-200 transition-colors duration-300">FAQ</a></li>
           </ul>
         </div>
         <div>
@@ -264,7 +275,7 @@
         <div>
           <h4 class="text-lg font-semibold mb-4 text-slate-200">Contact Info</h4>
           <div class="space-y-2 text-sm text-slate-400">
-            <div class="flex items-center space-x-2"><i class="fas fa-envelope text-[var(--bw-accent)]"></i><span>brightwaveenterprise0@gmail.com</span></div>
+            <div class="flex items-center space-x-2"><i class="fas fa-envelope text-[var(--bw-accent)]"></i><span>brightwavehabitat@gmail.com</span></div>
             <div class="flex items-center space-x-2"><i class="fab fa-whatsapp text-[var(--bw-sea)]"></i><span>+234 803 766 9462</span></div>
             <div class="flex items-center space-x-2"><i class="fas fa-map-marker-alt text-slate-200"></i><span>Malete, Kwara State, Nigeria</span></div>
           </div>
@@ -308,20 +319,29 @@
       })
       .catch(error => console.error('Error loading site content:', error));
 
+    function getTeamImageStyle(imagePath) {
+      const filename = (imagePath || '').split('/').pop();
+      const styles = {
+        'ceo-wally.jpg': 'object-position: center 16%; transform: scale(1.02);',
+        'property-manager-alameen.jpg': 'object-position: center 14%; transform: scale(1.24);',
+        'realtor-kamal.jpg': 'object-position: center 14%; transform: scale(1.22);'
+      };
+
+      return styles[filename] || 'object-position: center 18%;';
+    }
+
     fetch('/api/team-members')
       .then(response => response.json())
       .then(members => {
         const grid = document.getElementById('teamGrid');
         grid.innerHTML = members.map(member => `
-          <article class="surface-panel rounded-[1.6rem] overflow-hidden hover-lift">
-            <div class="aspect-[4/4.4] overflow-hidden bg-[rgba(255,255,255,0.04)]">
-              <img src="/assets/${member.image_path}" alt="${member.name}" class="w-full h-full object-cover" onerror="this.src='/assets/images/brightwave-logo.png'" />
+          <article class="surface-panel rounded-[1.6rem] p-6 text-center hover-lift">
+            <div class="mx-auto mb-5 h-48 w-48 overflow-hidden rounded-full border border-[var(--bw-border-strong)] bg-[rgba(255,255,255,0.04)] shadow-[0_20px_50px_rgba(5,10,18,0.24)]">
+              <img src="/assets/${member.image_path}" alt="${member.name}" class="h-full w-full origin-top object-cover" style="${getTeamImageStyle(member.image_path)}" onerror="this.src='/assets/images/brightwave-logo.png'; this.style='object-position: center 18%;'" />
             </div>
-            <div class="p-6">
-              <p class="section-kicker mb-2">${member.role}</p>
-              <h3 class="brand-display text-2xl font-semibold mb-3">${member.name}</h3>
-              <p class="text-slate-300 leading-7">${member.bio}</p>
-            </div>
+            <p class="section-kicker mb-2">${member.role}</p>
+            <h3 class="brand-display text-2xl font-semibold mb-3">${member.name}</h3>
+            <p class="text-slate-300 leading-7">${member.bio}</p>
           </article>
         `).join('');
       })
