@@ -794,6 +794,11 @@ def serve_static_assets(filename):
 def health():
     return 'ok', 200
 
+@app.route('/management/')
+@app.route('/management')
+def management_redirect():
+    return redirect(url_for('admin_login'), code=301)
+
 @app.route('/manifest.json')
 def pwa_manifest():
     manifest = {
