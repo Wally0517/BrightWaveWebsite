@@ -187,8 +187,11 @@
   <!-- Hero Section -->
   <section id="home" class="brand-hero hero-stage-wrap relative min-h-screen flex items-center overflow-hidden">
 
-    <!-- Background: Ken Burns slideshow -->
+    <!-- Background: video (drop MP4 at /assets/videos/brightwave-hero.mp4) with Ken Burns photo fallback -->
     <div class="hero-bg-wrap">
+      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline aria-hidden="true" tabindex="-1" poster="/assets/images/phase1/phase1-aerial-topview.jpg">
+        <source src="/assets/videos/brightwave-hero.mp4" type="video/mp4">
+      </video>
       <div class="hero-slides" id="heroSlides" aria-hidden="true">
         <div class="hero-slide active" style="background-image:url('/assets/images/phase1/phase1-aerial-topview.jpg')"></div>
         <div class="hero-slide" style="background-image:url('/assets/images/brightwave-hero-water-estate.jpg')"></div>
@@ -290,7 +293,7 @@
 
             <article class="hero-proof-card">
               <div class="relative overflow-hidden">
-                <img src="/assets/images/lands/brightwave-obada_ikija.jpg" alt="BrightWave land opportunity — real aerial view coming soon" class="hero-proof-thumb opacity-40" loading="lazy" decoding="async" />
+                <img src="/assets/images/property-coming-soon.svg" alt="BrightWave coming soon property placeholder" class="hero-proof-thumb opacity-60 bg-slate-900/80 p-6" loading="lazy" decoding="async" />
                 <div class="absolute inset-0 flex items-center justify-center bg-slate-900/50">
                   <span class="bg-amber-500 text-slate-900 px-4 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase">Coming Soon</span>
                 </div>
@@ -1152,6 +1155,26 @@ document.addEventListener('keydown', (e) => {
   return labels[status] || 'Coming Soon';
 }
 
+    function getPropertyImageSrc(property) {
+  if (property.construction_status && property.construction_status !== 'completed') {
+    return '/assets/images/property-coming-soon.svg';
+  }
+
+  if (property.images && property.images[0]) {
+    return `/assets/${property.images[0]}`;
+  }
+
+  return '/assets/images/phase1/phase1-main-entrance.jpg';
+}
+
+    function getPropertyImageClasses(property) {
+  if (property.construction_status && property.construction_status !== 'completed') {
+    return 'w-full h-64 object-contain bg-slate-900 p-6';
+  }
+
+  return 'w-full h-64 object-cover';
+}
+
     function renderPropertiesEnhanced(properties) {
   const grid = document.getElementById('propertiesGrid');
   const sortedProperties = sortPropertiesForDisplay(properties);
@@ -1170,8 +1193,8 @@ document.addEventListener('keydown', (e) => {
   grid.innerHTML = sortedProperties.map(property => `
     <div class="property-card glass-effect rounded-2xl overflow-hidden hover-lift" data-aos="fade-up">
       <div class="relative">
-        <img src="/assets/${property.images && property.images[0] ? property.images[0] : 'images/phase1/phase1-main-entrance.jpg'}"
-             alt="${property.title} in ${property.location}" class="w-full h-64 object-cover"
+        <img src="${getPropertyImageSrc(property)}"
+             alt="${property.title} in ${property.location}" class="${getPropertyImageClasses(property)}"
              loading="lazy" decoding="async"
              onerror="this.src='/assets/images/phase1/phase1-main-entrance.jpg'" />
         ${property.construction_status && property.construction_status !== 'completed' ? `
@@ -1229,11 +1252,20 @@ document.addEventListener('keydown', (e) => {
       ];
     }
 
-    // ── Hero background: Ken Burns slideshow ──
+    // ── Hero background: Ken Burns slideshow + MP4 video detection ──
     (function () {
+      var video = document.getElementById('heroBgVideo');
       var slidesWrap = document.getElementById('heroSlides');
       var slides = slidesWrap ? slidesWrap.querySelectorAll('.hero-slide') : [];
       var idx = 0;
+
+      // If the browser can play the MP4, show video and hide the photo slides
+      if (video) {
+        video.addEventListener('canplay', function () {
+          video.style.display = 'block';
+          if (slidesWrap) slidesWrap.style.display = 'none';
+        });
+      }
 
       // Cycle through photo slides every 7 seconds
       if (slides.length > 1) {

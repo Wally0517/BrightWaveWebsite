@@ -322,12 +322,12 @@
     function getTeamImageStyle(imagePath) {
       const filename = (imagePath || '').split('/').pop();
       const styles = {
-        'ceo-wally.jpg': 'object-position: center 16%; transform: scale(1.02);',
-        'property-manager-alameen.jpg': 'object-position: center 14%; transform: scale(1.24);',
-        'realtor-kamal.jpg': 'object-position: center 14%; transform: scale(1.22);'
+        'ceo-wally.jpg': 'object-position: center 14%;',
+        'property-manager-alameen.jpg': 'object-position: center 10%;',
+        'realtor-kamal.jpg': 'object-position: center 12%;'
       };
 
-      return styles[filename] || 'object-position: center 18%;';
+      return styles[filename] || 'object-position: center 12%;';
     }
 
     fetch('/api/team-members')
@@ -336,8 +336,8 @@
         const grid = document.getElementById('teamGrid');
         grid.innerHTML = members.map(member => `
           <article class="surface-panel rounded-[1.6rem] p-6 text-center hover-lift">
-            <div class="mx-auto mb-5 h-48 w-48 overflow-hidden rounded-full border border-[var(--bw-border-strong)] bg-[rgba(255,255,255,0.04)] shadow-[0_20px_50px_rgba(5,10,18,0.24)]">
-              <img src="/assets/${member.image_path}" alt="${member.name}" class="h-full w-full origin-top object-cover" style="${getTeamImageStyle(member.image_path)}" onerror="this.src='/assets/images/brightwave-logo.png'; this.style='object-position: center 18%;'" />
+            <div class="mx-auto mb-5 h-44 w-44 overflow-hidden rounded-full border border-[var(--bw-border-strong)] bg-[rgba(255,255,255,0.04)] shadow-[0_20px_50px_rgba(5,10,18,0.24)]">
+              <img src="/assets/${member.image_path}" alt="${member.name}" class="h-full w-full origin-top object-cover" style="${getTeamImageStyle(member.image_path)}" onerror="this.src='/assets/images/brightwave-logo.png'; this.style='object-position: center 12%;'" />
             </div>
             <p class="section-kicker mb-2">${member.role}</p>
             <h3 class="brand-display text-2xl font-semibold mb-3">${member.name}</h3>
