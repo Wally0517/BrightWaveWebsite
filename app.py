@@ -3852,7 +3852,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-screen flex flex-col">
             <div class="p-6 border-b border-gray-700 flex-shrink-0">
                 <div class="flex items-center gap-3 mb-1">
-                    <div class="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center text-lg font-bold">BW</div>
+                    <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-10 h-10 rounded-full object-cover ring-2 ring-slate-500/40">
                     <div>
                         <p class="text-xs text-gray-400 uppercase tracking-wide">BrightWave Habitat Enterprise</p>
                         <h2 class="text-xl font-bold text-white">{{ contract_title }}</h2>
@@ -3860,7 +3860,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
                 <p class="text-sm text-yellow-400 mt-2">Please read this agreement carefully before proceeding to your dashboard.</p>
             </div>
-            <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: calc(60vh - 120px); min-height: 180px;">{{ contract_body }}</div>
+            <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: calc(60vh - 120px); min-height: 180px;">{{ contract_body }}<div id="contractSentinel" style="height:1px;margin-top:4px;"></div></div>
             <div id="scrollPrompt" class="text-center text-xs text-gray-500 py-2 flex-shrink-0">Scroll to the bottom to continue</div>
             <div id="signatureSection" class="p-6 border-t border-gray-700 flex-shrink-0 hidden">
                 <div class="flex items-start gap-2 mb-4">
@@ -4084,17 +4084,29 @@ ROLE_DASHBOARD_TEMPLATE = """
             const contractText = document.getElementById('contractText');
             const scrollPrompt = document.getElementById('scrollPrompt');
             const signatureSection = document.getElementById('signatureSection');
-            function checkContractScrollEnd() {
-                if (!contractText) return;
-                if (contractText.scrollTop + contractText.clientHeight >= contractText.scrollHeight - 40) {
-                    scrollPrompt.classList.add('hidden');
-                    signatureSection.classList.remove('hidden');
-                }
+            const sentinel = document.getElementById('contractSentinel');
+
+            function revealSignature() {
+                if (scrollPrompt) scrollPrompt.classList.add('hidden');
+                if (signatureSection) signatureSection.classList.remove('hidden');
             }
-            if (contractText) {
-                contractText.addEventListener('scroll', checkContractScrollEnd);
-                // Check immediately on load — short contracts or large screens may not need scrolling
-                setTimeout(checkContractScrollEnd, 200);
+
+            if (contractText && sentinel) {
+                // IntersectionObserver fires as soon as the sentinel (last pixel of contract) enters view
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting) {
+                        revealSignature();
+                        observer.disconnect();
+                    }
+                }, { root: contractText, threshold: 0.1 });
+                observer.observe(sentinel);
+
+                // Fallback: if content is shorter than the container, reveal immediately
+                setTimeout(() => {
+                    if (contractText.scrollHeight <= contractText.clientHeight + 8) {
+                        revealSignature();
+                    }
+                }, 250);
             }
         }
 
