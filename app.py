@@ -170,6 +170,33 @@ class TeamMember(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class Tenant(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(20), nullable=False)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=True)
+    unit_number = db.Column(db.String(20), nullable=True)
+    move_in_date = db.Column(db.Date, nullable=True)
+    move_out_date = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), default='active')
+    rent_amount = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='tenants')
+
+class PaymentRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+    amount = db.Column(db.Float, nullable=False)
+    payment_date = db.Column(db.Date, nullable=False)
+    payment_type = db.Column(db.String(30), default='rent')
+    description = db.Column(db.String(200), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    tenant = db.relationship('Tenant', backref='payments')
+
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': '',
     'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
@@ -480,7 +507,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_id' not in session:
-            return redirect(url_for('admin_login'))
+            return redirect('/management/login')
         ensure_runtime_state()
         return f(*args, **kwargs)
     return decorated_function
@@ -522,13 +549,15 @@ def enforce_canonical_urls():
 
 @app.before_request
 def enforce_admin_csrf():
-    if not request.path.startswith('/admin/'):
+    is_admin = request.path.startswith('/admin/')
+    is_mgmt = request.path.startswith('/management/api/')
+    if not is_admin and not is_mgmt:
         return None
 
     if request.method not in {'POST', 'PUT', 'DELETE'}:
         return None
 
-    if request.path == '/admin/login' or 'admin_id' not in session:
+    if request.path in {'/admin/login', '/management/login'} or 'admin_id' not in session:
         return None
 
     if not validate_csrf_token():
@@ -886,6 +915,7 @@ def handle_property_inquiry():
 
 # ========== ADMIN DASHBOARD ENHANCEMENTS ==========
 @app.route('/admin/api/stats')
+@app.route('/management/api/stats')
 @login_required
 def admin_stats():
     """Get enhanced dashboard statistics"""
@@ -940,6 +970,7 @@ def admin_stats():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/site-content', methods=['GET', 'PUT'])
+@app.route('/management/api/site-content', methods=['GET', 'PUT'])
 @login_required
 def admin_site_content():
     try:
@@ -962,6 +993,7 @@ def admin_site_content():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/team-members', methods=['GET', 'POST'])
+@app.route('/management/api/team-members', methods=['GET', 'POST'])
 @login_required
 def admin_team_members():
     try:
@@ -990,6 +1022,7 @@ def admin_team_members():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/team-members/<int:member_id>', methods=['PUT', 'DELETE'])
+@app.route('/management/api/team-members/<int:member_id>', methods=['PUT', 'DELETE'])
 @login_required
 def admin_team_member_detail(member_id):
     try:
@@ -1020,6 +1053,7 @@ def admin_team_member_detail(member_id):
 
 # ========== FILE UPLOAD API ==========
 @app.route('/admin/api/upload', methods=['POST'])
+@app.route('/management/api/upload', methods=['POST'])
 @login_required
 def upload_image():
     """Handle property image uploads"""
@@ -1039,44 +1073,42 @@ def upload_image():
         logger.error(f"Error uploading image: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== ADMIN AUTHENTICATION ==========
+# ========== MANAGEMENT / ADMIN AUTHENTICATION ==========
 @app.route('/admin/login', methods=['GET', 'POST'])
+@app.route('/management', methods=['GET'])
+@app.route('/management/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def admin_login():
-    """Handle admin login"""
     if request.method == 'POST':
         try:
             ensure_runtime_state()
             data = request.get_json()
             username = data.get('username')
             password = data.get('password')
-            
             if not username or not password:
                 return jsonify({"success": False, "message": "Username and password required"}), 400
-            
             admin = Admin.query.filter_by(username=username, is_active=True).first()
-            
             if admin and check_password_hash(admin.password_hash, password):
                 session['admin_id'] = admin.id
                 session['csrf_token'] = secrets.token_urlsafe(32)
-                return jsonify({"success": True, "message": "Login successful", "redirect": "/admin/dashboard"})
+                return jsonify({"success": True, "message": "Login successful", "redirect": "/management/dashboard"})
             else:
                 return jsonify({"success": False, "message": "Invalid credentials"}), 401
         except Exception as e:
             logger.error(f"Error during login: {str(e)}")
             return jsonify({"success": False, "message": "Internal server error"}), 500
-    
-    return render_template_string(LOGIN_TEMPLATE)
+    return send_from_directory('.', 'management_login.html')
 
 @app.route('/admin/logout')
+@app.route('/management/logout')
 @login_required
 def admin_logout():
-    """Handle admin logout"""
     session.pop('admin_id', None)
     session.pop('csrf_token', None)
-    return redirect(url_for('admin_login'))
+    return redirect('/management/login')
 
 @app.route('/admin/api/update-password', methods=['POST'])
+@app.route('/management/api/update-password', methods=['POST'])
 @login_required
 def update_admin_password():
     """Update admin password"""
@@ -1096,17 +1128,15 @@ def update_admin_password():
         logger.error(f"Error updating password: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== ADMIN DASHBOARD ==========
+# ========== MANAGEMENT DASHBOARD ==========
 @app.route('/admin/dashboard')
+@app.route('/management/dashboard')
 @login_required
 def admin_dashboard():
-    """Render enhanced admin dashboard"""
-    return render_template_string(
-        ENHANCED_ADMIN_DASHBOARD_TEMPLATE,
-        csrf_token=get_csrf_token()
-    )
+    return send_from_directory('.', 'management_dashboard.html')
 
 @app.route('/admin/api/properties', methods=['GET', 'POST'])
+@app.route('/management/api/properties', methods=['GET', 'POST'])
 @login_required
 def admin_properties():
     """Handle property CRUD operations"""
@@ -1173,6 +1203,7 @@ def admin_properties():
             return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/properties/<int:property_id>', methods=['PUT', 'DELETE'])
+@app.route('/management/api/properties/<int:property_id>', methods=['PUT', 'DELETE'])
 @login_required
 def admin_property_detail(property_id):
     """Update or delete property"""
@@ -1220,6 +1251,7 @@ def admin_property_detail(property_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/inquiries', methods=['GET'])
+@app.route('/management/api/inquiries', methods=['GET'])
 @login_required
 def admin_get_inquiries():
     """Get all property inquiries"""
@@ -1246,6 +1278,7 @@ def admin_get_inquiries():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/inquiries/<int:inquiry_id>', methods=['PUT'])
+@app.route('/management/api/inquiries/<int:inquiry_id>', methods=['PUT'])
 @login_required
 def admin_update_inquiry(inquiry_id):
     """Update inquiry status and priority"""
@@ -1264,6 +1297,7 @@ def admin_update_inquiry(inquiry_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/contact-messages', methods=['GET'])
+@app.route('/management/api/contact-messages', methods=['GET'])
 @login_required
 def admin_get_contact_messages():
     """Get all contact messages with form origin tracking"""
@@ -1285,6 +1319,7 @@ def admin_get_contact_messages():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/contact-messages/<int:message_id>', methods=['PUT'])
+@app.route('/management/api/contact-messages/<int:message_id>', methods=['PUT'])
 @login_required
 def admin_update_contact_message(message_id):
     """Update contact message status"""
@@ -1298,6 +1333,286 @@ def admin_update_contact_message(message_id):
     except Exception as e:
         logger.error(f"Error updating contact message {message_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== MANAGEMENT-ONLY API ROUTES ==========
+
+@app.route('/management/api/me', methods=['GET'])
+@login_required
+def management_me():
+    try:
+        admin = Admin.query.get(session['admin_id'])
+        return jsonify({
+            'username': admin.username if admin else '',
+            'csrf_token': get_csrf_token()
+        })
+    except Exception as e:
+        logger.error(f"Error fetching admin me: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/overview', methods=['GET'])
+@login_required
+def management_overview():
+    try:
+        ensure_cms_baseline()
+        from sqlalchemy import func
+        from datetime import date
+
+        active_tenants = Tenant.query.filter_by(status='active').count()
+        total_units = Property.query.filter_by(property_type='hostel', status='active').with_entities(
+            func.coalesce(func.sum(Property.total_rooms), 0)
+        ).scalar() or 0
+        occupancy_pct = round((active_tenants / total_units * 100) if total_units > 0 else 0, 1)
+
+        today = date.today()
+        month_start = today.replace(day=1)
+        monthly_revenue = db.session.query(func.coalesce(func.sum(PaymentRecord.amount), 0)).filter(
+            PaymentRecord.payment_date >= month_start
+        ).scalar() or 0
+
+        total_revenue = db.session.query(func.coalesce(func.sum(PaymentRecord.amount), 0)).scalar() or 0
+
+        new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
+        new_messages = ContactMessage.query.filter_by(status='new').count()
+
+        recent_payments = PaymentRecord.query.order_by(PaymentRecord.payment_date.desc()).limit(5).all()
+        recent_tenants = Tenant.query.order_by(Tenant.created_at.desc()).limit(5).all()
+
+        return jsonify({
+            'active_tenants': active_tenants,
+            'total_units': total_units,
+            'occupancy_pct': occupancy_pct,
+            'monthly_revenue': monthly_revenue,
+            'total_revenue': total_revenue,
+            'new_inquiries': new_inquiries,
+            'new_messages': new_messages,
+            'recent_payments': [{
+                'id': p.id,
+                'tenant_name': p.tenant.full_name if p.tenant else 'Unknown',
+                'amount': p.amount,
+                'payment_type': p.payment_type,
+                'payment_date': p.payment_date.isoformat(),
+            } for p in recent_payments],
+            'recent_tenants': [{
+                'id': t.id,
+                'full_name': t.full_name,
+                'unit_number': t.unit_number,
+                'status': t.status,
+                'move_in_date': t.move_in_date.isoformat() if t.move_in_date else None,
+            } for t in recent_tenants],
+        })
+    except Exception as e:
+        logger.error(f"Error fetching overview: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/tenants', methods=['GET', 'POST'])
+@login_required
+def management_tenants():
+    try:
+        if request.method == 'GET':
+            status_filter = request.args.get('status')
+            q = Tenant.query
+            if status_filter:
+                q = q.filter_by(status=status_filter)
+            tenants = q.order_by(Tenant.created_at.desc()).all()
+            return jsonify([{
+                'id': t.id,
+                'full_name': t.full_name,
+                'email': t.email,
+                'phone': t.phone,
+                'property_id': t.property_id,
+                'property_title': t.property.title if t.property else None,
+                'unit_number': t.unit_number,
+                'move_in_date': t.move_in_date.isoformat() if t.move_in_date else None,
+                'move_out_date': t.move_out_date.isoformat() if t.move_out_date else None,
+                'status': t.status,
+                'rent_amount': t.rent_amount,
+                'notes': t.notes,
+                'created_at': t.created_at.isoformat(),
+            } for t in tenants])
+
+        data = request.get_json() or {}
+        if not all([data.get('full_name'), data.get('phone')]):
+            return jsonify({"success": False, "message": "Full name and phone are required"}), 400
+
+        move_in = None
+        move_out = None
+        if data.get('move_in_date'):
+            try:
+                move_in = datetime.strptime(data['move_in_date'], '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        if data.get('move_out_date'):
+            try:
+                move_out = datetime.strptime(data['move_out_date'], '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
+        tenant = Tenant(
+            full_name=data['full_name'].strip(),
+            email=(data.get('email') or '').strip() or None,
+            phone=data['phone'].strip(),
+            property_id=data.get('property_id') or None,
+            unit_number=(data.get('unit_number') or '').strip() or None,
+            move_in_date=move_in,
+            move_out_date=move_out,
+            status=data.get('status', 'active'),
+            rent_amount=data.get('rent_amount') or None,
+            notes=(data.get('notes') or '').strip() or None,
+        )
+        db.session.add(tenant)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Tenant added successfully", "id": tenant.id})
+    except Exception as e:
+        logger.error(f"Error managing tenants: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/tenants/<int:tenant_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def management_tenant_detail(tenant_id):
+    try:
+        tenant = Tenant.query.get_or_404(tenant_id)
+
+        if request.method == 'GET':
+            return jsonify({
+                'id': tenant.id,
+                'full_name': tenant.full_name,
+                'email': tenant.email,
+                'phone': tenant.phone,
+                'property_id': tenant.property_id,
+                'property_title': tenant.property.title if tenant.property else None,
+                'unit_number': tenant.unit_number,
+                'move_in_date': tenant.move_in_date.isoformat() if tenant.move_in_date else None,
+                'move_out_date': tenant.move_out_date.isoformat() if tenant.move_out_date else None,
+                'status': tenant.status,
+                'rent_amount': tenant.rent_amount,
+                'notes': tenant.notes,
+                'payments': [{
+                    'id': p.id,
+                    'amount': p.amount,
+                    'payment_date': p.payment_date.isoformat(),
+                    'payment_type': p.payment_type,
+                    'description': p.description,
+                } for p in tenant.payments],
+            })
+
+        if request.method == 'DELETE':
+            db.session.delete(tenant)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Tenant removed"})
+
+        data = request.get_json() or {}
+        if not all([data.get('full_name'), data.get('phone')]):
+            return jsonify({"success": False, "message": "Full name and phone are required"}), 400
+
+        move_in = tenant.move_in_date
+        move_out = tenant.move_out_date
+        if data.get('move_in_date'):
+            try:
+                move_in = datetime.strptime(data['move_in_date'], '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        if data.get('move_out_date'):
+            try:
+                move_out = datetime.strptime(data['move_out_date'], '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
+        tenant.full_name = data['full_name'].strip()
+        tenant.email = (data.get('email') or '').strip() or None
+        tenant.phone = data['phone'].strip()
+        tenant.property_id = data.get('property_id') or None
+        tenant.unit_number = (data.get('unit_number') or '').strip() or None
+        tenant.move_in_date = move_in
+        tenant.move_out_date = move_out
+        tenant.status = data.get('status', tenant.status)
+        tenant.rent_amount = data.get('rent_amount') or None
+        tenant.notes = (data.get('notes') or '').strip() or None
+        tenant.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True, "message": "Tenant updated successfully"})
+    except Exception as e:
+        logger.error(f"Error managing tenant {tenant_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/payments', methods=['GET', 'POST'])
+@login_required
+def management_payments():
+    try:
+        if request.method == 'GET':
+            payments = PaymentRecord.query.order_by(PaymentRecord.payment_date.desc()).all()
+            return jsonify([{
+                'id': p.id,
+                'tenant_id': p.tenant_id,
+                'tenant_name': p.tenant.full_name if p.tenant else None,
+                'amount': p.amount,
+                'payment_date': p.payment_date.isoformat(),
+                'payment_type': p.payment_type,
+                'description': p.description,
+                'notes': p.notes,
+                'created_at': p.created_at.isoformat(),
+            } for p in payments])
+
+        data = request.get_json() or {}
+        if not all([data.get('amount'), data.get('payment_date')]):
+            return jsonify({"success": False, "message": "Amount and payment date are required"}), 400
+
+        try:
+            pay_date = datetime.strptime(data['payment_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"success": False, "message": "Invalid payment date format"}), 400
+
+        payment = PaymentRecord(
+            tenant_id=data.get('tenant_id') or None,
+            amount=float(data['amount']),
+            payment_date=pay_date,
+            payment_type=data.get('payment_type', 'rent'),
+            description=(data.get('description') or '').strip() or None,
+            notes=(data.get('notes') or '').strip() or None,
+        )
+        db.session.add(payment)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment recorded successfully", "id": payment.id})
+    except Exception as e:
+        logger.error(f"Error managing payments: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/management/api/payments/<int:payment_id>', methods=['PUT', 'DELETE'])
+@login_required
+def management_payment_detail(payment_id):
+    try:
+        payment = PaymentRecord.query.get_or_404(payment_id)
+
+        if request.method == 'DELETE':
+            db.session.delete(payment)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Payment record deleted"})
+
+        data = request.get_json() or {}
+        if not all([data.get('amount'), data.get('payment_date')]):
+            return jsonify({"success": False, "message": "Amount and payment date are required"}), 400
+
+        try:
+            pay_date = datetime.strptime(data['payment_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"success": False, "message": "Invalid payment date format"}), 400
+
+        payment.tenant_id = data.get('tenant_id') or None
+        payment.amount = float(data['amount'])
+        payment.payment_date = pay_date
+        payment.payment_type = data.get('payment_type', payment.payment_type)
+        payment.description = (data.get('description') or '').strip() or None
+        payment.notes = (data.get('notes') or '').strip() or None
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment record updated"})
+    except Exception as e:
+        logger.error(f"Error managing payment {payment_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
 
 # ========== ADMIN TEMPLATES ==========
 LOGIN_TEMPLATE = """

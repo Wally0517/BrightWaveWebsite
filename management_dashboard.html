@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Management Dashboard — BrightWave Habitat Enterprise</title>
+  <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
+  <link rel="stylesheet" href="/assets/style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --sidebar-w: 240px;
+      --header-h: 60px;
+      --brand-navy: #1a2744;
+      --brand-teal: #0d9488;
+      --brand-gold: #c9a94b;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; margin: 0; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: var(--sidebar-w);
+      background: #111827; border-right: 1px solid rgba(255,255,255,0.07);
+      display: flex; flex-direction: column; z-index: 40;
+      transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    }
+    #sidebar.hidden-mobile { transform: translateX(-100%); }
+    .sidebar-logo { padding: 1.1rem 1.25rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .sidebar-logo img { height: 28px; object-fit: contain; }
+    .sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 500;
+      color: #94a3b8; border-left: 3px solid transparent;
+      cursor: pointer; transition: all 0.15s; user-select: none;
+      border-radius: 0;
+    }
+    .nav-item:hover { color: #f1f5f9; background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: #2dd4bf; border-left-color: #0d9488; background: rgba(13,148,136,0.08); }
+    .nav-item i { width: 16px; text-align: center; font-size: 0.85rem; }
+    .sidebar-footer { padding: 0.75rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); }
+
+    /* ── Header ── */
+    #header {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--header-h);
+      background: #111827; border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.25rem; z-index: 30;
+    }
+    #header.full-width { left: 0; }
+
+    /* ── Main content ── */
+    #main { margin-left: var(--sidebar-w); margin-top: var(--header-h); padding: 1.5rem; min-height: calc(100vh - var(--header-h)); }
+    #main.full-width { margin-left: 0; }
+
+    /* ── Overlay (mobile) ── */
+    #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 35; }
+    #overlay.show { display: block; }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .stat-card { background: #1e293b; border-radius: 0.75rem; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.06); }
+    .panel { background: #1e293b; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.06); }
+    .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; }
+    .panel-body { padding: 1.25rem; }
+
+    /* ── Form inputs ── */
+    .f-input {
+      background: #0f172a; border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;
+      padding: 0.55rem 0.85rem; border-radius: 0.45rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color 0.15s;
+    }
+    .f-input:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+    .f-input::placeholder { color: rgba(255,255,255,0.25); }
+    select.f-input option { background: #1e293b; }
+
+    /* ── Buttons ── */
+    .btn { padding: 0.5rem 1rem; border-radius: 0.45rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+    .btn-teal { background: #0d9488; color: white; }
+    .btn-teal:hover { background: #0f766e; }
+    .btn-ghost { background: rgba(255,255,255,0.07); color: #94a3b8; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.12); color: #f1f5f9; }
+    .btn-danger { background: rgba(239,68,68,0.15); color: #f87171; }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .data-table th { padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .data-table td { padding: 0.7rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── Badges ── */
+    .badge { display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
+    .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .badge-yellow { background: rgba(234,179,8,0.15); color: #facc15; }
+    .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
+    .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-slate { background: rgba(100,116,139,0.15); color: #94a3b8; }
+    .badge-teal { background: rgba(13,148,136,0.15); color: #2dd4bf; }
+
+    /* ── Modal ── */
+    .modal-backdrop { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 1rem; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: #1e293b; border-radius: 0.875rem; border: 1px solid rgba(255,255,255,0.09); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 1.1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; }
+    .modal-body { padding: 1.25rem; }
+    .modal-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.mobile-open { transform: translateX(0); }
+      #header, #main { left: 0; margin-left: 0; }
+      #header { left: 0; }
+      #main { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="flex items-center gap-2">
+      <img src="/assets/images/brightwave-logo.png" alt="BrightWave"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+      <i class="fa-solid fa-building text-teal-400 text-lg hidden"></i>
+      <div>
+        <p class="text-white font-semibold text-sm leading-tight">BrightWave</p>
+        <p class="text-slate-500 text-xs">Management</p>
+      </div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-tab="overview">
+      <i class="fa-solid fa-chart-line"></i>
+      <span>Overview</span>
+    </div>
+    <div class="nav-item" data-tab="tenants">
+      <i class="fa-solid fa-users"></i>
+      <span>Tenants</span>
+    </div>
+    <div class="nav-item" data-tab="payments">
+      <i class="fa-solid fa-naira-sign"></i>
+      <span>Payments</span>
+    </div>
+    <div class="nav-item" data-tab="inquiries">
+      <i class="fa-solid fa-inbox"></i>
+      <span>Inquiries</span>
+      <span id="navBadgeInq" class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 hidden"></span>
+    </div>
+    <div class="nav-item" data-tab="messages">
+      <i class="fa-solid fa-envelope"></i>
+      <span>Messages</span>
+      <span id="navBadgeMsg" class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 hidden"></span>
+    </div>
+    <div class="nav-item" data-tab="website">
+      <i class="fa-solid fa-globe"></i>
+      <span>Website</span>
+    </div>
+    <div class="nav-item" data-tab="properties">
+      <i class="fa-solid fa-building-columns"></i>
+      <span>Properties</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="/management/logout" class="flex items-center gap-2 text-slate-500 hover:text-red-400 transition-colors text-sm py-1">
+      <i class="fa-solid fa-right-from-bracket text-sm w-4 text-center"></i>
+      <span>Sign out</span>
+    </a>
+  </div>
+</aside>
+
+<!-- ── Mobile overlay ── -->
+<div id="overlay"></div>
+
+<!-- ── Header ── -->
+<header id="header">
+  <div class="flex items-center gap-3">
+    <button id="menuToggle" class="text-slate-400 hover:text-white transition-colors md:hidden">
+      <i class="fa-solid fa-bars text-lg"></i>
+    </button>
+    <h1 id="pageTitle" class="text-white font-semibold text-base">Overview</h1>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-slate-500 text-sm hidden sm:block" id="headerUsername"></span>
+    <a href="/" target="_blank" class="text-slate-500 hover:text-teal-400 transition-colors text-sm" title="View website">
+      <i class="fa-solid fa-arrow-up-right-from-square"></i>
+    </a>
+    <a href="/management/logout" class="btn btn-ghost btn-sm hidden sm:inline-flex">
+      <i class="fa-solid fa-right-from-bracket mr-1"></i>Logout
+    </a>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<main id="main">
+
+  <!-- ══ OVERVIEW ══ -->
+  <div class="tab-panel active" id="panel-overview">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="overviewCards">
+      <div class="stat-card col-span-2 md:col-span-1 animate-pulse bg-slate-800 h-24 rounded-xl"></div>
+      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
+      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
+      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="panel">
+        <div class="panel-header"><span class="font-semibold text-sm">Recent Payments</span></div>
+        <div class="panel-body overflow-x-auto">
+          <table class="data-table" id="overviewPaymentsTable">
+            <thead><tr><th>Tenant</th><th>Amount</th><th>Type</th><th>Date</th></tr></thead>
+            <tbody><tr><td colspan="4" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="font-semibold text-sm">Recent Tenants</span></div>
+        <div class="panel-body overflow-x-auto">
+          <table class="data-table" id="overviewTenantsTable">
+            <thead><tr><th>Name</th><th>Unit</th><th>Status</th><th>Move In</th></tr></thead>
+            <tbody><tr><td colspan="4" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TENANTS ══ -->
+  <div class="tab-panel" id="panel-tenants">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <div class="flex gap-2 flex-wrap" id="tenantStatusFilters">
+        <button class="btn btn-teal btn-sm tenant-filter active" data-status="">All</button>
+        <button class="btn btn-ghost btn-sm tenant-filter" data-status="active">Active</button>
+        <button class="btn btn-ghost btn-sm tenant-filter" data-status="vacated">Vacated</button>
+      </div>
+      <button class="btn btn-teal btn-sm" onclick="openTenantModal()">
+        <i class="fa-solid fa-plus mr-1"></i>Add Tenant
+      </button>
+    </div>
+    <div class="panel overflow-x-auto">
+      <table class="data-table" id="tenantsTable">
+        <thead><tr><th>Name</th><th>Phone</th><th>Unit</th><th>Move In</th><th>Move Out</th><th>Status</th><th>Rent</th><th></th></tr></thead>
+        <tbody><tr><td colspan="8" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ PAYMENTS ══ -->
+  <div class="tab-panel" id="panel-payments">
+    <div class="flex justify-between items-center mb-4">
+      <p class="text-slate-400 text-sm" id="paymentsSummary"></p>
+      <button class="btn btn-teal btn-sm" onclick="openPaymentModal()">
+        <i class="fa-solid fa-plus mr-1"></i>Record Payment
+      </button>
+    </div>
+    <div class="panel overflow-x-auto">
+      <table class="data-table" id="paymentsTable">
+        <thead><tr><th>Date</th><th>Tenant</th><th>Amount</th><th>Type</th><th>Description</th><th></th></tr></thead>
+        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ INQUIRIES ══ -->
+  <div class="tab-panel" id="panel-inquiries">
+    <div class="panel overflow-x-auto">
+      <table class="data-table" id="inquiriesTable">
+        <thead><tr><th>Name</th><th>Property</th><th>Type</th><th>Phone</th><th>Date</th><th>Status</th><th></th></tr></thead>
+        <tbody><tr><td colspan="7" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ MESSAGES ══ -->
+  <div class="tab-panel" id="panel-messages">
+    <div class="panel overflow-x-auto">
+      <table class="data-table" id="messagesTable">
+        <thead><tr><th>Name</th><th>Source</th><th>Subject</th><th>Date</th><th>Status</th><th></th></tr></thead>
+        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ WEBSITE ══ -->
+  <div class="tab-panel" id="panel-website">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Site content -->
+      <div class="panel lg:col-span-2">
+        <div class="panel-header">
+          <span class="font-semibold text-sm">Site Copy</span>
+          <span id="contentSaveMsg" class="text-xs hidden"></span>
+        </div>
+        <div class="panel-body">
+          <form id="siteContentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-slate-400 mb-1">Home Hero Title</label>
+              <input type="text" id="home_hero_title" class="f-input" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-slate-400 mb-1">Home Hero Subtitle</label>
+              <textarea id="home_hero_subtitle" rows="3" class="f-input"></textarea>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-slate-400 mb-1">Home About Intro</label>
+              <textarea id="home_about_intro" rows="3" class="f-input"></textarea>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-slate-400 mb-1">About Page Subtitle</label>
+              <textarea id="about_hero_subtitle" rows="2" class="f-input"></textarea>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-slate-400 mb-1">About Intro Body</label>
+              <textarea id="about_intro_body" rows="4" class="f-input"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Team Section Heading</label>
+              <input type="text" id="about_team_heading" class="f-input" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Team Section Subheading</label>
+              <input type="text" id="about_team_subheading" class="f-input" />
+            </div>
+            <div class="md:col-span-2">
+              <button type="submit" class="btn btn-teal">Save Content</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Team members -->
+      <div class="panel lg:col-span-2">
+        <div class="panel-header">
+          <span class="font-semibold text-sm">Team Members</span>
+          <button class="btn btn-teal btn-sm" onclick="openTeamModal()"><i class="fa-solid fa-plus mr-1"></i>Add</button>
+        </div>
+        <div class="panel-body overflow-x-auto">
+          <table class="data-table" id="teamTable">
+            <thead><tr><th>Name</th><th>Role</th><th>Order</th><th>Active</th><th></th></tr></thead>
+            <tbody><tr><td colspan="5" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PROPERTIES ══ -->
+  <div class="tab-panel" id="panel-properties">
+    <div class="flex justify-between items-center mb-4">
+      <p class="text-slate-400 text-sm">Manage the property catalog.</p>
+      <button class="btn btn-teal btn-sm" onclick="openPropertyModal()">
+        <i class="fa-solid fa-plus mr-1"></i>Add Property
+      </button>
+    </div>
+    <div class="panel overflow-x-auto">
+      <table class="data-table" id="propertiesTable">
+        <thead><tr><th>Title</th><th>Type</th><th>Location</th><th>Status</th><th>Construction</th><th></th></tr></thead>
+        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════════ MODALS ════════════ -->
+
+<!-- Tenant modal -->
+<div class="modal-backdrop" id="tenantModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="tenantModalTitle">Add Tenant</h3>
+      <button onclick="closeTenantModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="tenantForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="tenantId" />
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Full Name *</label><input type="text" id="t_name" required class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Phone *</label><input type="text" id="t_phone" required class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Email</label><input type="email" id="t_email" class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Unit Number</label><input type="text" id="t_unit" class="f-input" placeholder="e.g. A1" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Move In Date</label><input type="date" id="t_movein" class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Move Out Date</label><input type="date" id="t_moveout" class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Rent Amount (₦)</label><input type="number" id="t_rent" class="f-input" step="1000" /></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Status</label>
+          <select id="t_status" class="f-input">
+            <option value="active">Active</option>
+            <option value="vacated">Vacated</option>
+            <option value="reserved">Reserved</option>
+          </select>
+        </div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Notes</label><textarea id="t_notes" rows="2" class="f-input"></textarea></div>
+      </form>
+      <p id="tenantFormMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTenantModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="saveTenant()" id="saveTenantBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-backdrop" id="paymentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="paymentModalTitle">Record Payment</h3>
+      <button onclick="closePaymentModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="paymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="paymentId" />
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Tenant</label>
+          <select id="p_tenant" class="f-input"><option value="">— None —</option></select>
+        </div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Amount (₦) *</label><input type="number" id="p_amount" required class="f-input" step="1000" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Payment Date *</label><input type="date" id="p_date" required class="f-input" /></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Type</label>
+          <select id="p_type" class="f-input">
+            <option value="rent">Rent</option>
+            <option value="deposit">Deposit</option>
+            <option value="service">Service charge</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Description</label><input type="text" id="p_desc" class="f-input" /></div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Notes</label><textarea id="p_notes" rows="2" class="f-input"></textarea></div>
+      </form>
+      <p id="paymentFormMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="savePayment()" id="savePaymentBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Team member modal -->
+<div class="modal-backdrop" id="teamModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="teamModalTitle">Add Team Member</h3>
+      <button onclick="closeTeamModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="teamForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="teamId" />
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Name *</label><input type="text" id="tm_name" required class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Role *</label><input type="text" id="tm_role" required class="f-input" /></div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Bio *</label><textarea id="tm_bio" rows="3" required class="f-input"></textarea></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Image Path</label><input type="text" id="tm_img" class="f-input" placeholder="images/name.jpg" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Sort Order</label><input type="number" id="tm_order" value="0" class="f-input" /></div>
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <input type="checkbox" id="tm_active" checked class="w-4 h-4 accent-teal-500" />
+          <label for="tm_active" class="text-sm text-slate-300">Visible on About page</label>
+        </div>
+      </form>
+      <p id="teamFormMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTeamModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="saveTeamMember()" id="saveTeamBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Property modal -->
+<div class="modal-backdrop" id="propertyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="propertyModalTitle">Add Property</h3>
+      <button onclick="closePropertyModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="propertyForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="hidden" id="propertyId" />
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Title *</label><input type="text" id="pr_title" required class="f-input" /></div>
+        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Description *</label><textarea id="pr_desc" rows="3" required class="f-input"></textarea></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Type *</label>
+          <select id="pr_type" required class="f-input">
+            <option value="hostel">Hostel</option>
+            <option value="land">Land</option>
+            <option value="residential">Residential</option>
+          </select>
+        </div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Location *</label><input type="text" id="pr_loc" required class="f-input" /></div>
+        <div><label class="block text-xs font-medium text-slate-400 mb-1">Price (₦)</label><input type="number" id="pr_price" class="f-input" /></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Price Type</label>
+          <select id="pr_pricetype" class="f-input">
+            <option value="">—</option>
+            <option value="per session">Per session</option>
+            <option value="per year">Per year</option>
+            <option value="per plot">Per plot</option>
+            <option value="total">Total</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Construction</label>
+          <select id="pr_const" class="f-input">
+            <option value="">—</option>
+            <option value="completed">Completed</option>
+            <option value="ongoing-final">Ongoing — Final Stage</option>
+            <option value="coming-soon">Coming Soon</option>
+            <option value="planning">Planning</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Status</label>
+          <select id="pr_status" class="f-input">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <input type="checkbox" id="pr_featured" class="w-4 h-4 accent-teal-500" />
+          <label for="pr_featured" class="text-sm text-slate-300">Featured property</label>
+        </div>
+      </form>
+      <p id="propertyFormMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePropertyModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="saveProperty()" id="savePropertyBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail / view modal (inquiries & messages) -->
+<div class="modal-backdrop" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="font-semibold text-white text-sm" id="detailModalTitle">Details</h3>
+      <button onclick="document.getElementById('detailModal').classList.remove('open')" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('detailModal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ JAVASCRIPT ════════════ -->
+<script>
+// ── State ──
+let csrfToken = '';
+let tenantsCache = [];
+let propertiesCache = [];
+
+// ── CSRF / auth ──
+async function initSession() {
+  try {
+    const res = await apiFetch('/management/api/me');
+    csrfToken = res.csrf_token || '';
+    document.getElementById('headerUsername').textContent = res.username || '';
+  } catch { window.location.href = '/management/login'; }
+}
+
+// ── Fetch helper ──
+async function apiFetch(url, options = {}) {
+  const headers = new Headers({ 'Content-Type': 'application/json', ...(options.headers || {}) });
+  const method = (options.method || 'GET').toUpperCase();
+  if (['POST','PUT','DELETE'].includes(method) && csrfToken) {
+    headers.set('X-CSRF-Token', csrfToken);
+  }
+  const res = await fetch(url, { credentials: 'include', ...options, headers });
+  if (res.status === 401 || res.status === 302) { window.location.href = '/management/login'; return; }
+  return res.json();
+}
+
+// ── Formatting helpers ──
+function fmt₦(v) { if (v == null) return '—'; return '₦' + Number(v).toLocaleString('en-NG'); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
+function statusBadge(s) {
+  const map = { active:'badge-green', new:'badge-blue', completed:'badge-teal', vacated:'badge-slate',
+                contacted:'badge-yellow', qualified:'badge-yellow', converted:'badge-green',
+                closed:'badge-red', read:'badge-slate', responded:'badge-green', reserved:'badge-yellow' };
+  return `<span class="badge ${map[s]||'badge-slate'}">${s}</span>`;
+}
+
+// ── Sidebar nav ──
+const tabTitles = { overview:'Overview', tenants:'Tenants', payments:'Payments',
+                    inquiries:'Inquiries', messages:'Messages', website:'Website', properties:'Properties' };
+
+document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+  item.addEventListener('click', () => {
+    const tab = item.dataset.tab;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    document.getElementById('pageTitle').textContent = tabTitles[tab] || tab;
+    closeMobileSidebar();
+    loadTab(tab);
+  });
+});
+
+function loadTab(tab) {
+  if (tab === 'overview') loadOverview();
+  else if (tab === 'tenants') loadTenants();
+  else if (tab === 'payments') loadPayments();
+  else if (tab === 'inquiries') loadInquiries();
+  else if (tab === 'messages') loadMessages();
+  else if (tab === 'website') { loadSiteContent(); loadTeam(); }
+  else if (tab === 'properties') loadProperties();
+}
+
+// ── Mobile sidebar ──
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
+document.getElementById('menuToggle').addEventListener('click', () => {
+  sidebar.classList.toggle('mobile-open');
+  overlay.classList.toggle('show');
+});
+overlay.addEventListener('click', closeMobileSidebar);
+function closeMobileSidebar() { sidebar.classList.remove('mobile-open'); overlay.classList.remove('show'); }
+
+// ── Overview ──
+async function loadOverview() {
+  try {
+    const d = await apiFetch('/management/api/overview');
+    const occ = d.occupancy_pct || 0;
+    document.getElementById('overviewCards').innerHTML = `
+      <div class="stat-card">
+        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Active Tenants</p>
+        <p class="text-3xl font-bold text-white">${d.active_tenants}</p>
+        <p class="text-slate-500 text-xs mt-1">${d.total_units} total units &bull; ${occ}% occupied</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Monthly Revenue</p>
+        <p class="text-3xl font-bold text-teal-400">${fmt₦(d.monthly_revenue)}</p>
+        <p class="text-slate-500 text-xs mt-1">All-time: ${fmt₦(d.total_revenue)}</p>
+      </div>
+      <div class="stat-card cursor-pointer hover:border-blue-500/30 transition-colors" onclick="switchTab('inquiries')">
+        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">New Inquiries</p>
+        <p class="text-3xl font-bold text-blue-400">${d.new_inquiries}</p>
+        <p class="text-slate-500 text-xs mt-1">Awaiting follow-up</p>
+      </div>
+      <div class="stat-card cursor-pointer hover:border-purple-500/30 transition-colors" onclick="switchTab('messages')">
+        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">New Messages</p>
+        <p class="text-3xl font-bold text-purple-400">${d.new_messages}</p>
+        <p class="text-slate-500 text-xs mt-1">Contact form messages</p>
+      </div>`;
+    updateNavBadges(d.new_inquiries, d.new_messages);
+    document.getElementById('overviewPaymentsTable').querySelector('tbody').innerHTML =
+      (d.recent_payments.length ? d.recent_payments : []).map(p => `
+        <tr><td>${fmtDate(p.payment_date)}</td><td>${p.tenant_name||'—'}</td>
+        <td class="text-teal-400 font-medium">${fmt₦(p.amount)}</td>
+        <td><span class="badge badge-slate">${p.payment_type}</span></td></tr>`).join('') ||
+      '<tr><td colspan="4" class="text-slate-600 text-center py-4">No payments yet</td></tr>';
+    document.getElementById('overviewTenantsTable').querySelector('tbody').innerHTML =
+      (d.recent_tenants.length ? d.recent_tenants : []).map(t => `
+        <tr><td>${t.full_name}</td><td>${t.unit_number||'—'}</td>
+        <td>${statusBadge(t.status)}</td><td>${fmtDate(t.move_in_date)}</td></tr>`).join('') ||
+      '<tr><td colspan="4" class="text-slate-600 text-center py-4">No tenants yet</td></tr>';
+  } catch(e) { console.error('Overview load error', e); }
+}
+
+function updateNavBadges(inq, msg) {
+  const bi = document.getElementById('navBadgeInq');
+  const bm = document.getElementById('navBadgeMsg');
+  bi.textContent = inq; bi.classList.toggle('hidden', !inq);
+  bm.textContent = msg; bm.classList.toggle('hidden', !msg);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.nav-item[data-tab]').forEach(n => {
+    if (n.dataset.tab === name) n.click();
+  });
+}
+
+// ── Tenants ──
+let tenantFilter = '';
+document.querySelectorAll('.tenant-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tenant-filter').forEach(b => { b.classList.remove('btn-teal'); b.classList.add('btn-ghost'); });
+    btn.classList.add('btn-teal'); btn.classList.remove('btn-ghost');
+    tenantFilter = btn.dataset.status;
+    loadTenants();
+  });
+});
+
+async function loadTenants() {
+  const url = tenantFilter ? `/management/api/tenants?status=${tenantFilter}` : '/management/api/tenants';
+  try {
+    tenantsCache = await apiFetch(url) || [];
+    document.getElementById('tenantsTable').querySelector('tbody').innerHTML =
+      tenantsCache.length ? tenantsCache.map(t => `
+        <tr>
+          <td class="font-medium">${t.full_name}</td>
+          <td>${t.phone}</td>
+          <td>${t.unit_number||'—'}</td>
+          <td>${fmtDate(t.move_in_date)}</td>
+          <td>${fmtDate(t.move_out_date)}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td>${fmt₦(t.rent_amount)}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn btn-ghost btn-sm mr-1" onclick="editTenant(${t.id})"><i class="fa-solid fa-pen text-xs"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTenant(${t.id})"><i class="fa-solid fa-trash text-xs"></i></button>
+          </td>
+        </tr>`).join('') :
+      '<tr><td colspan="8" class="text-slate-600 text-center py-6">No tenants found</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+function openTenantModal(id) {
+  document.getElementById('tenantModalTitle').textContent = id ? 'Edit Tenant' : 'Add Tenant';
+  document.getElementById('tenantId').value = id || '';
+  if (!id) { document.getElementById('tenantForm').reset(); }
+  document.getElementById('tenantFormMsg').classList.add('hidden');
+  document.getElementById('tenantModal').classList.add('open');
+}
+function closeTenantModal() { document.getElementById('tenantModal').classList.remove('open'); }
+
+function editTenant(id) {
+  const t = tenantsCache.find(x => x.id === id);
+  if (!t) return;
+  openTenantModal(id);
+  document.getElementById('t_name').value = t.full_name;
+  document.getElementById('t_phone').value = t.phone;
+  document.getElementById('t_email').value = t.email || '';
+  document.getElementById('t_unit').value = t.unit_number || '';
+  document.getElementById('t_movein').value = t.move_in_date || '';
+  document.getElementById('t_moveout').value = t.move_out_date || '';
+  document.getElementById('t_rent').value = t.rent_amount || '';
+  document.getElementById('t_status').value = t.status || 'active';
+  document.getElementById('t_notes').value = t.notes || '';
+}
+
+async function saveTenant() {
+  const id = document.getElementById('tenantId').value;
+  const body = {
+    full_name: document.getElementById('t_name').value.trim(),
+    phone: document.getElementById('t_phone').value.trim(),
+    email: document.getElementById('t_email').value.trim(),
+    unit_number: document.getElementById('t_unit').value.trim(),
+    move_in_date: document.getElementById('t_movein').value || null,
+    move_out_date: document.getElementById('t_moveout').value || null,
+    rent_amount: parseFloat(document.getElementById('t_rent').value) || null,
+    status: document.getElementById('t_status').value,
+    notes: document.getElementById('t_notes').value.trim(),
+  };
+  if (!body.full_name || !body.phone) { showFormMsg('tenantFormMsg', 'Name and phone are required.', 'error'); return; }
+  const btn = document.getElementById('saveTenantBtn');
+  btn.disabled = true;
+  try {
+    const url = id ? `/management/api/tenants/${id}` : '/management/api/tenants';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+    if (res.success) { closeTenantModal(); loadTenants(); loadOverview(); }
+    else showFormMsg('tenantFormMsg', res.message || 'Error saving tenant', 'error');
+  } catch { showFormMsg('tenantFormMsg', 'Network error', 'error'); }
+  btn.disabled = false;
+}
+
+async function deleteTenant(id) {
+  if (!confirm('Remove this tenant? This cannot be undone.')) return;
+  await apiFetch(`/management/api/tenants/${id}`, { method: 'DELETE' });
+  loadTenants(); loadOverview();
+}
+
+// ── Payments ──
+let paymentsCache = [];
+async function loadPayments() {
+  try {
+    paymentsCache = await apiFetch('/management/api/payments') || [];
+    const total = paymentsCache.reduce((s, p) => s + (p.amount || 0), 0);
+    document.getElementById('paymentsSummary').textContent = `${paymentsCache.length} records — Total: ${fmt₦(total)}`;
+    document.getElementById('paymentsTable').querySelector('tbody').innerHTML =
+      paymentsCache.length ? paymentsCache.map(p => `
+        <tr>
+          <td>${fmtDate(p.payment_date)}</td>
+          <td>${p.tenant_name||'—'}</td>
+          <td class="text-teal-400 font-semibold">${fmt₦(p.amount)}</td>
+          <td><span class="badge badge-slate">${p.payment_type}</span></td>
+          <td class="text-slate-400 text-xs">${p.description||'—'}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn btn-ghost btn-sm mr-1" onclick="editPayment(${p.id})"><i class="fa-solid fa-pen text-xs"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deletePayment(${p.id})"><i class="fa-solid fa-trash text-xs"></i></button>
+          </td>
+        </tr>`).join('') :
+      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No payments recorded yet</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+function openPaymentModal(id) {
+  document.getElementById('paymentModalTitle').textContent = id ? 'Edit Payment' : 'Record Payment';
+  document.getElementById('paymentId').value = id || '';
+  if (!id) {
+    document.getElementById('paymentForm').reset();
+    document.getElementById('p_date').value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('paymentFormMsg').classList.add('hidden');
+  // Populate tenant dropdown
+  const sel = document.getElementById('p_tenant');
+  sel.innerHTML = '<option value="">— None —</option>' +
+    tenantsCache.map(t => `<option value="${t.id}">${t.full_name} ${t.unit_number ? `(${t.unit_number})` : ''}</option>`).join('');
+  document.getElementById('paymentModal').classList.add('open');
+}
+function closePaymentModal() { document.getElementById('paymentModal').classList.remove('open'); }
+
+function editPayment(id) {
+  const p = paymentsCache.find(x => x.id === id);
+  if (!p) return;
+  openPaymentModal(id);
+  setTimeout(() => {
+    document.getElementById('p_tenant').value = p.tenant_id || '';
+    document.getElementById('p_amount').value = p.amount;
+    document.getElementById('p_date').value = p.payment_date;
+    document.getElementById('p_type').value = p.payment_type;
+    document.getElementById('p_desc').value = p.description || '';
+    document.getElementById('p_notes').value = p.notes || '';
+  }, 10);
+}
+
+async function savePayment() {
+  const id = document.getElementById('paymentId').value;
+  const body = {
+    tenant_id: document.getElementById('p_tenant').value || null,
+    amount: parseFloat(document.getElementById('p_amount').value),
+    payment_date: document.getElementById('p_date').value,
+    payment_type: document.getElementById('p_type').value,
+    description: document.getElementById('p_desc').value.trim(),
+    notes: document.getElementById('p_notes').value.trim(),
+  };
+  if (!body.amount || !body.payment_date) { showFormMsg('paymentFormMsg', 'Amount and date are required.', 'error'); return; }
+  const btn = document.getElementById('savePaymentBtn');
+  btn.disabled = true;
+  try {
+    const url = id ? `/management/api/payments/${id}` : '/management/api/payments';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+    if (res.success) { closePaymentModal(); loadPayments(); loadOverview(); }
+    else showFormMsg('paymentFormMsg', res.message || 'Error saving payment', 'error');
+  } catch { showFormMsg('paymentFormMsg', 'Network error', 'error'); }
+  btn.disabled = false;
+}
+
+async function deletePayment(id) {
+  if (!confirm('Delete this payment record?')) return;
+  await apiFetch(`/management/api/payments/${id}`, { method: 'DELETE' });
+  loadPayments(); loadOverview();
+}
+
+// ── Inquiries ──
+let inquiriesCache = [];
+async function loadInquiries() {
+  try {
+    inquiriesCache = await apiFetch('/management/api/inquiries') || [];
+    document.getElementById('inquiriesTable').querySelector('tbody').innerHTML =
+      inquiriesCache.length ? inquiriesCache.map(inq => `
+        <tr>
+          <td class="font-medium">${inq.full_name}</td>
+          <td class="text-slate-400 text-xs">${inq.property_title||'General'}</td>
+          <td><span class="badge badge-blue">${inq.inquiry_type}</span></td>
+          <td>${inq.phone}</td>
+          <td class="text-slate-500 text-xs">${fmtDate(inq.created_at)}</td>
+          <td>
+            <select onchange="updateInquiryStatus(${inq.id},this.value)" class="f-input text-xs py-1 px-2 w-28">
+              ${['new','contacted','qualified','converted','closed'].map(s=>`<option value="${s}" ${inq.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td><button class="btn btn-ghost btn-sm" onclick="viewInquiry(${inq.id})"><i class="fa-solid fa-eye text-xs"></i></button></td>
+        </tr>`).join('') :
+      '<tr><td colspan="7" class="text-slate-600 text-center py-6">No inquiries yet</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+async function updateInquiryStatus(id, status) {
+  await apiFetch(`/management/api/inquiries/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+  loadOverview();
+}
+
+function viewInquiry(id) {
+  const inq = inquiriesCache.find(x => x.id === id);
+  if (!inq) return;
+  document.getElementById('detailModalTitle').textContent = 'Inquiry — ' + inq.full_name;
+  document.getElementById('detailModalBody').innerHTML = `
+    <dl class="space-y-2 text-sm">
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Name</dt><dd class="text-white font-medium">${inq.full_name}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Email</dt><dd>${inq.email}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Phone</dt><dd>${inq.phone}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Property</dt><dd>${inq.property_title||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Type</dt><dd>${inq.inquiry_type}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">University</dt><dd>${inq.university||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Year</dt><dd>${inq.year_of_study||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Move Date</dt><dd>${fmtDate(inq.preferred_move_date)}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Budget</dt><dd>${inq.budget_range||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Date</dt><dd>${fmtDate(inq.created_at)}</dd></div>
+      <div class="mt-3 pt-3 border-t border-white/10"><p class="text-slate-400 text-xs mb-1">Message</p><p class="text-white leading-relaxed">${inq.message}</p></div>
+    </dl>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+// ── Messages ──
+let messagesCache = [];
+async function loadMessages() {
+  try {
+    messagesCache = await apiFetch('/management/api/contact-messages') || [];
+    document.getElementById('messagesTable').querySelector('tbody').innerHTML =
+      messagesCache.length ? messagesCache.map(msg => `
+        <tr>
+          <td class="font-medium">${msg.full_name}</td>
+          <td><span class="badge badge-blue">${msg.form_origin}</span></td>
+          <td class="text-slate-400 text-xs">${msg.subject||'—'}</td>
+          <td class="text-slate-500 text-xs">${fmtDate(msg.created_at)}</td>
+          <td>
+            <select onchange="updateMessageStatus(${msg.id},this.value)" class="f-input text-xs py-1 px-2 w-28">
+              ${['new','read','responded','closed'].map(s=>`<option value="${s}" ${msg.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td><button class="btn btn-ghost btn-sm" onclick="viewMessage(${msg.id})"><i class="fa-solid fa-eye text-xs"></i></button></td>
+        </tr>`).join('') :
+      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No messages yet</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+async function updateMessageStatus(id, status) {
+  await apiFetch(`/management/api/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+  loadOverview();
+}
+
+function viewMessage(id) {
+  const msg = messagesCache.find(x => x.id === id);
+  if (!msg) return;
+  document.getElementById('detailModalTitle').textContent = 'Message — ' + msg.full_name;
+  document.getElementById('detailModalBody').innerHTML = `
+    <dl class="space-y-2 text-sm">
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Name</dt><dd class="text-white font-medium">${msg.full_name}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Email</dt><dd>${msg.email}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Phone</dt><dd>${msg.phone||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Source</dt><dd>${msg.form_origin}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Subject</dt><dd>${msg.subject||'—'}</dd></div>
+      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Date</dt><dd>${fmtDate(msg.created_at)}</dd></div>
+      <div class="mt-3 pt-3 border-t border-white/10"><p class="text-slate-400 text-xs mb-1">Message</p><p class="text-white leading-relaxed">${msg.message}</p></div>
+    </dl>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+// ── Site content ──
+async function loadSiteContent() {
+  try {
+    const d = await apiFetch('/management/api/site-content');
+    document.getElementById('home_hero_title').value = d['home.hero_title'] || '';
+    document.getElementById('home_hero_subtitle').value = d['home.hero_subtitle'] || '';
+    document.getElementById('home_about_intro').value = d['home.about_intro'] || '';
+    document.getElementById('about_hero_subtitle').value = d['about.hero_subtitle'] || '';
+    document.getElementById('about_intro_body').value = d['about.intro_body'] || '';
+    document.getElementById('about_team_heading').value = d['about.team_heading'] || '';
+    document.getElementById('about_team_subheading').value = d['about.team_subheading'] || '';
+  } catch(e) { console.error(e); }
+}
+
+document.getElementById('siteContentForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('contentSaveMsg');
+  try {
+    const payload = {
+      'home.hero_title': document.getElementById('home_hero_title').value,
+      'home.hero_subtitle': document.getElementById('home_hero_subtitle').value,
+      'home.about_intro': document.getElementById('home_about_intro').value,
+      'about.hero_subtitle': document.getElementById('about_hero_subtitle').value,
+      'about.intro_body': document.getElementById('about_intro_body').value,
+      'about.team_heading': document.getElementById('about_team_heading').value,
+      'about.team_subheading': document.getElementById('about_team_subheading').value,
+    };
+    const res = await apiFetch('/management/api/site-content', { method: 'PUT', body: JSON.stringify(payload) });
+    msg.textContent = res.success ? '✓ Saved' : (res.message || 'Error');
+    msg.className = `text-xs ${res.success ? 'text-green-400' : 'text-red-400'}`;
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 3000);
+  } catch { msg.textContent = 'Save failed'; msg.className = 'text-xs text-red-400'; msg.classList.remove('hidden'); }
+});
+
+// ── Team members ──
+let teamCache = [];
+async function loadTeam() {
+  try {
+    teamCache = await apiFetch('/management/api/team-members') || [];
+    document.getElementById('teamTable').querySelector('tbody').innerHTML =
+      teamCache.length ? teamCache.map(m => `
+        <tr>
+          <td class="font-medium">${m.name}</td>
+          <td class="text-slate-400">${m.role}</td>
+          <td>${m.sort_order}</td>
+          <td>${m.is_active ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-slate">No</span>'}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn btn-ghost btn-sm mr-1" onclick="editTeamMember(${m.id})"><i class="fa-solid fa-pen text-xs"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTeamMember(${m.id})"><i class="fa-solid fa-trash text-xs"></i></button>
+          </td>
+        </tr>`).join('') :
+      '<tr><td colspan="5" class="text-slate-600 text-center py-4">No team members</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+function openTeamModal(id) {
+  document.getElementById('teamModalTitle').textContent = id ? 'Edit Team Member' : 'Add Team Member';
+  document.getElementById('teamId').value = id || '';
+  if (!id) document.getElementById('teamForm').reset();
+  document.getElementById('teamFormMsg').classList.add('hidden');
+  document.getElementById('teamModal').classList.add('open');
+}
+function closeTeamModal() { document.getElementById('teamModal').classList.remove('open'); }
+
+function editTeamMember(id) {
+  const m = teamCache.find(x => x.id === id);
+  if (!m) return;
+  openTeamModal(id);
+  document.getElementById('tm_name').value = m.name;
+  document.getElementById('tm_role').value = m.role;
+  document.getElementById('tm_bio').value = m.bio;
+  document.getElementById('tm_img').value = m.image_path || '';
+  document.getElementById('tm_order').value = m.sort_order;
+  document.getElementById('tm_active').checked = m.is_active;
+}
+
+async function saveTeamMember() {
+  const id = document.getElementById('teamId').value;
+  const body = {
+    name: document.getElementById('tm_name').value.trim(),
+    role: document.getElementById('tm_role').value.trim(),
+    bio: document.getElementById('tm_bio').value.trim(),
+    image_path: document.getElementById('tm_img').value.trim(),
+    sort_order: parseInt(document.getElementById('tm_order').value) || 0,
+    is_active: document.getElementById('tm_active').checked,
+  };
+  if (!body.name || !body.role || !body.bio) { showFormMsg('teamFormMsg', 'Name, role, and bio are required.', 'error'); return; }
+  const btn = document.getElementById('saveTeamBtn');
+  btn.disabled = true;
+  try {
+    const url = id ? `/management/api/team-members/${id}` : '/management/api/team-members';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+    if (res.success) { closeTeamModal(); loadTeam(); }
+    else showFormMsg('teamFormMsg', res.message || 'Error', 'error');
+  } catch { showFormMsg('teamFormMsg', 'Network error', 'error'); }
+  btn.disabled = false;
+}
+
+async function deleteTeamMember(id) {
+  if (!confirm('Remove this team member?')) return;
+  await apiFetch(`/management/api/team-members/${id}`, { method: 'DELETE' });
+  loadTeam();
+}
+
+// ── Properties ──
+async function loadProperties() {
+  try {
+    propertiesCache = await apiFetch('/management/api/properties') || [];
+    document.getElementById('propertiesTable').querySelector('tbody').innerHTML =
+      propertiesCache.length ? propertiesCache.map(p => `
+        <tr>
+          <td class="font-medium">${p.title}</td>
+          <td><span class="badge ${p.property_type==='hostel'?'badge-teal':p.property_type==='land'?'badge-green':'badge-yellow'}">${p.property_type}</span></td>
+          <td class="text-slate-400 text-xs">${p.location}</td>
+          <td>${statusBadge(p.status)}</td>
+          <td class="text-slate-400 text-xs">${p.construction_status||'—'}</td>
+          <td class="whitespace-nowrap">
+            <button class="btn btn-danger btn-sm" onclick="deleteProperty(${p.id})"><i class="fa-solid fa-trash text-xs"></i></button>
+          </td>
+        </tr>`).join('') :
+      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No properties</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+function openPropertyModal() {
+  document.getElementById('propertyModalTitle').textContent = 'Add Property';
+  document.getElementById('propertyId').value = '';
+  document.getElementById('propertyForm').reset();
+  document.getElementById('propertyFormMsg').classList.add('hidden');
+  document.getElementById('propertyModal').classList.add('open');
+}
+function closePropertyModal() { document.getElementById('propertyModal').classList.remove('open'); }
+
+async function saveProperty() {
+  const body = {
+    title: document.getElementById('pr_title').value.trim(),
+    description: document.getElementById('pr_desc').value.trim(),
+    property_type: document.getElementById('pr_type').value,
+    location: document.getElementById('pr_loc').value.trim(),
+    price: parseFloat(document.getElementById('pr_price').value) || null,
+    price_type: document.getElementById('pr_pricetype').value || null,
+    construction_status: document.getElementById('pr_const').value || null,
+    status: document.getElementById('pr_status').value,
+    featured: document.getElementById('pr_featured').checked,
+  };
+  if (!body.title || !body.description || !body.location) { showFormMsg('propertyFormMsg', 'Title, description, and location are required.', 'error'); return; }
+  const btn = document.getElementById('savePropertyBtn');
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/management/api/properties', { method: 'POST', body: JSON.stringify(body) });
+    if (res.success) { closePropertyModal(); loadProperties(); }
+    else showFormMsg('propertyFormMsg', res.message || 'Error', 'error');
+  } catch { showFormMsg('propertyFormMsg', 'Network error', 'error'); }
+  btn.disabled = false;
+}
+
+async function deleteProperty(id) {
+  if (!confirm('Delete this property? This cannot be undone.')) return;
+  await apiFetch(`/management/api/properties/${id}`, { method: 'DELETE' });
+  loadProperties();
+}
+
+// ── Shared helpers ──
+function showFormMsg(elId, text, type) {
+  const el = document.getElementById(elId);
+  el.textContent = text;
+  el.className = `text-xs mt-2 ${type === 'error' ? 'text-red-400' : 'text-green-400'}`;
+  el.classList.remove('hidden');
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+  backdrop.addEventListener('click', e => {
+    if (e.target === backdrop) backdrop.classList.remove('open');
+  });
+});
+
+// ── Init ──
+(async () => {
+  await initSession();
+  // Pre-load tenants so payment modal can populate dropdown immediately
+  tenantsCache = await apiFetch('/management/api/tenants') || [];
+  loadOverview();
+})();
+</script>
+</body>
+</html>

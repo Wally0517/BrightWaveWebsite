@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Management Portal — BrightWave Habitat Enterprise</title>
+  <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
+  <link rel="stylesheet" href="/assets/style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --brand-navy: #1a2744;
+      --brand-teal: #0d9488;
+      --brand-gold: #c9a94b;
+      --brand-light: #f8fafc;
+    }
+    body { background: linear-gradient(135deg, #0f1f3d 0%, #1a2744 50%, #0d2d3a 100%); min-height: 100vh; }
+    .login-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(16px);
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #f1f5f9;
+      padding: 0.65rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .field-input:focus { border-color: var(--brand-teal); box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
+    .field-input::placeholder { color: rgba(255,255,255,0.35); }
+    .btn-primary {
+      background: var(--brand-teal);
+      color: white;
+      padding: 0.7rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: #0f766e; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .logo-text { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; }
+    .divider { border-color: rgba(255,255,255,0.1); }
+
+    /* Forgot password modal */
+    #fpModal { display: none; }
+    #fpModal.open { display: flex; }
+  </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+  <!-- Main login card -->
+  <div class="login-card rounded-2xl shadow-2xl w-full max-w-md p-8 md:p-10">
+
+    <!-- Logo & brand -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/10 mb-4">
+        <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-10 h-10 object-contain"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <i class="fa-solid fa-building hidden text-teal-400 text-2xl"></i>
+      </div>
+      <h1 class="logo-text text-2xl text-white leading-tight">BrightWave Habitat</h1>
+      <p class="text-slate-400 text-sm mt-1">Management Portal</p>
+    </div>
+
+    <!-- Login form -->
+    <form id="loginForm" class="space-y-5" novalidate>
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1.5">Username</label>
+        <div class="relative">
+          <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+          <input type="text" id="username" autocomplete="username" required
+                 placeholder="Enter your username"
+                 class="field-input pl-9" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+        <div class="relative">
+          <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+          <input type="password" id="password" autocomplete="current-password" required
+                 placeholder="Enter your password"
+                 class="field-input pl-9 pr-10" />
+          <button type="button" id="togglePw"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label="Toggle password visibility">
+            <i class="fa-solid fa-eye text-sm" id="eyeIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <p id="errorMsg" class="text-red-400 text-sm text-center hidden">
+        <i class="fa-solid fa-circle-exclamation mr-1"></i><span id="errorText"></span>
+      </p>
+
+      <button type="submit" id="submitBtn" class="btn-primary mt-2">
+        <span id="btnLabel">Sign In</span>
+        <i class="fa-solid fa-spinner fa-spin ml-2 hidden" id="btnSpinner"></i>
+      </button>
+
+      <div class="text-center">
+        <button type="button" id="forgotPwBtn"
+                class="text-sm text-teal-400 hover:text-teal-300 transition-colors">
+          Forgot password?
+        </button>
+      </div>
+    </form>
+
+    <hr class="divider my-6" />
+    <p class="text-xs text-slate-600 text-center">
+      BrightWave Habitat Enterprise &bull; Secure Management Access
+    </p>
+  </div>
+
+  <!-- Forgot password modal -->
+  <div id="fpModal" class="fixed inset-0 z-50 items-center justify-center p-4"
+       style="background: rgba(0,0,0,0.65);">
+    <div class="login-card rounded-2xl shadow-2xl w-full max-w-sm p-8 relative">
+      <button id="closeFpModal" class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-teal-500/15 mb-3">
+          <i class="fa-solid fa-key text-teal-400 text-xl"></i>
+        </div>
+        <h2 class="text-lg font-semibold text-white">Reset Your Password</h2>
+        <p class="text-slate-400 text-sm mt-1">Contact the administrator to reset your password</p>
+      </div>
+      <div class="space-y-3 text-sm text-slate-300">
+        <div class="flex items-start gap-3 bg-white/5 rounded-lg p-3">
+          <i class="fa-brands fa-whatsapp text-green-400 text-base mt-0.5 flex-shrink-0"></i>
+          <div>
+            <p class="font-medium text-white">WhatsApp</p>
+            <p class="text-slate-400">+234 803 766 9462</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 bg-white/5 rounded-lg p-3">
+          <i class="fa-solid fa-envelope text-teal-400 text-base mt-0.5 flex-shrink-0"></i>
+          <div>
+            <p class="font-medium text-white">Email</p>
+            <p class="text-slate-400">brightwavehabitat@gmail.com</p>
+          </div>
+        </div>
+      </div>
+      <p class="text-xs text-slate-600 text-center mt-5">
+        Your account will be reset and new credentials sent to you securely.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const errorText = document.getElementById('errorText');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnLabel = document.getElementById('btnLabel');
+    const btnSpinner = document.getElementById('btnSpinner');
+
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorMsg.classList.remove('hidden');
+    }
+    function hideError() { errorMsg.classList.add('hidden'); }
+
+    function setLoading(on) {
+      submitBtn.disabled = on;
+      btnLabel.textContent = on ? 'Signing in…' : 'Sign In';
+      btnSpinner.classList.toggle('hidden', !on);
+    }
+
+    // Toggle password visibility
+    document.getElementById('togglePw').addEventListener('click', () => {
+      const pw = document.getElementById('password');
+      const icon = document.getElementById('eyeIcon');
+      if (pw.type === 'password') {
+        pw.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-sm';
+      } else {
+        pw.type = 'password';
+        icon.className = 'fa-solid fa-eye text-sm';
+      }
+    });
+
+    // Login submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!username || !password) { showError('Please enter your username and password.'); return; }
+      setLoading(true);
+      try {
+        const res = await fetch('/management/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.href = data.redirect || '/management/dashboard';
+        } else {
+          showError(data.message || 'Invalid credentials. Please try again.');
+          setLoading(false);
+        }
+      } catch {
+        showError('Unable to connect. Please check your connection and try again.');
+        setLoading(false);
+      }
+    });
+
+    // Forgot password modal
+    document.getElementById('forgotPwBtn').addEventListener('click', () => {
+      document.getElementById('fpModal').classList.add('open');
+    });
+    document.getElementById('closeFpModal').addEventListener('click', () => {
+      document.getElementById('fpModal').classList.remove('open');
+    });
+    document.getElementById('fpModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('fpModal')) {
+        document.getElementById('fpModal').classList.remove('open');
+      }
+    });
+  </script>
+</body>
+</html>
