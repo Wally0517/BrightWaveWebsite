@@ -812,8 +812,8 @@ def pwa_manifest():
         "background_color": "#111827",
         "theme_color": "#475569",
         "icons": [
-            {"src": "/assets/images/brightwave-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/assets/images/brightwave-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
         ]
     }
     from flask import Response
@@ -2052,13 +2052,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700/50 sticky top-16 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- Mobile: hamburger bar -->
-            <div class="flex items-center justify-between md:hidden h-12">
-                <span id="mobileNavLabel" class="text-sm font-medium text-white flex items-center gap-1.5">
-                    <i class="fas fa-chart-line text-slate-400"></i> Overview
-                </span>
-                <button id="hamburgerBtn" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors" aria-label="Menu">
+            <div class="flex items-center gap-3 md:hidden h-12">
+                <button id="hamburgerBtn" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors flex-shrink-0" aria-label="Menu">
                     <i class="fas fa-bars text-base" id="hamburgerIcon"></i>
                 </button>
+                <span id="mobileNavLabel" class="text-sm font-medium text-white flex items-center gap-1.5 truncate">
+                    <i class="fas fa-chart-line text-slate-400"></i> Overview
+                </span>
             </div>
             <!-- Desktop: full tab row -->
             <div id="navItemsContainer" class="hidden md:flex gap-1 overflow-x-auto scrollbar-none py-2">
