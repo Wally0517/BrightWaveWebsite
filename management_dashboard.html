@@ -583,7 +583,7 @@ async function apiFetch(url, options = {}) {
 }
 
 // ── Formatting helpers ──
-function fmt₦(v) { if (v == null) return '—'; return '₦' + Number(v).toLocaleString('en-NG'); }
+function fmtMoney(v) { if (v == null) return '—'; return '₦' + Number(v).toLocaleString('en-NG'); }
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
 function statusBadge(s) {
   const map = { active:'badge-green', new:'badge-blue', completed:'badge-teal', vacated:'badge-slate',
@@ -642,8 +642,8 @@ async function loadOverview() {
       </div>
       <div class="stat-card">
         <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Monthly Revenue</p>
-        <p class="text-3xl font-bold text-teal-400">${fmt₦(d.monthly_revenue)}</p>
-        <p class="text-slate-500 text-xs mt-1">All-time: ${fmt₦(d.total_revenue)}</p>
+        <p class="text-3xl font-bold text-teal-400">${fmtMoney(d.monthly_revenue)}</p>
+        <p class="text-slate-500 text-xs mt-1">All-time: ${fmtMoney(d.total_revenue)}</p>
       </div>
       <div class="stat-card cursor-pointer hover:border-blue-500/30 transition-colors" onclick="switchTab('inquiries')">
         <p class="text-slate-500 text-xs uppercase font-semibold mb-1">New Inquiries</p>
@@ -659,7 +659,7 @@ async function loadOverview() {
     document.getElementById('overviewPaymentsTable').querySelector('tbody').innerHTML =
       (d.recent_payments.length ? d.recent_payments : []).map(p => `
         <tr><td>${fmtDate(p.payment_date)}</td><td>${p.tenant_name||'—'}</td>
-        <td class="text-teal-400 font-medium">${fmt₦(p.amount)}</td>
+        <td class="text-teal-400 font-medium">${fmtMoney(p.amount)}</td>
         <td><span class="badge badge-slate">${p.payment_type}</span></td></tr>`).join('') ||
       '<tr><td colspan="4" class="text-slate-600 text-center py-4">No payments yet</td></tr>';
     document.getElementById('overviewTenantsTable').querySelector('tbody').innerHTML =
@@ -707,7 +707,7 @@ async function loadTenants() {
           <td>${fmtDate(t.move_in_date)}</td>
           <td>${fmtDate(t.move_out_date)}</td>
           <td>${statusBadge(t.status)}</td>
-          <td>${fmt₦(t.rent_amount)}</td>
+          <td>${fmtMoney(t.rent_amount)}</td>
           <td class="whitespace-nowrap">
             <button class="btn btn-ghost btn-sm mr-1" onclick="editTenant(${t.id})"><i class="fa-solid fa-pen text-xs"></i></button>
             <button class="btn btn-danger btn-sm" onclick="deleteTenant(${t.id})"><i class="fa-solid fa-trash text-xs"></i></button>
@@ -779,13 +779,13 @@ async function loadPayments() {
   try {
     paymentsCache = await apiFetch('/management/api/payments') || [];
     const total = paymentsCache.reduce((s, p) => s + (p.amount || 0), 0);
-    document.getElementById('paymentsSummary').textContent = `${paymentsCache.length} records — Total: ${fmt₦(total)}`;
+    document.getElementById('paymentsSummary').textContent = `${paymentsCache.length} records — Total: ${fmtMoney(total)}`;
     document.getElementById('paymentsTable').querySelector('tbody').innerHTML =
       paymentsCache.length ? paymentsCache.map(p => `
         <tr>
           <td>${fmtDate(p.payment_date)}</td>
           <td>${p.tenant_name||'—'}</td>
-          <td class="text-teal-400 font-semibold">${fmt₦(p.amount)}</td>
+          <td class="text-teal-400 font-semibold">${fmtMoney(p.amount)}</td>
           <td><span class="badge badge-slate">${p.payment_type}</span></td>
           <td class="text-slate-400 text-xs">${p.description||'—'}</td>
           <td class="whitespace-nowrap">
