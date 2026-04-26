@@ -967,9 +967,7 @@ document.addEventListener('keydown', (e) => {
           `Interest: ${interestLabel}`,
           '',
           'Message:',
-          message,
-          '',
-          `Page: ${window.location.href}`
+          message
         ].join('\n');
 
         openDraftEmail({ subject, body });
@@ -1045,7 +1043,7 @@ document.addEventListener('keydown', (e) => {
     property.construction_status === 'completed' &&
     /phase\s*1/i.test(property.title || '')
   ) {
-    return '/hostels/detail';
+    return '/hostels/phase1';
   }
 
   return '#contact';

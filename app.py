@@ -576,9 +576,13 @@ def serve_hostels():
     return send_from_directory('.', 'hostels.html') if os.path.exists('hostels.html') \
             else send_from_directory('.', 'index.html')
 
+@app.route('/hostels/phase1')
+def serve_hostel_phase1():
+    return send_from_directory('.', 'hostel-detail.html')
+
 @app.route('/hostels/detail')
 def serve_hostel_detail():
-    return send_from_directory('.', 'hostel-detail.html')
+    return redirect(url_for('serve_hostel_phase1'), 301)
 
 @app.route('/assets/<path:filename>')
 def serve_static_assets(filename):

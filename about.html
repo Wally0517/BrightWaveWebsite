@@ -40,6 +40,11 @@
       transition: top 0.2s ease;
     }
     .skip-link:focus { top: 1rem; }
+    .about-hero-bg {
+      background:
+        linear-gradient(130deg, rgba(5, 9, 15, 0.62) 0%, rgba(7, 13, 20, 0.86) 100%),
+        url('/assets/images/brightwave-hero-water-estate.jpg') center/cover no-repeat;
+    }
     .about-grid-line {
       background: linear-gradient(180deg, rgba(208, 176, 122, 0.32), rgba(113, 193, 186, 0.08));
       width: 1px;
@@ -86,7 +91,7 @@
   </header>
 
   <main id="main-content">
-    <section class="brand-hero relative overflow-hidden">
+    <section class="brand-hero about-hero-bg relative overflow-hidden">
       <div class="absolute inset-0 hero-overlay"></div>
       <div class="absolute inset-0 hero-pattern opacity-30"></div>
       <div class="container mx-auto px-4 py-24 md:py-32 relative z-10">
