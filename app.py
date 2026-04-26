@@ -2001,31 +2001,86 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BrightWave CEO">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        .ceo-nav-btn { color: #94a3b8; }
+        .ceo-nav-btn:hover { background: rgba(71,85,105,0.5); color: #e2e8f0; }
+        .ceo-nav-btn.active { background: #475569; color: #ffffff; font-weight: 600; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <script>
         const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
         const USER_NAME = '{{ user_name }}';
     </script>
-    <header class="bg-gray-800 shadow">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-400">BrightWave Habitat Enterprise</h1>
-                <p class="text-xs text-gray-400">CEO Dashboard &mdash; {{ user_name }}</p>
-            </div>
-            <div class="flex items-center gap-4">
-                {% if pending_sigs_count > 0 %}
-                <button onclick="showSection('signaturesSection')" class="relative bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg">
-                    Pending Signatures
-                    <span class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ pending_sigs_count }}</span>
-                </button>
-                {% endif %}
-                <button id="changePasswordBtn" class="text-slate-400 hover:text-slate-300 text-sm">Change Password</button>
-                <a href="/admin/logout" class="text-slate-400 hover:text-slate-300 text-sm">Logout</a>
+
+    <!-- HEADER -->
+    <header class="bg-slate-900 border-b border-slate-700/60 shadow-2xl sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-shrink-0">
+                        <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="h-10 w-10 rounded-full ring-2 ring-slate-400/40 shadow-lg object-cover">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full blur opacity-20 pointer-events-none"></div>
+                    </div>
+                    <div>
+                        <span class="text-lg font-bold text-white leading-none block">BrightWave</span>
+                        <p class="text-xs text-slate-400 font-medium">CEO Portal &middot; {{ user_name }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if pending_sigs_count > 0 %}
+                    <button onclick="showSection('signaturesSection')" class="relative bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium py-1.5 px-2 sm:px-3 rounded-lg transition-colors">
+                        <i class="fas fa-pen-nib mr-1"></i><span class="hidden sm:inline">Signatures</span>
+                        <span class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ pending_sigs_count }}</span>
+                    </button>
+                    {% endif %}
+                    <button id="changePasswordBtn" title="Change Password" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/60 transition-colors">
+                        <i class="fas fa-key text-sm"></i>
+                    </button>
+                    <a href="/admin/logout" class="bg-slate-700/70 hover:bg-slate-600 border border-slate-600/40 text-slate-300 hover:text-white text-sm px-3 py-1.5 rounded-lg transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </a>
+                </div>
             </div>
         </div>
     </header>
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+
+    <!-- NAV TABS -->
+    <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700/50 sticky top-16 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex gap-1 overflow-x-auto scrollbar-none py-2">
+                <button onclick="showSection('overviewSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-chart-line mr-1.5"></i>Overview
+                </button>
+                <button onclick="showSection('signaturesSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-signature mr-1.5"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-1.5 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
+                </button>
+                <button onclick="showSection('accountsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-users mr-1.5"></i>Accounts
+                </button>
+                <button onclick="showSection('investorsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie mr-1.5"></i>Investors
+                </button>
+                <button onclick="showSection('propertiesSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-building mr-1.5"></i>Properties
+                </button>
+                <button onclick="showSection('contentSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-globe mr-1.5"></i>Website
+                </button>
+                <button onclick="showSection('teamSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-id-card mr-1.5"></i>Our Team
+                </button>
+                <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-envelope mr-1.5"></i>Inquiries
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <!-- Change Password Form -->
         <section id="passwordForm" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Change Password</h2>
@@ -2042,20 +2097,6 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </form>
         </section>
 
-        <!-- CEO Navigation -->
-        <div class="mb-6 flex flex-wrap gap-2">
-            <button onclick="showSection('overviewSection')" class="ceo-nav-btn bg-slate-600 text-white text-sm px-4 py-2 rounded-lg">Overview</button>
-            <button onclick="showSection('signaturesSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">
-                Signatures
-                {% if pending_sigs_count > 0 %}<span class="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
-            </button>
-            <button onclick="showSection('accountsSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Team Accounts</button>
-            <button onclick="showSection('investorsSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Investors</button>
-            <button onclick="showSection('propertiesSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Properties</button>
-            <button onclick="showSection('contentSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Website</button>
-            <button onclick="showSection('teamSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Team</button>
-            <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Inquiries</button>
-        </div>
 
         <!-- PENDING SIGNATURES SECTION -->
         <section id="signaturesSection" class="mb-8 hidden">
@@ -2480,55 +2521,82 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 
                 // Main stats cards
                 document.getElementById('stats').innerHTML = `
-                    <div class="bg-slate-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-slate-300">Total Properties</h3>
-                        <p class="text-2xl font-bold">${stats.total_properties}</p>
-                        <p class="text-sm text-gray-400">Active: ${stats.active_properties}</p>
+                    <div class="bg-slate-700/80 border border-slate-600/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-building text-slate-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Properties</p>
+                            <p class="text-3xl font-bold text-white mt-0.5">${stats.total_properties}</p>
+                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active</p>
+                        </div>
                     </div>
-                    <div class="bg-green-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-green-300">Inquiries</h3>
-                        <p class="text-2xl font-bold">${stats.total_inquiries}</p>
-                        <p class="text-sm text-green-200">New: ${stats.new_inquiries}</p>
+                    <div class="bg-green-800/60 border border-green-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-green-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-search text-green-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-green-400 font-medium uppercase tracking-wide">Inquiries</p>
+                            <p class="text-3xl font-bold text-white mt-0.5">${stats.total_inquiries}</p>
+                            <p class="text-xs text-green-300 mt-1">${stats.new_inquiries} new</p>
+                        </div>
                     </div>
-                    <div class="bg-blue-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-blue-300">Messages</h3>
-                        <p class="text-2xl font-bold">${stats.contact_messages}</p>
-                        <p class="text-sm text-blue-200">New: ${stats.new_messages}</p>
+                    <div class="bg-blue-800/60 border border-blue-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-blue-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-envelope text-blue-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-blue-400 font-medium uppercase tracking-wide">Messages</p>
+                            <p class="text-3xl font-bold text-white mt-0.5">${stats.contact_messages}</p>
+                            <p class="text-xs text-blue-300 mt-1">${stats.new_messages} new</p>
+                        </div>
                     </div>
-                    <div class="bg-amber-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-amber-300">Properties by Type</h3>
-                        <p class="text-sm">Hostels: ${stats.property_breakdown.hostels}</p>
-                        <p class="text-sm">Land: ${stats.property_breakdown.land_plots}</p>
-                        <p class="text-sm">Residential: ${stats.property_breakdown.residential}</p>
+                    <div class="bg-amber-800/60 border border-amber-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-amber-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-layer-group text-amber-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-amber-400 font-medium uppercase tracking-wide">By Type</p>
+                            <p class="text-sm text-white mt-1">Hostels: <span class="font-bold">${stats.property_breakdown.hostels}</span></p>
+                            <p class="text-sm text-amber-200">Land: <span class="font-bold">${stats.property_breakdown.land_plots}</span> &nbsp; Homes: <span class="font-bold">${stats.property_breakdown.residential}</span></p>
+                        </div>
                     </div>
-                    <div class="bg-purple-700 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-purple-200">Active Team</h3>
-                        <p class="text-2xl font-bold">${stats.active_team_members}</p>
-                        <p class="text-sm text-purple-100">Shown on About page</p>
+                    <div class="bg-purple-800/60 border border-purple-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-purple-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-users text-purple-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-purple-400 font-medium uppercase tracking-wide">Active Team</p>
+                            <p class="text-3xl font-bold text-white mt-0.5">${stats.active_team_members}</p>
+                            <p class="text-xs text-purple-300 mt-1">On About page</p>
+                        </div>
                     </div>
                 `;
 
                 // Recent activity
+                const noActivity = '<p class="text-gray-500 text-sm italic">None yet</p>';
                 document.getElementById('recentActivity').innerHTML = `
-                    <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <h3 class="text-base font-semibold text-slate-300 mb-4 flex items-center gap-2"><i class="fas fa-clock text-slate-400"></i> Recent Activity</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <h4 class="font-medium mb-2">Latest Inquiries</h4>
-                            ${stats.recent_activity.inquiries.map(inq => `
-                                <div class="text-sm mb-2 p-2 bg-gray-700 rounded">
-                                    <strong>${inq.name}</strong> - ${inq.inquiry_type}
-                                    <br><span class="text-gray-400">${inq.created_at}</span>
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-search text-green-500"></i> Latest Inquiries</h4>
+                            ${stats.recent_activity.inquiries.length ? stats.recent_activity.inquiries.map(inq => `
+                                <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
+                                    <span class="font-semibold text-white">${inq.name}</span>
+                                    <span class="ml-2 text-xs bg-green-800/60 text-green-300 px-2 py-0.5 rounded-full">${inq.inquiry_type}</span>
+                                    <br><span class="text-gray-500 text-xs mt-1 block">${inq.created_at}</span>
                                 </div>
-                            `).join('')}
+                            `).join('') : noActivity}
                         </div>
                         <div>
-                            <h4 class="font-medium mb-2">Latest Messages</h4>
-                            ${stats.recent_activity.messages.map(msg => `
-                                <div class="text-sm mb-2 p-2 bg-gray-700 rounded">
-                                    <strong>${msg.name}</strong> - ${msg.form_origin}
-                                    <br><span class="text-gray-400">${msg.created_at}</span>
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-envelope text-blue-500"></i> Latest Messages</h4>
+                            ${stats.recent_activity.messages.length ? stats.recent_activity.messages.map(msg => `
+                                <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
+                                    <span class="font-semibold text-white">${msg.name}</span>
+                                    <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${msg.form_origin}</span>
+                                    <br><span class="text-gray-500 text-xs mt-1 block">${msg.created_at}</span>
                                 </div>
-                            `).join('')}
+                            `).join('') : noActivity}
                         </div>
                     </div>
                 `;
@@ -2914,15 +2982,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             });
             const target = document.getElementById(sectionId);
             if (target) target.classList.remove('hidden');
-            document.querySelectorAll('.ceo-nav-btn').forEach(btn => {
-                btn.classList.remove('bg-slate-600');
-                btn.classList.add('bg-gray-700');
-            });
+            document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.querySelector(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`);
-            if (activeBtn) {
-                activeBtn.classList.remove('bg-gray-700');
-                activeBtn.classList.add('bg-slate-600');
-            }
+            if (activeBtn) activeBtn.classList.add('active');
             if (sectionId === 'signaturesSection') loadPendingContracts();
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
