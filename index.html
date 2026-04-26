@@ -166,7 +166,7 @@
     <li><a href="#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">Properties</a></li>
     <li><a href="/about" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">About</a></li>
     <li><a href="/faq" class="text-slate-400 hover:text-slate-200 transition-all duration-300" role="menuitem" tabindex="0">FAQ</a></li>
-    <li><a href="#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">Contact</a></li>
+    <li><a href="/contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300 relative" role="menuitem" tabindex="0">Contact</a></li>
   </ul>
     </nav>
     
@@ -178,7 +178,7 @@
           <li><a href="#properties" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300" role="menuitem" tabindex="0">Properties</a></li>
           <li><a href="/about" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300" role="menuitem" tabindex="0">About</a></li>
           <li><a href="/faq" class="text-slate-400 hover:text-slate-200 transition-all duration-300" role="menuitem" tabindex="0">FAQ</a></li>
-          <li><a href="#contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300" role="menuitem" tabindex="0">Contact</a></li>
+          <li><a href="/contact" class="text-slate-400 hover:text-slate-200 nav-link transition-all duration-300" role="menuitem" tabindex="0">Contact</a></li>
         </ul>
     </div>
   </header>
@@ -218,7 +218,7 @@
               <i class="fas fa-search text-lg"></i>
               <span>View available opportunities</span>
             </a>
-            <a href="#contact" class="brand-button-secondary">
+            <a href="/contact" class="brand-button-secondary">
               <i class="fas fa-calendar-check text-lg"></i>
               <span>Book inspection or enquiry</span>
             </a>
@@ -389,7 +389,7 @@
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Phased execution</li>
             <li><i class="fas fa-check text-[var(--bw-accent)] mr-2"></i>Community planning</li>
           </ul>
-          <a href="#contact" class="brand-button-secondary w-full">Discuss a Project</a>
+          <a href="/contact" class="brand-button-secondary w-full">Discuss a Project</a>
         </div>
       </div>
     </div>
@@ -475,115 +475,6 @@
     </div>
   </section>
 
-  <!-- Contact Section -->
-  <section id="contact" class="py-20 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800" data-aos="fade-up" data-aos-duration="1000">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
-        <h2 class="text-4xl md:text-5xl font-bold mb-4">Get In <span class="gradient-text">Touch</span></h2>
-        <p class="text-lg text-gray-300 max-w-3xl mx-auto">Ready to find your perfect property or investment opportunity? Let's start the conversation.</p>
-      </div>
-      
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        <!-- Contact Form -->
-        <div class="glass-effect p-8 rounded-2xl">
-          <h3 class="text-2xl font-bold mb-6 text-slate-300">Send Us a Message</h3>
-          <form id="contactForm" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label class="sr-only" for="fullName">Full name</label>
-              <input type="text" id="fullName" name="fullName" placeholder="Your Full Name" autocomplete="name" required 
-                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
-              <label class="sr-only" for="email">Email address</label>
-              <input type="email" id="email" name="email" placeholder="Your Email" autocomplete="email" required 
-                     class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
-            </div>
-            <label class="sr-only" for="phone">Phone number</label>
-            <input type="tel" id="phone" name="phone" placeholder="Your Phone Number" autocomplete="tel" required 
-                   class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300" />
-            <label class="sr-only" for="interest">Area of interest</label>
-            <select id="interest" name="interest" required 
-                    class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300">
-              <option value="">I'm interested in...</option>
-              <option value="student-hostel">Student Hostels</option>
-              <option value="land-purchase">Land Purchase</option>
-              <option value="residential-home">Residential Homes</option>
-              <option value="estate-development">Estate Development</option>
-              <option value="general-inquiry">General Inquiry</option>
-            </select>
-            <label class="sr-only" for="message">Your message</label>
-            <textarea id="message" name="message" placeholder="Tell us more about what you're looking for..." rows="5" required 
-                      class="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-slate-400 transition-all duration-300"></textarea>
-            <p class="text-sm text-gray-400">This opens your device email app with your message drafted so you can send it directly from Gmail, Outlook, Apple Mail, or any mail app you use.</p>
-            <button type="submit" id="submitButton" 
-                    class="w-full bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition-all duration-300 font-semibold text-lg hover-lift flex items-center justify-center">
-              <span>Open Email Draft</span>
-              <i class="fas fa-paper-plane ml-2"></i>
-              <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
-            </button>
-          </form>
-          <div id="formStatus" class="text-center mt-4 font-semibold" aria-live="polite"></div>
-        </div>
-        
-        <!-- Contact Information -->
-        <div class="space-y-8">
-          <div class="glass-effect p-6 rounded-xl">
-            <h3 class="text-xl font-bold mb-4 text-slate-300">Contact Information</h3>
-            <div class="space-y-4">
-              <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                  <i class="fas fa-envelope text-white"></i>
-                </div>
-                <div>
-                  <h4 class="font-semibold">Email</h4>
-                  <a href="mailto:brightwavehabitat@gmail.com" class="text-slate-300 hover:text-slate-200">brightwavehabitat@gmail.com</a>
-                </div>
-              </div>
-              
-              <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center">
-                  <i class="fab fa-whatsapp text-white"></i>
-                </div>
-                <div>
-                  <h4 class="font-semibold">WhatsApp</h4>
-                  <div class="space-y-1">
-                    <a href="https://wa.me/2348037669462" class="block text-pink-400 hover:text-pink-300">+234 803 766 9462</a>
-                    <a href="https://wa.me/2349038402914" class="block text-pink-400 hover:text-pink-300">+234 903 840 2914</a>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-amber-600 rounded-full flex items-center justify-center">
-                  <i class="fas fa-map-marker-alt text-white"></i>
-                </div>
-                <div>
-                  <h4 class="font-semibold">Location</h4>
-                  <p class="text-gray-300">Malete, Kwara State, Nigeria</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Social Media -->
-          <div class="glass-effect p-6 rounded-xl">
-            <h3 class="text-xl font-bold mb-4 text-slate-300">Follow Us</h3>
-            <div class="flex space-x-4">
-              <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-300 hover-lift">
-                <i class="fab fa-facebook-f text-white"></i>
-              </a>
-              <a href="https://x.com/brightwave__?s=21" class="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-700 transition-all duration-300 hover-lift">
-                <i class="fab fa-x-twitter text-white"></i>
-              </a>
-              <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="w-12 h-12 bg-pink-600 rounded-full flex items-center justify-center hover:bg-pink-700 transition-all duration-300 hover-lift">
-                <i class="fab fa-instagram text-white"></i>
-              </a>
-            </div>
-          </div>
-          
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- Footer -->
   <footer class="bg-gray-800 text-white py-12">
     <div class="container mx-auto px-4">
@@ -608,7 +499,7 @@
             <li><a href="#services" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Services</a></li>
             <li><a href="#properties" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Properties</a></li>
             <li><a href="/about" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">About Us</a></li>
-            <li><a href="#contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Contact</a></li>
+            <li><a href="/contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Contact</a></li>
           </ul>
         </div>
         
@@ -619,7 +510,7 @@
             <li><a href="#student-hostels" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Student Hostels</a></li>
             <li><a href="#land-sales" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Land Sales</a></li>
             <li><a href="#residential" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Residential Homes</a></li>
-            <li><a href="#contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Estate Development</a></li>
+            <li><a href="/contact" class="text-gray-300 hover:text-slate-300 transition-colors duration-300">Estate Development</a></li>
           </ul>
         </div>
         
@@ -918,61 +809,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
       
-      function openDraftEmail({ subject, body }) {
-        const mailto = `mailto:brightwavehabitat@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailto;
-      }
-
-      // Form submission
-      const contactForm = document.getElementById('contactForm');
-      const submitButton = document.getElementById('submitButton');
-      const submitSpinner = document.getElementById('submitSpinner');
-      const formStatus = document.getElementById('formStatus');
-
-      contactForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        // Show loading state
-        submitButton.disabled = true;
-        submitSpinner.classList.remove('hidden');
-        formStatus.textContent = '';
-
-        const formData = new FormData(contactForm);
-        const fullName = formData.get('fullName');
-        const email = formData.get('email');
-        const phone = formData.get('phone');
-        const interest = formData.get('interest');
-        const message = formData.get('message');
-        const interestLabels = {
-          'student-hostel': 'Student Hostels',
-          'land-purchase': 'Land Purchase',
-          'residential-home': 'Residential Homes',
-          'estate-development': 'Estate Development',
-          'general-inquiry': 'General Inquiry'
-        };
-        const interestLabel = interestLabels[interest] || interest || 'General Inquiry';
-        const subject = `BrightWave Website Enquiry - ${interestLabel}`;
-        const body = [
-          'Hello BrightWave,',
-          '',
-          'A visitor from the homepage wants to contact you.',
-          '',
-          `Full name: ${fullName}`,
-          `Email: ${email}`,
-          `Phone: ${phone}`,
-          `Interest: ${interestLabel}`,
-          '',
-          'Message:',
-          message
-        ].join('\n');
-
-        openDraftEmail({ subject, body });
-        formStatus.textContent = 'Your email app should open with this message drafted. If nothing opens, email brightwavehabitat@gmail.com directly.';
-        formStatus.className = 'text-center mt-4 font-semibold text-pink-400';
-        submitButton.disabled = false;
-        submitSpinner.classList.add('hidden');
-      });
-
       fetch('/api/site-content')
         .then(response => response.json())
         .then(content => {
@@ -1039,7 +875,7 @@ document.addEventListener('keydown', (e) => {
     return '/hostels/phase1';
   }
 
-  return '#contact';
+  return '/contact';
 }
 
     function renderProperties(properties) {

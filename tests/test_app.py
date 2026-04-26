@@ -47,6 +47,22 @@ def test_faq_page_returns_200(client):
     assert r.status_code == 200
 
 
+def test_contact_page_returns_200(client):
+    r = client.get('/contact')
+    assert r.status_code == 200
+    assert b'BrightWave' in r.data
+
+
+def test_contact_page_has_form(client):
+    r = client.get('/contact')
+    assert b'contactForm' in r.data
+
+
+def test_contact_page_no_redirect_stub(client):
+    r = client.get('/contact')
+    assert b'meta http-equiv' not in r.data.lower().replace(b' ', b'')
+
+
 def test_health_returns_ok(client):
     r = client.get('/health')
     assert r.status_code == 200
@@ -223,8 +239,8 @@ def _email_body_array(html: str, form_id: str) -> str:
     return ' '.join(matches)
 
 
-def test_homepage_email_draft_no_page_url(client):
-    r = client.get('/')
+def test_contact_page_email_draft_no_page_url(client):
+    r = client.get('/contact')
     body_array = _email_body_array(r.data.decode(), 'contactForm')
     assert 'window.location.href' not in body_array
 

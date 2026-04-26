@@ -1,46 +1,356 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index,follow" />
+  <link rel="canonical" href="https://www.brightwavehabitat.com/contact" />
+  <meta name="description" content="Get in touch with BrightWave Habitat Enterprise. Enquire about student accommodation, land opportunities, residential homes, or any property matter." />
+  <meta property="og:title" content="Contact | BrightWave Habitat Enterprise" />
+  <meta property="og:description" content="Reach BrightWave by email or WhatsApp for student accommodation, land, homes, and general property enquiries." />
+  <meta property="og:image" content="https://www.brightwavehabitat.com/assets/images/brightwave-hero-water-estate.jpg" />
+  <meta property="og:image:alt" content="BrightWave Habitat premium waterfront estate visual" />
+  <meta property="og:url" content="https://www.brightwavehabitat.com/contact" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Contact | BrightWave Habitat Enterprise" />
+  <meta name="twitter:description" content="Reach BrightWave by email or WhatsApp for student accommodation, land, homes, and general property enquiries." />
+  <meta name="twitter:image" content="https://www.brightwavehabitat.com/assets/images/brightwave-hero-water-estate.jpg" />
+  <meta name="twitter:image:alt" content="BrightWave Habitat premium waterfront estate visual" />
   <title>Contact | BrightWave Habitat Enterprise</title>
-  <link rel="icon" href="/assets/images/brightwave-logo.png" />
-  <link rel="canonical" href="https://www.brightwavehabitat.com/" />
-  <meta name="robots" content="noindex,follow" />
-  <meta http-equiv="refresh" content="0; url=/#contact" />
+  <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/assets/style.css" />
   <style>
-    body {
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 1.5rem;
+    .skip-link{position:absolute;left:1rem;top:-3rem;z-index:100;padding:.75rem 1rem;border-radius:.75rem;background:#fff;color:#111827;font-weight:700;transition:top .2s ease}
+    .skip-link:focus{top:1rem}
+    .contact-hero{
+      background:
+        linear-gradient(135deg, rgba(18, 28, 43, 0.74), rgba(10, 16, 26, 0.92)),
+        url('/assets/images/brightwave-hero-water-estate.jpg') center/cover no-repeat;
+    }
+    .field-input{
+      width:100%;
+      border-radius:1rem;
+      border:1px solid rgba(236,224,209,0.12);
+      background:rgba(8,12,20,0.58);
+      padding:1rem 1.1rem;
+      color:var(--bw-text);
+      outline:none;
+      transition:border-color .25s ease, background .25s ease, transform .25s ease;
+    }
+    .field-input:focus{
+      border-color:rgba(199,151,96,0.54);
+      background:rgba(11,18,28,0.82);
+      transform:translateY(-1px);
+    }
+    .field-input::placeholder{color:rgba(236,224,209,0.52)}
+    .contact-info-card{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(236,224,209,0.1);
+    }
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation:none !important;transition:none !important}
     }
   </style>
 </head>
-<body>
-  <main class="surface-panel rounded-[2rem] p-8 md:p-10 max-w-2xl w-full text-center">
-    <p class="section-kicker mb-3">Redirecting</p>
-    <h1 class="brand-display text-4xl md:text-5xl font-semibold mb-5">Taking you to <span class="gradient-text">BrightWave contact</span>.</h1>
-    <p class="text-slate-300 leading-8 max-w-xl mx-auto mb-8">The main contact experience lives on the homepage so all enquiries stay in one place. Your destination is loading now.</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl mx-auto">
-      <a id="fallback" href="/#contact" class="brand-button">
-        <i class="fas fa-paper-plane"></i>
-        <span>Go to contact</span>
+<body class="font-sans text-white">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="site-header">
+    <nav class="container mx-auto px-4 py-4 flex items-center justify-between" aria-label="Primary">
+      <a href="/" class="flex items-center space-x-3">
+        <div class="relative">
+          <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-12 w-12 rounded-full ring-2 ring-white/20 shadow-lg" />
+          <div class="absolute -inset-1 rounded-full bg-white/10 blur"></div>
+        </div>
+        <div>
+          <p class="text-xl font-semibold text-white">BrightWave</p>
+          <p class="text-xs uppercase tracking-[0.28em] text-white/55">Habitat Enterprise</p>
+        </div>
       </a>
-      <a href="/" class="brand-button-secondary">
-        <i class="fas fa-home"></i>
-        <span>Back to homepage</span>
-      </a>
+
+      <button id="mobile-menu-toggle" class="md:hidden rounded-full border border-white/10 p-3 text-white" aria-label="Toggle navigation menu" aria-expanded="false">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <ul class="hidden md:flex items-center space-x-8 text-sm font-semibold uppercase tracking-[0.22em]">
+        <li><a href="/" class="nav-link">Home</a></li>
+        <li><a href="/#services" class="nav-link">Services</a></li>
+        <li><a href="/#properties" class="nav-link">Properties</a></li>
+        <li><a href="/about" class="nav-link">About</a></li>
+        <li><a href="/faq" class="nav-link">FAQ</a></li>
+        <li><a href="/contact" class="nav-link active">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div id="mobile-menu" class="hidden border-t border-white/10 bg-[rgba(7,12,20,0.98)] md:hidden">
+      <ul class="flex flex-col px-6 py-6 text-sm font-semibold uppercase tracking-[0.2em] text-white/75">
+        <li><a href="/" class="block py-3">Home</a></li>
+        <li><a href="/#services" class="block py-3">Services</a></li>
+        <li><a href="/#properties" class="block py-3">Properties</a></li>
+        <li><a href="/about" class="block py-3">About</a></li>
+        <li><a href="/faq" class="block py-3">FAQ</a></li>
+        <li><a href="/contact" class="block py-3 text-white">Contact</a></li>
+      </ul>
     </div>
+  </header>
+
+  <main id="main-content">
+    <section class="contact-hero brand-hero relative overflow-hidden">
+      <div class="hero-pattern absolute inset-0 opacity-35"></div>
+      <div class="container relative z-10 mx-auto px-4 py-28 md:py-36">
+        <div class="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <div class="max-w-4xl">
+            <p class="section-kicker mb-4">Get in touch</p>
+            <h1 class="brand-display text-5xl md:text-7xl font-semibold leading-[0.96] mb-6">Start a direct conversation with BrightWave.</h1>
+            <p class="section-lead max-w-3xl text-white/80">
+              Whether you are a student looking for accommodation, a parent enquiring about safety and rates, or an investor with a broader interest — the right next step is a direct message.
+            </p>
+          </div>
+          <aside class="surface-panel rounded-[2rem] p-8">
+            <p class="section-kicker mb-4">Fastest routes</p>
+            <div class="space-y-5">
+              <div class="flex items-start gap-4">
+                <i class="fas fa-envelope text-[var(--bw-accent)] mt-1"></i>
+                <div>
+                  <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">Email</p>
+                  <a href="mailto:brightwavehabitat@gmail.com" class="text-white/85 hover:text-white transition-colors">brightwavehabitat@gmail.com</a>
+                </div>
+              </div>
+              <div class="flex items-start gap-4">
+                <i class="fab fa-whatsapp text-[var(--bw-sea)] mt-1"></i>
+                <div>
+                  <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">WhatsApp</p>
+                  <a href="https://wa.me/2348037669462" class="block text-white/85 hover:text-white transition-colors">+234 803 766 9462</a>
+                  <a href="https://wa.me/2349038402914" class="block text-white/85 hover:text-white transition-colors">+234 903 840 2914</a>
+                </div>
+              </div>
+              <div class="flex items-start gap-4">
+                <i class="fas fa-map-marker-alt text-white/60 mt-1"></i>
+                <div>
+                  <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">Location</p>
+                  <p class="text-white/85">Malete, Kwara State, Nigeria</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell">
+      <div class="container mx-auto px-4">
+        <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+
+          <form id="contactForm" class="surface-panel rounded-[2rem] p-8 md:p-10">
+            <p class="section-kicker mb-3">Send a message</p>
+            <h2 class="brand-display text-3xl font-semibold mb-8">Tell BrightWave what you need.</h2>
+            <div class="grid gap-5">
+              <div>
+                <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="fullName">Full name</label>
+                <input id="fullName" name="fullName" class="field-input" type="text" autocomplete="name" placeholder="Your full name" required />
+              </div>
+              <div class="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="email">Email</label>
+                  <input id="email" name="email" class="field-input" type="email" autocomplete="email" placeholder="name@example.com" required />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="phone">Phone</label>
+                  <input id="phone" name="phone" class="field-input" type="tel" autocomplete="tel" placeholder="+234..." required />
+                </div>
+              </div>
+              <div>
+                <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="interest">Area of interest</label>
+                <select id="interest" name="interest" class="field-input" required>
+                  <option value="">I'm interested in...</option>
+                  <option value="student-hostel">Student Hostels</option>
+                  <option value="land-purchase">Land Purchase</option>
+                  <option value="residential-home">Residential Homes</option>
+                  <option value="estate-development">Estate Development</option>
+                  <option value="general-inquiry">General Inquiry</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-2 block text-sm font-semibold uppercase tracking-[0.16em] text-white/60" for="message">Your message</label>
+                <textarea id="message" name="message" class="field-input min-h-[180px]" placeholder="Tell BrightWave what you're looking for — rates, availability, inspection, or a general question." required></textarea>
+              </div>
+              <p class="text-sm leading-7 text-white/55">This opens your device email app with your message drafted so you can send it directly from Gmail, Outlook, Apple Mail, or any mail app you use.</p>
+              <button id="submitButton" type="submit" class="brand-button justify-center">
+                Open Email Draft
+                <i class="fas fa-paper-plane ml-2"></i>
+                <i id="submitSpinner" class="fas fa-spinner ml-2 hidden animate-spin"></i>
+              </button>
+              <p id="formStatus" class="text-sm font-medium text-white/70" aria-live="polite"></p>
+            </div>
+          </form>
+
+          <div class="space-y-6">
+            <div class="surface-panel rounded-[2rem] p-8">
+              <p class="section-kicker mb-4">Contact details</p>
+              <div class="space-y-6">
+                <div class="flex items-start gap-4">
+                  <div class="w-11 h-11 rounded-full bg-[rgba(199,151,96,0.14)] border border-[var(--bw-border)] flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-envelope text-[var(--bw-accent)]"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">Email</p>
+                    <a href="mailto:brightwavehabitat@gmail.com" class="text-white/85 hover:text-white transition-colors">brightwavehabitat@gmail.com</a>
+                  </div>
+                </div>
+                <div class="flex items-start gap-4">
+                  <div class="w-11 h-11 rounded-full bg-[rgba(113,193,186,0.12)] border border-[var(--bw-border)] flex items-center justify-center flex-shrink-0">
+                    <i class="fab fa-whatsapp text-[var(--bw-sea)]"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">WhatsApp</p>
+                    <a href="https://wa.me/2348037669462" class="block text-white/85 hover:text-white transition-colors">+234 803 766 9462</a>
+                    <a href="https://wa.me/2349038402914" class="block text-white/85 hover:text-white transition-colors mt-1">+234 903 840 2914</a>
+                  </div>
+                </div>
+                <div class="flex items-start gap-4">
+                  <div class="w-11 h-11 rounded-full bg-[rgba(255,255,255,0.04)] border border-[var(--bw-border)] flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-map-marker-alt text-white/60"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/60 mb-1">Location</p>
+                    <p class="text-white/85">Malete, Kwara State, Nigeria</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="surface-panel rounded-[2rem] p-8">
+              <p class="section-kicker mb-4">Follow BrightWave</p>
+              <div class="flex gap-3">
+                <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="BrightWave on Facebook" class="w-11 h-11 rounded-full bg-[rgba(255,255,255,0.06)] border border-[var(--bw-border)] flex items-center justify-center hover:bg-[rgba(199,151,96,0.14)] hover:border-[var(--bw-border-strong)] transition-all duration-300">
+                  <i class="fab fa-facebook-f text-white/70"></i>
+                </a>
+                <a href="https://x.com/brightwave__?s=21" target="_blank" rel="noopener" aria-label="BrightWave on X" class="w-11 h-11 rounded-full bg-[rgba(255,255,255,0.06)] border border-[var(--bw-border)] flex items-center justify-center hover:bg-[rgba(199,151,96,0.14)] hover:border-[var(--bw-border-strong)] transition-all duration-300">
+                  <i class="fab fa-x-twitter text-white/70"></i>
+                </a>
+                <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" target="_blank" rel="noopener" aria-label="BrightWave on Instagram" class="w-11 h-11 rounded-full bg-[rgba(255,255,255,0.06)] border border-[var(--bw-border)] flex items-center justify-center hover:bg-[rgba(199,151,96,0.14)] hover:border-[var(--bw-border-strong)] transition-all duration-300">
+                  <i class="fab fa-instagram text-white/70"></i>
+                </a>
+              </div>
+            </div>
+
+            <div class="surface-panel rounded-[2rem] p-8">
+              <p class="section-kicker mb-3">What to include</p>
+              <ul class="space-y-3 text-sm leading-7 text-white/70">
+                <li class="flex items-start gap-3"><i class="fas fa-check text-[var(--bw-accent)] mt-1 flex-shrink-0"></i>What you're enquiring about (hostel, land, home)</li>
+                <li class="flex items-start gap-3"><i class="fas fa-check text-[var(--bw-sea)] mt-1 flex-shrink-0"></i>Your move-in timeline or purchase intent</li>
+                <li class="flex items-start gap-3"><i class="fas fa-check text-white/60 mt-1 flex-shrink-0"></i>Whether you want rates, an inspection, or more detail</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
+  <footer class="site-footer">
+    <div class="container mx-auto px-4 py-12">
+      <div class="grid gap-10 md:grid-cols-3">
+        <div>
+          <div class="flex items-center space-x-3">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave Habitat Enterprise Logo" class="h-11 w-11 rounded-full" />
+            <div>
+              <p class="text-lg font-semibold text-white">BrightWave</p>
+              <p class="text-xs uppercase tracking-[0.24em] text-white/55">Habitat Enterprise</p>
+            </div>
+          </div>
+          <p class="mt-4 max-w-sm text-sm leading-7 text-white/60">A property brand focused on credible delivery, sharper presentation, and a stronger customer experience across hostels, land, and residential growth.</p>
+        </div>
+        <div>
+          <p class="section-kicker mb-4">Navigate</p>
+          <div class="space-y-3 text-sm uppercase tracking-[0.16em] text-white/65">
+            <a href="/" class="block hover:text-white transition-colors">Home</a>
+            <a href="/#properties" class="block hover:text-white transition-colors">Properties</a>
+            <a href="/about" class="block hover:text-white transition-colors">About</a>
+            <a href="/faq" class="block hover:text-white transition-colors">FAQ</a>
+          </div>
+        </div>
+        <div>
+          <p class="section-kicker mb-4">Contact</p>
+          <div class="space-y-3 text-sm leading-7 text-white/65">
+            <p>brightwavehabitat@gmail.com</p>
+            <p>+234 803 766 9462</p>
+            <p>Malete, Kwara State, Nigeria</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="fixed bottom-6 right-6 z-50">
+    <a href="https://wa.me/2348037669462" target="_blank" rel="noopener" aria-label="WhatsApp BrightWave" class="bg-[var(--bw-accent)] hover:opacity-90 text-slate-950 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover-lift">
+      <i class="fab fa-whatsapp text-2xl"></i>
+    </a>
+  </div>
+
   <script>
-    const qs = window.location.search || '';
-    const target = `/${qs}#contact`;
-    document.getElementById('fallback').href = target;
-    window.location.replace(target);
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileToggle && mobileMenu) {
+      mobileToggle.addEventListener('click', () => {
+        const isHidden = mobileMenu.classList.toggle('hidden');
+        mobileToggle.setAttribute('aria-expanded', String(!isHidden));
+      });
+    }
+
+    function openDraftEmail({ subject, body }) {
+      window.location.href = `mailto:brightwavehabitat@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+
+    const contactForm = document.getElementById('contactForm');
+    const submitButton = document.getElementById('submitButton');
+    const submitSpinner = document.getElementById('submitSpinner');
+    const formStatus = document.getElementById('formStatus');
+
+    if (contactForm) {
+      contactForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitButton.disabled = true;
+        submitSpinner.classList.remove('hidden');
+        formStatus.textContent = '';
+
+        const formData = new FormData(contactForm);
+        const fullName = formData.get('fullName');
+        const email = formData.get('email');
+        const phone = formData.get('phone');
+        const interest = formData.get('interest');
+        const message = formData.get('message');
+        const interestLabels = {
+          'student-hostel': 'Student Hostels',
+          'land-purchase': 'Land Purchase',
+          'residential-home': 'Residential Homes',
+          'estate-development': 'Estate Development',
+          'general-inquiry': 'General Inquiry'
+        };
+        const interestLabel = interestLabels[interest] || interest || 'General Inquiry';
+        const subject = `BrightWave Enquiry - ${interestLabel}`;
+        const body = [
+          'Hello BrightWave,',
+          '',
+          `Full name: ${fullName}`,
+          `Email: ${email}`,
+          `Phone: ${phone}`,
+          `Interest: ${interestLabel}`,
+          '',
+          'Message:',
+          message
+        ].join('\n');
+
+        openDraftEmail({ subject, body });
+        formStatus.textContent = 'Your email app should open with this message drafted. If nothing opens, email brightwavehabitat@gmail.com directly.';
+        formStatus.className = 'text-sm font-medium text-emerald-300';
+        submitButton.disabled = false;
+        submitSpinner.classList.add('hidden');
+      });
+    }
   </script>
 </body>
 </html>
