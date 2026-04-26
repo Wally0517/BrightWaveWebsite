@@ -11,7 +11,7 @@ import os
 import logging
 import re
 import secrets
-from datetime import datetime
+from datetime import datetime, date as date_type
 from time import time
 from collections import defaultdict
 from functools import wraps
@@ -98,21 +98,16 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ========== DATABASE MODELS ==========
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(120), nullable=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(20), default='admin')  # 'admin' or 'viewer'
+    role = db.Column(db.String(20), default='CEO')  # primary role: CEO, MANAGER, ACCOUNTANT, REALTOR, INVESTOR
+    secondary_roles = db.Column(db.JSON, default=list)  # e.g. ["REALTOR"] for a manager who also does sales
+    display_name = db.Column(db.String(120), nullable=True)
+    has_signed_contract = db.Column(db.Boolean, default=False)
+    contract_signed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
-    login_logs = db.relationship('LoginLog', backref='admin', lazy='dynamic')
-
-class LoginLog(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
-    ip_address = db.Column(db.String(45), nullable=True)
-    user_agent = db.Column(db.String(300), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Property(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -180,35 +175,40 @@ class TeamMember(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class Tenant(db.Model):
+class UserContract(db.Model):
+    __tablename__ = 'user_contract'
     id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), nullable=True)
-    phone = db.Column(db.String(20), nullable=False)
-    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=True)
-    unit_number = db.Column(db.String(20), nullable=True)
-    move_in_date = db.Column(db.Date, nullable=True)
-    move_out_date = db.Column(db.Date, nullable=True)
-    status = db.Column(db.String(20), default='active')
-    rent_amount = db.Column(db.Float, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    contract_type = db.Column(db.String(20), nullable=False)
+    # pending_user_signature, pending_ceo_signature, completed
+    status = db.Column(db.String(30), default='pending_user_signature')
+    user_signed_at = db.Column(db.DateTime, nullable=True)
+    user_signature = db.Column(db.String(200), nullable=True)
+    ceo_signed_at = db.Column(db.DateTime, nullable=True)
+    ceo_signature = db.Column(db.String(200), nullable=True)
+    popup_shown = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('Admin', backref='contracts', foreign_keys=[user_id])
+
+class InvestorProfile(db.Model):
+    __tablename__ = 'investor_profile'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), unique=True, nullable=False)
+    investment_type = db.Column(db.String(10), nullable=False, default='DEBT')  # DEBT or EQUITY
+    investment_amount = db.Column(db.Float, nullable=False)
+    investment_date = db.Column(db.Date, nullable=True)
+    roi_rate = db.Column(db.Float, default=10.0)         # annual % for DEBT investors
+    equity_percentage = db.Column(db.Float, nullable=True)  # % project ownership for EQUITY
+    construction_start_date = db.Column(db.Date, nullable=True)
+    expected_completion_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    total_distributed = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    property = db.relationship('Property', backref='tenants')
-
-class PaymentRecord(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
-    amount = db.Column(db.Float, nullable=False)
-    payment_date = db.Column(db.Date, nullable=False)
-    payment_type = db.Column(db.String(30), default='rent')
-    description = db.Column(db.String(200), nullable=True)
-    notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    tenant = db.relationship('Tenant', backref='payments')
+    user = db.relationship('Admin', backref='investor_profile_rel', foreign_keys=[user_id])
 
 DEFAULT_SITE_CONTENT = {
-    'home.hero_badge': '',
+    'home.hero_badge': 'Trusted property for students, families, and investors',
     'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
     'home.hero_subtitle': 'BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.',
     'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
@@ -219,7 +219,7 @@ DEFAULT_SITE_CONTENT = {
 }
 
 LEGACY_SITE_CONTENT = {
-    'home.hero_badge': '',
+    'home.hero_badge': 'Trusted property for students, families, and investors',
     'home.hero_title': 'Building trusted property opportunities across Nigeria.',
     'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors with live student accommodation in Malete and broader property opportunities presented with clearer process and stronger trust.',
     'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
@@ -229,8 +229,8 @@ LEGACY_SITE_CONTENT = {
 
 OLDER_LEGACY_SITE_CONTENT = {
     'home.hero_badge': 'Now Open: BrightWave Hostel Phase 1',
-    'home.hero_title': 'Affordable Student Apartment units that are ready in Malete.',
-    'home.hero_subtitle': 'The first 10 Student Apartment units are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
+    'home.hero_title': 'Affordable student rooms that are ready in Malete.',
+    'home.hero_subtitle': 'The first 10 self-contained rooms are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
     'home.about_intro': 'BrightWave Habitat Enterprise is focused on real, present inventory first. Phase 1 is open now, while future hostel, land, and residential projects are shown clearly as upcoming.',
     'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, starting with BrightWave Hostel Phase 1 in Malete.',
     'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to build housing people can actually trust. We are currently leading with BrightWave Hostel Phase 1 in Malete, while future hostels, land opportunities, and residential projects remain in the pipeline until they are ready to be presented properly.',
@@ -333,7 +333,9 @@ def create_admin_user():
     admin = Admin(
         username=username,
         email=email,
-        password_hash=generate_password_hash(password)
+        password_hash=generate_password_hash(password),
+        role='CEO',
+        has_signed_contract=True
     )
     db.session.add(admin)
     try:
@@ -352,7 +354,7 @@ def init_sample_data():
     # --- Hostels (keep images) ---
     phase1 = Property(
         title='BrightWave Phase 1 Hostel',
-        description='Modern 10-unit Student Apartment hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
+        description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
         property_type='hostel',
         location='Malete, Kwara State, Nigeria',
         price=None, price_type='Now Open - Contact for Rates',
@@ -369,7 +371,7 @@ def init_sample_data():
         property_type='hostel', location='Malete, Kwara State',
         price=480000, price_type='per session',
         total_rooms=20, available_rooms=20,
-        amenities=['Student Apartment units','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
+        amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
         images=['images/hostels/brightwave-phase2-render.jpg'],
         construction_status='planning', completion_date=datetime(2027, 6, 30).date(),
         featured=False, status='active'
@@ -381,7 +383,7 @@ def init_sample_data():
         property_type='hostel', location='GreenCity, Malete, Kwara State',
         price=520000, price_type='per session',
         total_rooms=40, available_rooms=40,
-        amenities=['Student Apartment units','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
+        amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
         images=['images/hostels/brightwave-phase3-concept.jpg'],
         construction_status='pending', completion_date=datetime(2028, 12, 31).date(),
         featured=False, status='active'
@@ -517,10 +519,177 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_id' not in session:
-            return redirect('/management/login')
+            return redirect(url_for('admin_login'))
         ensure_runtime_state()
         return f(*args, **kwargs)
     return decorated_function
+
+def get_current_admin():
+    return Admin.query.get(session.get('admin_id'))
+
+def ceo_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_id' not in session:
+            return jsonify({"success": False, "message": "Authentication required"}), 401
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+CONTRACT_TEXTS = {
+    'MANAGER': {
+        'title': 'Property & Operations Manager Agreement',
+        'body': """PROPERTY & OPERATIONS MANAGER AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Manager access to this portal ("the Manager").
+
+1. ROLE AND RESPONSIBILITIES
+The Manager is responsible for overseeing property readiness, daily operations, tenant relations, and site standards across all active BrightWave properties. The Manager reports directly to the CEO and is accountable for the operational performance of all assigned properties.
+
+2. SYSTEM ACCESS
+The Manager is granted access to property management, inquiry handling, team oversight, and operational data within the BrightWave management portal. Access to full financial records and investor data is restricted to authorised personnel only.
+
+3. CONFIDENTIALITY
+All property data, client information, tenant details, team data, and operational information accessed through this portal are strictly confidential. The Manager agrees not to disclose any such information to third parties without written CEO approval. This obligation survives the termination of this agreement.
+
+4. CODE OF CONDUCT
+The Manager agrees to maintain the highest professional standards in all interactions with tenants, clients, contractors, and team members. Any conduct that damages the reputation of BrightWave Habitat Enterprise may result in immediate access revocation and legal action.
+
+5. DATA SECURITY
+The Manager is solely responsible for keeping their login credentials secure and must not share access with any other person. Any breach of system security must be reported to the CEO immediately.
+
+6. INTELLECTUAL PROPERTY
+All work produced, materials created, and processes developed during the term of this agreement remain the intellectual property of BrightWave Habitat Enterprise.
+
+7. AGREEMENT TERM
+This agreement is effective from the date both parties sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct or breach of any term of this agreement.
+
+By signing below, the Manager confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+    },
+    'ACCOUNTANT': {
+        'title': 'Financial Controller Agreement',
+        'body': """FINANCIAL CONTROLLER AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Accountant access to this portal ("the Accountant").
+
+1. ROLE AND RESPONSIBILITIES
+The Accountant is responsible for tracking all financial transactions, managing rent collection records, overseeing investor distributions, preparing financial reports, and maintaining accurate financial data within the BrightWave management system.
+
+2. SYSTEM ACCESS
+The Accountant is granted access to financial dashboards, investor distribution records, payment tracking, and all financial data within the portal. Access to operational management functions beyond financial oversight is restricted.
+
+3. STRICT FINANCIAL CONFIDENTIALITY
+The Accountant acknowledges that all financial information, investor data, payment records, profit figures, and any financial details accessed through this system are strictly confidential. Disclosure of any financial information to unauthorised parties constitutes a serious breach of this agreement and may result in legal proceedings.
+
+4. ACCURACY AND INTEGRITY
+The Accountant agrees to maintain the highest standard of accuracy in all financial records. Any discrepancies discovered must be reported to the CEO immediately. Deliberate falsification of financial records will result in immediate termination and potential criminal proceedings.
+
+5. INVESTOR DATA PROTECTION
+Investor names, investment amounts, and personal financial details are subject to the highest level of protection. The Accountant must not discuss, share, or reference investor information outside of official company communications.
+
+6. COMPLIANCE
+The Accountant agrees to operate in accordance with applicable Nigerian financial regulations and accounting standards throughout the term of this agreement.
+
+7. DATA SECURITY
+The Accountant is responsible for keeping login credentials secure at all times and must report any suspected unauthorised access immediately.
+
+8. AGREEMENT TERM
+This agreement is effective from the date both parties sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, financial fraud, or breach of confidentiality.
+
+By signing below, the Accountant confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+    },
+    'REALTOR': {
+        'title': 'Real Estate Agent Agreement',
+        'body': """REAL ESTATE AGENT AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Realtor access to this portal ("the Realtor").
+
+1. ROLE AND RESPONSIBILITIES
+The Realtor is responsible for managing client inquiries, conducting property showings, handling lead pipelines, and facilitating the sales or letting process for all BrightWave properties. The Realtor operates as an authorised representative of BrightWave Habitat Enterprise.
+
+2. SYSTEM ACCESS
+The Realtor is granted access to property listings, client inquiries, and lead management features within the portal. Access to financial records, investor data, and administrative functions is restricted.
+
+3. CLIENT REPRESENTATION
+The Realtor agrees to represent BrightWave Habitat Enterprise and its clients with professionalism and integrity at all times. All client interactions must be conducted in accordance with the company's standards and values.
+
+4. EXCLUSIVITY FOR LISTED PROPERTIES
+For properties actively listed under BrightWave Habitat Enterprise, the Realtor agrees to represent only BrightWave's interests and must not simultaneously represent competing parties on the same transaction without prior written CEO approval.
+
+5. COMMISSION STRUCTURE
+Commission rates and payment terms are as agreed separately with the CEO and are subject to review. Commissions are earned upon successful completion of a transaction and are subject to company payment schedules.
+
+6. CONFIDENTIALITY
+All client details, property pricing information, negotiation discussions, and internal company information are strictly confidential. The Realtor agrees not to disclose such information to competitors or unauthorised parties.
+
+7. CODE OF CONDUCT
+The Realtor agrees to maintain honest, transparent, and professional conduct at all times. Misrepresentation of any property or company information to clients is strictly prohibited and will result in immediate termination.
+
+8. DATA SECURITY
+The Realtor is responsible for keeping their login credentials secure and must report any suspected breach immediately.
+
+9. AGREEMENT TERM
+This agreement is effective from the date both parties sign and remains in force until terminated by either party with 7 days written notice, or immediately by the Company in the event of serious misconduct or breach of any term herein.
+
+By signing below, the Realtor confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+    },
+    'INVESTOR': {
+        'title': 'Investment Agreement — BrightWave Habitat Enterprise',
+        'body': """INVESTMENT AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the investor granted access to this portal ("the Investor").
+
+IMPORTANT NOTICE — PLEASE READ CAREFULLY
+
+---
+
+1. COMPANY OVERVIEW
+BrightWave Habitat Enterprise is a Nigerian real estate development company focused on student accommodation, residential housing, and estate development. The Company is currently in its early growth phase, with Phase 1 (BrightWave Hostel, Malete, Kwara State) as the first completed project.
+
+2. PRE-REVENUE PHASE DISCLOSURE
+The Investor acknowledges and accepts that the current investment coincides with an active construction and development phase. No distributions or returns will be made during the construction period, which is estimated at 12 to 18 months from the investment date. Returns commence upon project completion and first revenue generation. The exact timeline may vary due to construction, regulatory, or market factors beyond the Company's control.
+
+3. INVESTMENT TERMS
+The specific investment amount, type (Debt or Equity), return rate, and distribution schedule applicable to this Investor are as specified in the Investor's profile within this portal and as separately confirmed in writing by the CEO. These terms are personalised and confidential.
+
+   DEBT INVESTMENT TERMS:
+   — The Investor lends capital to the Company at the agreed annual interest rate.
+   — Interest distributions are paid annually, commencing after project completion.
+   — Principal is returned at the end of the agreed investment term.
+   — The annual return rate recommended by the Company for founding investors is 10% per annum.
+
+   EQUITY INVESTMENT TERMS:
+   — The Investor acquires an ownership stake in a specific BrightWave development project (not the entire company).
+   — Distributions are made from project revenues on an annual basis, proportional to the equity stake.
+   — The equity stake may appreciate or depreciate based on project performance.
+   — There is no guaranteed fixed return for equity investors.
+
+4. RISK DISCLOSURE
+The Investor acknowledges that real estate investment carries inherent risks, including but not limited to: construction delays, cost overruns, changes in market conditions, regulatory changes, and force majeure events. The Company will communicate all material developments in a timely manner, but cannot guarantee specific outcomes.
+
+5. USE OF FUNDS
+All investment funds will be used exclusively for property development, construction costs, professional services, regulatory compliance, and operational setup directly related to BrightWave projects. A detailed fund utilisation breakdown is available upon request from the CEO.
+
+6. TRANSPARENCY AND REPORTING
+The Company commits to providing the Investor with regular updates through this portal, including construction progress milestones, financial performance reports, and distribution schedules. The Investor's dashboard will reflect current project status at all times.
+
+7. CONFIDENTIALITY
+The Investor agrees to keep the terms of this agreement, their investment amount, and all non-public company information strictly confidential. Disclosure of such information to competitors or the public without written CEO approval is a breach of this agreement.
+
+8. PORTAL ACCESS
+Access to the Investor Portal is granted solely to the named Investor for the purpose of monitoring their investment. Access credentials must not be shared. The Company reserves the right to revoke portal access at any time.
+
+9. GOVERNING LAW
+This agreement is governed by the laws of the Federal Republic of Nigeria. Any dispute arising from this agreement shall be resolved through good-faith negotiation, and if unresolved, through the applicable Nigerian legal framework.
+
+10. BINDING AGREEMENT
+This agreement becomes binding upon the digital signatures of both the Investor and the CEO of BrightWave Habitat Enterprise. Both parties will retain a signed copy accessible through the portal.
+
+By signing below, the Investor confirms they have read, understood, accepted all risk disclosures, and fully agree to all terms outlined in this agreement."""
+    }
+}
 
 CANONICAL_HOST = SITE_URL.replace("https://", "").replace("http://", "")
 REDIRECT_HOSTS = {
@@ -559,15 +728,13 @@ def enforce_canonical_urls():
 
 @app.before_request
 def enforce_admin_csrf():
-    is_admin = request.path.startswith('/admin/')
-    is_mgmt = request.path.startswith('/management/api/')
-    if not is_admin and not is_mgmt:
+    if not request.path.startswith('/admin/'):
         return None
 
     if request.method not in {'POST', 'PUT', 'DELETE'}:
         return None
 
-    if request.path in {'/admin/login', '/management/login'} or 'admin_id' not in session:
+    if request.path == '/admin/login' or 'admin_id' not in session:
         return None
 
     if not validate_csrf_token():
@@ -615,13 +782,9 @@ def serve_hostels():
     return send_from_directory('.', 'hostels.html') if os.path.exists('hostels.html') \
             else send_from_directory('.', 'index.html')
 
-@app.route('/hostels/phase1')
-def serve_hostel_phase1():
-    return send_from_directory('.', 'hostel-detail.html')
-
 @app.route('/hostels/detail')
 def serve_hostel_detail():
-    return redirect(url_for('serve_hostel_phase1'), 301)
+    return send_from_directory('.', 'hostel-detail.html')
 
 @app.route('/assets/<path:filename>')
 def serve_static_assets(filename):
@@ -630,6 +793,69 @@ def serve_static_assets(filename):
 @app.route('/health')
 def health():
     return 'ok', 200
+
+@app.route('/manifest.json')
+def pwa_manifest():
+    manifest = {
+        "name": "BrightWave Habitat Enterprise",
+        "short_name": "BrightWave",
+        "description": "BrightWave Habitat Enterprise Management Portal",
+        "start_url": "/admin/dashboard",
+        "scope": "/admin/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#111827",
+        "theme_color": "#475569",
+        "icons": [
+            {"src": "/assets/images/brightwave-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/brightwave-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ]
+    }
+    from flask import Response
+    return Response(json.dumps(manifest), mimetype='application/json')
+
+@app.route('/sw.js')
+def service_worker():
+    sw_code = """
+const CACHE_NAME = 'brightwave-portal-v1';
+const STATIC_ASSETS = ['/admin/login'];
+
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+        )
+    );
+    self.clients.claim();
+});
+
+// Network-first: always try network, fall back to cache for navigation
+self.addEventListener('fetch', event => {
+    if (event.request.method !== 'GET') return;
+    if (event.request.url.includes('/admin/api/')) return; // never cache API calls
+
+    event.respondWith(
+        fetch(event.request)
+            .then(response => {
+                if (response.ok) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                }
+                return response;
+            })
+            .catch(() => caches.match(event.request))
+    );
+});
+"""
+    from flask import Response
+    return Response(sw_code, mimetype='application/javascript')
 
 @app.route('/api/site-content', methods=['GET'])
 def get_public_site_content():
@@ -925,7 +1151,6 @@ def handle_property_inquiry():
 
 # ========== ADMIN DASHBOARD ENHANCEMENTS ==========
 @app.route('/admin/api/stats')
-@app.route('/management/api/stats')
 @login_required
 def admin_stats():
     """Get enhanced dashboard statistics"""
@@ -980,7 +1205,6 @@ def admin_stats():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/site-content', methods=['GET', 'PUT'])
-@app.route('/management/api/site-content', methods=['GET', 'PUT'])
 @login_required
 def admin_site_content():
     try:
@@ -1003,7 +1227,6 @@ def admin_site_content():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/team-members', methods=['GET', 'POST'])
-@app.route('/management/api/team-members', methods=['GET', 'POST'])
 @login_required
 def admin_team_members():
     try:
@@ -1032,7 +1255,6 @@ def admin_team_members():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/team-members/<int:member_id>', methods=['PUT', 'DELETE'])
-@app.route('/management/api/team-members/<int:member_id>', methods=['PUT', 'DELETE'])
 @login_required
 def admin_team_member_detail(member_id):
     try:
@@ -1063,7 +1285,6 @@ def admin_team_member_detail(member_id):
 
 # ========== FILE UPLOAD API ==========
 @app.route('/admin/api/upload', methods=['POST'])
-@app.route('/management/api/upload', methods=['POST'])
 @login_required
 def upload_image():
     """Handle property image uploads"""
@@ -1083,50 +1304,45 @@ def upload_image():
         logger.error(f"Error uploading image: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== MANAGEMENT / ADMIN AUTHENTICATION ==========
+# ========== ADMIN AUTHENTICATION ==========
 @app.route('/admin/login', methods=['GET', 'POST'])
-@app.route('/management', methods=['GET'])
-@app.route('/management/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def admin_login():
+    """Handle admin login"""
     if request.method == 'POST':
         try:
             ensure_runtime_state()
             data = request.get_json()
             username = data.get('username')
             password = data.get('password')
+            
             if not username or not password:
                 return jsonify({"success": False, "message": "Username and password required"}), 400
+            
             admin = Admin.query.filter_by(username=username, is_active=True).first()
+            
             if admin and check_password_hash(admin.password_hash, password):
                 session['admin_id'] = admin.id
                 session['admin_role'] = admin.role
                 session['csrf_token'] = secrets.token_urlsafe(32)
-                try:
-                    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
-                    ua = (request.user_agent.string or '')[:300]
-                    db.session.add(LoginLog(admin_id=admin.id, ip_address=ip, user_agent=ua))
-                    db.session.commit()
-                except Exception:
-                    pass
-                return jsonify({"success": True, "message": "Login successful", "redirect": "/management/dashboard"})
+                return jsonify({"success": True, "message": "Login successful", "redirect": "/admin/dashboard"})
             else:
                 return jsonify({"success": False, "message": "Invalid credentials"}), 401
         except Exception as e:
             logger.error(f"Error during login: {str(e)}")
             return jsonify({"success": False, "message": "Internal server error"}), 500
-    return send_from_directory('.', 'management_login.html')
+    
+    return render_template_string(LOGIN_TEMPLATE)
 
 @app.route('/admin/logout')
-@app.route('/management/logout')
 @login_required
 def admin_logout():
+    """Handle admin logout"""
     session.pop('admin_id', None)
     session.pop('csrf_token', None)
-    return redirect('/management/login')
+    return redirect(url_for('admin_login'))
 
 @app.route('/admin/api/update-password', methods=['POST'])
-@app.route('/management/api/update-password', methods=['POST'])
 @login_required
 def update_admin_password():
     """Update admin password"""
@@ -1146,15 +1362,66 @@ def update_admin_password():
         logger.error(f"Error updating password: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== MANAGEMENT DASHBOARD ==========
+# ========== ADMIN DASHBOARD ==========
 @app.route('/admin/dashboard')
-@app.route('/management/dashboard')
 @login_required
 def admin_dashboard():
-    return send_from_directory('.', 'management_dashboard.html')
+    """Render role-aware admin dashboard"""
+    admin = get_current_admin()
+    if not admin or not admin.is_active:
+        session.clear()
+        return redirect(url_for('admin_login'))
+
+    user_name = admin.display_name or admin.username
+
+    if admin.role == 'CEO':
+        pending_sigs_count = UserContract.query.filter_by(status='pending_ceo_signature').count()
+        return render_template_string(
+            ENHANCED_ADMIN_DASHBOARD_TEMPLATE,
+            csrf_token=get_csrf_token(),
+            user_role='CEO',
+            user_name=user_name,
+            pending_sigs_count=pending_sigs_count,
+        )
+
+    # Non-CEO: handle contract signing flow
+    contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
+    if not contract:
+        contract = UserContract(user_id=admin.id, contract_type=admin.role, status='pending_user_signature')
+        db.session.add(contract)
+        db.session.commit()
+
+    needs_contract_signing = (contract.status == 'pending_user_signature')
+    awaiting_ceo_signature = (contract.status == 'pending_ceo_signature')
+    show_agreement_popup = False
+    if contract.status == 'completed' and not contract.popup_shown:
+        show_agreement_popup = True
+        contract.popup_shown = True
+        db.session.commit()
+
+    investor_profile = None
+    if admin.role == 'INVESTOR':
+        investor_profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
+
+    all_roles = [admin.role] + (admin.secondary_roles or [])
+
+    return render_template_string(
+        ROLE_DASHBOARD_TEMPLATE,
+        csrf_token=get_csrf_token(),
+        user_role=admin.role,
+        all_roles=all_roles,
+        all_roles_json=json.dumps(all_roles),
+        user_name=user_name,
+        needs_contract_signing=needs_contract_signing,
+        awaiting_ceo_signature=awaiting_ceo_signature,
+        show_agreement_popup=show_agreement_popup,
+        contract_id=contract.id,
+        contract_title=CONTRACT_TEXTS.get(admin.role, {}).get('title', 'Agreement'),
+        contract_body=CONTRACT_TEXTS.get(admin.role, {}).get('body', ''),
+        investor_profile=investor_profile,
+    )
 
 @app.route('/admin/api/properties', methods=['GET', 'POST'])
-@app.route('/management/api/properties', methods=['GET', 'POST'])
 @login_required
 def admin_properties():
     """Handle property CRUD operations"""
@@ -1221,7 +1488,6 @@ def admin_properties():
             return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/properties/<int:property_id>', methods=['PUT', 'DELETE'])
-@app.route('/management/api/properties/<int:property_id>', methods=['PUT', 'DELETE'])
 @login_required
 def admin_property_detail(property_id):
     """Update or delete property"""
@@ -1269,7 +1535,6 @@ def admin_property_detail(property_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/inquiries', methods=['GET'])
-@app.route('/management/api/inquiries', methods=['GET'])
 @login_required
 def admin_get_inquiries():
     """Get all property inquiries"""
@@ -1296,7 +1561,6 @@ def admin_get_inquiries():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/inquiries/<int:inquiry_id>', methods=['PUT'])
-@app.route('/management/api/inquiries/<int:inquiry_id>', methods=['PUT'])
 @login_required
 def admin_update_inquiry(inquiry_id):
     """Update inquiry status and priority"""
@@ -1315,7 +1579,6 @@ def admin_update_inquiry(inquiry_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/contact-messages', methods=['GET'])
-@app.route('/management/api/contact-messages', methods=['GET'])
 @login_required
 def admin_get_contact_messages():
     """Get all contact messages with form origin tracking"""
@@ -1337,7 +1600,6 @@ def admin_get_contact_messages():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/contact-messages/<int:message_id>', methods=['PUT'])
-@app.route('/management/api/contact-messages/<int:message_id>', methods=['PUT'])
 @login_required
 def admin_update_contact_message(message_id):
     """Update contact message status"""
@@ -1352,429 +1614,299 @@ def admin_update_contact_message(message_id):
         logger.error(f"Error updating contact message {message_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== MANAGEMENT-ONLY API ROUTES ==========
-
-@app.route('/management/api/me', methods=['GET'])
+# ========== CONTRACT API ==========
+@app.route('/admin/api/my-contract/sign', methods=['POST'])
 @login_required
-def management_me():
+def sign_my_contract():
     try:
-        admin = Admin.query.get(session['admin_id'])
-        return jsonify({
-            'id': admin.id if admin else None,
-            'username': admin.username if admin else '',
-            'full_name': admin.full_name if admin else '',
-            'role': admin.role if admin else 'viewer',
-            'csrf_token': get_csrf_token()
-        })
-    except Exception as e:
-        logger.error(f"Error fetching admin me: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
+        admin = get_current_admin()
+        data = request.get_json()
+        signature = (data.get('signature') or '').strip()
+        if not signature or len(signature) < 2:
+            return jsonify({"success": False, "message": "Signature is required"}), 400
 
+        contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
+        if not contract or contract.status != 'pending_user_signature':
+            return jsonify({"success": False, "message": "No contract pending your signature"}), 400
 
-@app.route('/management/api/overview', methods=['GET'])
-@login_required
-def management_overview():
-    try:
-        ensure_cms_baseline()
-        from sqlalchemy import func
-        from datetime import date
-
-        active_tenants = Tenant.query.filter_by(status='active').count()
-        total_units = Property.query.filter_by(property_type='hostel', status='active').with_entities(
-            func.coalesce(func.sum(Property.total_rooms), 0)
-        ).scalar() or 0
-        occupancy_pct = round((active_tenants / total_units * 100) if total_units > 0 else 0, 1)
-
-        today = date.today()
-        month_start = today.replace(day=1)
-        monthly_revenue = db.session.query(func.coalesce(func.sum(PaymentRecord.amount), 0)).filter(
-            PaymentRecord.payment_date >= month_start
-        ).scalar() or 0
-
-        total_revenue = db.session.query(func.coalesce(func.sum(PaymentRecord.amount), 0)).scalar() or 0
-
-        new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
-        new_messages = ContactMessage.query.filter_by(status='new').count()
-
-        recent_payments = PaymentRecord.query.order_by(PaymentRecord.payment_date.desc()).limit(5).all()
-        recent_tenants = Tenant.query.order_by(Tenant.created_at.desc()).limit(5).all()
-
-        return jsonify({
-            'active_tenants': active_tenants,
-            'total_units': total_units,
-            'occupancy_pct': occupancy_pct,
-            'monthly_revenue': monthly_revenue,
-            'total_revenue': total_revenue,
-            'new_inquiries': new_inquiries,
-            'new_messages': new_messages,
-            'recent_payments': [{
-                'id': p.id,
-                'tenant_name': p.tenant.full_name if p.tenant else 'Unknown',
-                'amount': p.amount,
-                'payment_type': p.payment_type,
-                'payment_date': p.payment_date.isoformat(),
-            } for p in recent_payments],
-            'recent_tenants': [{
-                'id': t.id,
-                'full_name': t.full_name,
-                'unit_number': t.unit_number,
-                'status': t.status,
-                'move_in_date': t.move_in_date.isoformat() if t.move_in_date else None,
-            } for t in recent_tenants],
-        })
-    except Exception as e:
-        logger.error(f"Error fetching overview: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
-
-
-@app.route('/management/api/tenants', methods=['GET', 'POST'])
-@login_required
-def management_tenants():
-    try:
-        if request.method == 'GET':
-            status_filter = request.args.get('status')
-            q = Tenant.query
-            if status_filter:
-                q = q.filter_by(status=status_filter)
-            tenants = q.order_by(Tenant.created_at.desc()).all()
-            return jsonify([{
-                'id': t.id,
-                'full_name': t.full_name,
-                'email': t.email,
-                'phone': t.phone,
-                'property_id': t.property_id,
-                'property_title': t.property.title if t.property else None,
-                'unit_number': t.unit_number,
-                'move_in_date': t.move_in_date.isoformat() if t.move_in_date else None,
-                'move_out_date': t.move_out_date.isoformat() if t.move_out_date else None,
-                'status': t.status,
-                'rent_amount': t.rent_amount,
-                'notes': t.notes,
-                'created_at': t.created_at.isoformat(),
-            } for t in tenants])
-
-        data = request.get_json() or {}
-        if not all([data.get('full_name'), data.get('phone')]):
-            return jsonify({"success": False, "message": "Full name and phone are required"}), 400
-
-        move_in = None
-        move_out = None
-        if data.get('move_in_date'):
-            try:
-                move_in = datetime.strptime(data['move_in_date'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
-        if data.get('move_out_date'):
-            try:
-                move_out = datetime.strptime(data['move_out_date'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
-
-        tenant = Tenant(
-            full_name=data['full_name'].strip(),
-            email=(data.get('email') or '').strip() or None,
-            phone=data['phone'].strip(),
-            property_id=data.get('property_id') or None,
-            unit_number=(data.get('unit_number') or '').strip() or None,
-            move_in_date=move_in,
-            move_out_date=move_out,
-            status=data.get('status', 'active'),
-            rent_amount=data.get('rent_amount') or None,
-            notes=(data.get('notes') or '').strip() or None,
-        )
-        db.session.add(tenant)
+        contract.user_signature = signature
+        contract.user_signed_at = datetime.utcnow()
+        contract.status = 'pending_ceo_signature'
         db.session.commit()
-        return jsonify({"success": True, "message": "Tenant added successfully", "id": tenant.id})
+        return jsonify({"success": True, "message": "Contract signed. Awaiting CEO co-signature."})
     except Exception as e:
-        logger.error(f"Error managing tenants: {str(e)}")
+        logger.error(f"Error signing contract: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-
-@app.route('/management/api/tenants/<int:tenant_id>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/admin/api/pending-contracts', methods=['GET'])
 @login_required
-def management_tenant_detail(tenant_id):
+@ceo_required
+def get_pending_contracts():
     try:
-        tenant = Tenant.query.get_or_404(tenant_id)
-
-        if request.method == 'GET':
-            return jsonify({
-                'id': tenant.id,
-                'full_name': tenant.full_name,
-                'email': tenant.email,
-                'phone': tenant.phone,
-                'property_id': tenant.property_id,
-                'property_title': tenant.property.title if tenant.property else None,
-                'unit_number': tenant.unit_number,
-                'move_in_date': tenant.move_in_date.isoformat() if tenant.move_in_date else None,
-                'move_out_date': tenant.move_out_date.isoformat() if tenant.move_out_date else None,
-                'status': tenant.status,
-                'rent_amount': tenant.rent_amount,
-                'notes': tenant.notes,
-                'payments': [{
-                    'id': p.id,
-                    'amount': p.amount,
-                    'payment_date': p.payment_date.isoformat(),
-                    'payment_type': p.payment_type,
-                    'description': p.description,
-                } for p in tenant.payments],
+        contracts = UserContract.query.filter_by(status='pending_ceo_signature').order_by(UserContract.created_at.asc()).all()
+        result = []
+        for c in contracts:
+            user = Admin.query.get(c.user_id)
+            result.append({
+                'id': c.id,
+                'user_id': c.user_id,
+                'user_name': user.display_name or user.username if user else 'Unknown',
+                'user_email': user.email if user else '',
+                'role': c.contract_type,
+                'user_signature': c.user_signature,
+                'user_signed_at': c.user_signed_at.strftime('%Y-%m-%d %H:%M') if c.user_signed_at else '',
+                'created_at': c.created_at.strftime('%Y-%m-%d'),
             })
-
-        if request.method == 'DELETE':
-            db.session.delete(tenant)
-            db.session.commit()
-            return jsonify({"success": True, "message": "Tenant removed"})
-
-        data = request.get_json() or {}
-        if not all([data.get('full_name'), data.get('phone')]):
-            return jsonify({"success": False, "message": "Full name and phone are required"}), 400
-
-        move_in = tenant.move_in_date
-        move_out = tenant.move_out_date
-        if data.get('move_in_date'):
-            try:
-                move_in = datetime.strptime(data['move_in_date'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
-        if data.get('move_out_date'):
-            try:
-                move_out = datetime.strptime(data['move_out_date'], '%Y-%m-%d').date()
-            except ValueError:
-                pass
-
-        tenant.full_name = data['full_name'].strip()
-        tenant.email = (data.get('email') or '').strip() or None
-        tenant.phone = data['phone'].strip()
-        tenant.property_id = data.get('property_id') or None
-        tenant.unit_number = (data.get('unit_number') or '').strip() or None
-        tenant.move_in_date = move_in
-        tenant.move_out_date = move_out
-        tenant.status = data.get('status', tenant.status)
-        tenant.rent_amount = data.get('rent_amount') or None
-        tenant.notes = (data.get('notes') or '').strip() or None
-        tenant.updated_at = datetime.utcnow()
-        db.session.commit()
-        return jsonify({"success": True, "message": "Tenant updated successfully"})
+        return jsonify(result)
     except Exception as e:
-        logger.error(f"Error managing tenant {tenant_id}: {str(e)}")
+        logger.error(f"Error fetching pending contracts: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-
-@app.route('/management/api/payments', methods=['GET', 'POST'])
+@app.route('/admin/api/contracts/<int:contract_id>/ceo-sign', methods=['POST'])
 @login_required
-def management_payments():
+@ceo_required
+def ceo_sign_contract(contract_id):
+    try:
+        ceo = get_current_admin()
+        data = request.get_json()
+        signature = (data.get('signature') or '').strip()
+        if not signature or len(signature) < 2:
+            return jsonify({"success": False, "message": "CEO signature is required"}), 400
+
+        contract = UserContract.query.get_or_404(contract_id)
+        if contract.status != 'pending_ceo_signature':
+            return jsonify({"success": False, "message": "Contract is not awaiting CEO signature"}), 400
+
+        contract.ceo_signature = signature
+        contract.ceo_signed_at = datetime.utcnow()
+        contract.status = 'completed'
+        contract.popup_shown = False  # triggers popup on user's next login
+
+        user = Admin.query.get(contract.user_id)
+        if user:
+            user.has_signed_contract = True
+            user.contract_signed_at = datetime.utcnow()
+
+        db.session.commit()
+        return jsonify({"success": True, "message": "Agreement completed. Both parties have signed."})
+    except Exception as e:
+        logger.error(f"Error CEO signing contract {contract_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== TEAM ACCOUNTS API ==========
+@app.route('/admin/api/accounts', methods=['GET', 'POST'])
+@login_required
+@ceo_required
+def admin_accounts():
     try:
         if request.method == 'GET':
-            payments = PaymentRecord.query.order_by(PaymentRecord.payment_date.desc()).all()
-            return jsonify([{
-                'id': p.id,
-                'tenant_id': p.tenant_id,
-                'tenant_name': p.tenant.full_name if p.tenant else None,
-                'amount': p.amount,
-                'payment_date': p.payment_date.isoformat(),
-                'payment_type': p.payment_type,
-                'description': p.description,
-                'notes': p.notes,
-                'created_at': p.created_at.isoformat(),
-            } for p in payments])
+            accounts = Admin.query.order_by(Admin.created_at.desc()).all()
+            result = []
+            for a in accounts:
+                contract = UserContract.query.filter_by(user_id=a.id).order_by(UserContract.created_at.desc()).first()
+                result.append({
+                    'id': a.id,
+                    'username': a.username,
+                    'email': a.email,
+                    'role': a.role,
+                    'secondary_roles': a.secondary_roles or [],
+                    'display_name': a.display_name or '',
+                    'is_active': a.is_active,
+                    'has_signed_contract': a.has_signed_contract,
+                    'contract_status': contract.status if contract else 'no_contract',
+                    'created_at': a.created_at.strftime('%Y-%m-%d'),
+                })
+            return jsonify(result)
 
-        data = request.get_json() or {}
-        if not all([data.get('amount'), data.get('payment_date')]):
-            return jsonify({"success": False, "message": "Amount and payment date are required"}), 400
+        data = request.get_json()
+        required = ['username', 'email', 'password', 'role']
+        if not all(data.get(f) for f in required):
+            return jsonify({"success": False, "message": "Username, email, password, and role are required"}), 400
 
-        try:
-            pay_date = datetime.strptime(data['payment_date'], '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({"success": False, "message": "Invalid payment date format"}), 400
+        valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+        if data['role'] not in valid_roles:
+            return jsonify({"success": False, "message": f"Role must be one of: {', '.join(valid_roles)}"}), 400
 
-        payment = PaymentRecord(
-            tenant_id=data.get('tenant_id') or None,
-            amount=float(data['amount']),
-            payment_date=pay_date,
-            payment_type=data.get('payment_type', 'rent'),
-            description=(data.get('description') or '').strip() or None,
-            notes=(data.get('notes') or '').strip() or None,
-        )
-        db.session.add(payment)
-        db.session.commit()
-        return jsonify({"success": True, "message": "Payment recorded successfully", "id": payment.id})
-    except Exception as e:
-        logger.error(f"Error managing payments: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
-
-
-@app.route('/management/api/payments/<int:payment_id>', methods=['PUT', 'DELETE'])
-@login_required
-def management_payment_detail(payment_id):
-    try:
-        payment = PaymentRecord.query.get_or_404(payment_id)
-
-        if request.method == 'DELETE':
-            db.session.delete(payment)
-            db.session.commit()
-            return jsonify({"success": True, "message": "Payment record deleted"})
-
-        data = request.get_json() or {}
-        if not all([data.get('amount'), data.get('payment_date')]):
-            return jsonify({"success": False, "message": "Amount and payment date are required"}), 400
-
-        try:
-            pay_date = datetime.strptime(data['payment_date'], '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({"success": False, "message": "Invalid payment date format"}), 400
-
-        payment.tenant_id = data.get('tenant_id') or None
-        payment.amount = float(data['amount'])
-        payment.payment_date = pay_date
-        payment.payment_type = data.get('payment_type', payment.payment_type)
-        payment.description = (data.get('description') or '').strip() or None
-        payment.notes = (data.get('notes') or '').strip() or None
-        db.session.commit()
-        return jsonify({"success": True, "message": "Payment record updated"})
-    except Exception as e:
-        logger.error(f"Error managing payment {payment_id}: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
-
-
-# ========== ACCOUNTS & LOGIN LOG API ==========
-
-def admin_only(f):
-    """Extra decorator: rejects non-admin roles with 403."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        admin = Admin.query.get(session.get('admin_id'))
-        if not admin or admin.role != 'admin':
-            return jsonify({"success": False, "message": "Admin role required"}), 403
-        return f(*args, **kwargs)
-    return decorated
-
-
-def serialize_admin(a, include_last_login=False):
-    data = {
-        'id': a.id,
-        'full_name': a.full_name or '',
-        'username': a.username,
-        'email': a.email,
-        'role': a.role,
-        'is_active': a.is_active,
-        'created_at': a.created_at.isoformat(),
-    }
-    if include_last_login:
-        last = LoginLog.query.filter_by(admin_id=a.id).order_by(LoginLog.created_at.desc()).first()
-        data['last_login'] = last.created_at.isoformat() if last else None
-        data['last_login_ip'] = last.ip_address if last else None
-    return data
-
-
-@app.route('/management/api/accounts', methods=['GET', 'POST'])
-@login_required
-@admin_only
-def management_accounts():
-    try:
-        if request.method == 'GET':
-            accounts = Admin.query.order_by(Admin.created_at.asc()).all()
-            return jsonify([serialize_admin(a, include_last_login=True) for a in accounts])
-
-        data = request.get_json() or {}
-        username = (data.get('username') or '').strip()
-        password = (data.get('password') or '').strip()
-        email = (data.get('email') or '').strip()
-        full_name = (data.get('full_name') or '').strip()
-        role = data.get('role', 'viewer')
-
-        if not username or not password or not email:
-            return jsonify({"success": False, "message": "Username, email, and password are required"}), 400
-        if len(password) < 8:
+        if len(data['password']) < 8:
             return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
-        if role not in ('admin', 'viewer'):
-            return jsonify({"success": False, "message": "Role must be admin or viewer"}), 400
-        if Admin.query.filter_by(username=username).first():
-            return jsonify({"success": False, "message": "Username already taken"}), 400
-        if Admin.query.filter_by(email=email).first():
-            return jsonify({"success": False, "message": "Email already in use"}), 400
+
+        raw_secondary = data.get('secondary_roles') or []
+        secondary = [r for r in raw_secondary if r in valid_roles and r != data['role'] and r != 'CEO']
 
         new_admin = Admin(
-            full_name=full_name or None,
-            username=username,
-            email=email,
-            password_hash=generate_password_hash(password),
-            role=role,
-            is_active=True
+            username=data['username'].strip(),
+            email=data['email'].strip().lower(),
+            password_hash=generate_password_hash(data['password']),
+            role=data['role'],
+            secondary_roles=secondary,
+            display_name=(data.get('display_name') or '').strip() or None,
+            is_active=True,
+            has_signed_contract=False,
         )
         db.session.add(new_admin)
         db.session.commit()
-        return jsonify({"success": True, "message": "Account created", "account": serialize_admin(new_admin)})
+        return jsonify({"success": True, "message": f"{data['role']} account created successfully", "id": new_admin.id})
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Username or email already exists"}), 409
     except Exception as e:
         logger.error(f"Error managing accounts: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-
-@app.route('/management/api/accounts/<int:account_id>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/admin/api/accounts/<int:account_id>', methods=['PUT', 'DELETE'])
 @login_required
-@admin_only
-def management_account_detail(account_id):
+@ceo_required
+def admin_account_detail(account_id):
     try:
         account = Admin.query.get_or_404(account_id)
+        ceo = get_current_admin()
 
-        if request.method == 'GET':
-            return jsonify(serialize_admin(account, include_last_login=True))
-
-        if request.method == 'DELETE':
-            if account.id == session.get('admin_id'):
-                return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
-            db.session.delete(account)
+        if request.method == 'PUT':
+            data = request.get_json()
+            if 'display_name' in data:
+                account.display_name = (data['display_name'] or '').strip() or None
+            if 'is_active' in data:
+                if account.id == ceo.id and not data['is_active']:
+                    return jsonify({"success": False, "message": "Cannot deactivate your own account"}), 400
+                account.is_active = bool(data['is_active'])
+            if 'role' in data and account.id != ceo.id:
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                if data['role'] in valid_roles:
+                    account.role = data['role']
+            if 'secondary_roles' in data and account.id != ceo.id:
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                primary = data.get('role', account.role)
+                account.secondary_roles = [r for r in (data['secondary_roles'] or []) if r in valid_roles and r != primary and r != 'CEO']
+            if data.get('new_password') and len(data['new_password']) >= 8:
+                account.password_hash = generate_password_hash(data['new_password'])
             db.session.commit()
-            return jsonify({"success": True, "message": "Account deleted"})
+            return jsonify({"success": True, "message": "Account updated"})
 
-        data = request.get_json() or {}
-        if 'full_name' in data:
-            account.full_name = (data['full_name'] or '').strip() or None
-        if 'email' in data:
-            email = (data['email'] or '').strip()
-            existing = Admin.query.filter_by(email=email).first()
-            if existing and existing.id != account_id:
-                return jsonify({"success": False, "message": "Email already in use"}), 400
-            account.email = email
-        if 'role' in data:
-            if account.id == session.get('admin_id') and data['role'] != 'admin':
-                return jsonify({"success": False, "message": "Cannot demote your own account"}), 400
-            if data['role'] in ('admin', 'viewer'):
-                account.role = data['role']
-        if 'is_active' in data:
-            if account.id == session.get('admin_id') and not data['is_active']:
-                return jsonify({"success": False, "message": "Cannot disable your own account"}), 400
-            account.is_active = bool(data['is_active'])
-        if data.get('new_password'):
-            if len(data['new_password']) < 8:
-                return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
-            account.password_hash = generate_password_hash(data['new_password'])
-
+        if account.id == ceo.id:
+            return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
+        account.is_active = False
         db.session.commit()
-        return jsonify({"success": True, "message": "Account updated", "account": serialize_admin(account, include_last_login=True)})
+        return jsonify({"success": True, "message": "Account deactivated"})
     except Exception as e:
-        logger.error(f"Error managing account {account_id}: {str(e)}")
+        logger.error(f"Error on account {account_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-
-@app.route('/management/api/login-logs', methods=['GET'])
+# ========== INVESTOR PROFILE API ==========
+@app.route('/admin/api/investors', methods=['GET', 'POST'])
 @login_required
-@admin_only
-def management_login_logs():
+@ceo_required
+def admin_investors():
     try:
-        limit = min(int(request.args.get('limit', 50)), 200)
-        logs = LoginLog.query.order_by(LoginLog.created_at.desc()).limit(limit).all()
-        return jsonify([{
-            'id': log.id,
-            'admin_id': log.admin_id,
-            'username': log.admin.username if log.admin else '—',
-            'full_name': log.admin.full_name if log.admin else '',
-            'ip_address': log.ip_address,
-            'user_agent': log.user_agent,
-            'created_at': log.created_at.isoformat(),
-        } for log in logs])
+        if request.method == 'GET':
+            profiles = InvestorProfile.query.order_by(InvestorProfile.created_at.desc()).all()
+            result = []
+            for p in profiles:
+                user = Admin.query.get(p.user_id)
+                result.append({
+                    'id': p.id,
+                    'user_id': p.user_id,
+                    'investor_name': user.display_name or user.username if user else 'Unknown',
+                    'investor_email': user.email if user else '',
+                    'investment_type': p.investment_type,
+                    'investment_amount': p.investment_amount,
+                    'investment_date': p.investment_date.isoformat() if p.investment_date else None,
+                    'roi_rate': p.roi_rate,
+                    'equity_percentage': p.equity_percentage,
+                    'construction_start_date': p.construction_start_date.isoformat() if p.construction_start_date else None,
+                    'expected_completion_date': p.expected_completion_date.isoformat() if p.expected_completion_date else None,
+                    'total_distributed': p.total_distributed,
+                    'notes': p.notes or '',
+                    'created_at': p.created_at.strftime('%Y-%m-%d'),
+                })
+            return jsonify(result)
+
+        data = request.get_json()
+        if not data.get('user_id') or not data.get('investment_amount') or not data.get('investment_type'):
+            return jsonify({"success": False, "message": "user_id, investment_amount, and investment_type are required"}), 400
+
+        existing = InvestorProfile.query.filter_by(user_id=data['user_id']).first()
+        if existing:
+            return jsonify({"success": False, "message": "Investor profile already exists for this user"}), 409
+
+        def parse_date(d):
+            return datetime.strptime(d, '%Y-%m-%d').date() if d else None
+
+        profile = InvestorProfile(
+            user_id=int(data['user_id']),
+            investment_type=data['investment_type'],
+            investment_amount=float(data['investment_amount']),
+            investment_date=parse_date(data.get('investment_date')),
+            roi_rate=float(data.get('roi_rate') or 10.0),
+            equity_percentage=float(data['equity_percentage']) if data.get('equity_percentage') else None,
+            construction_start_date=parse_date(data.get('construction_start_date')),
+            expected_completion_date=parse_date(data.get('expected_completion_date')),
+            notes=(data.get('notes') or '').strip() or None,
+        )
+        db.session.add(profile)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Investor profile created", "id": profile.id})
     except Exception as e:
-        logger.error(f"Error fetching login logs: {str(e)}")
+        logger.error(f"Error managing investors: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
+@app.route('/admin/api/investors/<int:profile_id>', methods=['PUT'])
+@login_required
+@ceo_required
+def admin_investor_detail(profile_id):
+    try:
+        profile = InvestorProfile.query.get_or_404(profile_id)
+        data = request.get_json()
+        def parse_date(d):
+            return datetime.strptime(d, '%Y-%m-%d').date() if d else None
+        if 'investment_amount' in data:
+            profile.investment_amount = float(data['investment_amount'])
+        if 'investment_type' in data:
+            profile.investment_type = data['investment_type']
+        if 'roi_rate' in data:
+            profile.roi_rate = float(data['roi_rate'])
+        if 'equity_percentage' in data:
+            profile.equity_percentage = float(data['equity_percentage']) if data['equity_percentage'] else None
+        if 'investment_date' in data:
+            profile.investment_date = parse_date(data['investment_date'])
+        if 'construction_start_date' in data:
+            profile.construction_start_date = parse_date(data['construction_start_date'])
+        if 'expected_completion_date' in data:
+            profile.expected_completion_date = parse_date(data['expected_completion_date'])
+        if 'total_distributed' in data:
+            profile.total_distributed = float(data['total_distributed'])
+        if 'notes' in data:
+            profile.notes = (data['notes'] or '').strip() or None
+        profile.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True, "message": "Investor profile updated"})
+    except Exception as e:
+        logger.error(f"Error updating investor profile {profile_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/my-investment', methods=['GET'])
+@login_required
+def my_investment():
+    try:
+        admin = get_current_admin()
+        if admin.role != 'INVESTOR':
+            return jsonify({"success": False, "message": "Not an investor account"}), 403
+        profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
+        if not profile:
+            return jsonify(None)
+        return jsonify({
+            'investment_type': profile.investment_type,
+            'investment_amount': profile.investment_amount,
+            'investment_date': profile.investment_date.isoformat() if profile.investment_date else None,
+            'roi_rate': profile.roi_rate,
+            'equity_percentage': profile.equity_percentage,
+            'construction_start_date': profile.construction_start_date.isoformat() if profile.construction_start_date else None,
+            'expected_completion_date': profile.expected_completion_date.isoformat() if profile.expected_completion_date else None,
+            'total_distributed': profile.total_distributed,
+            'notes': profile.notes or '',
+        })
+    except Exception as e:
+        logger.error(f"Error fetching investment: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== ADMIN TEMPLATES ==========
 LOGIN_TEMPLATE = """
@@ -1783,7 +1915,12 @@ LOGIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - BrightWave Habitat Enterprise</title>
+    <title>BrightWave Habitat Enterprise</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#475569">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BrightWave">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
@@ -1813,6 +1950,10 @@ LOGIN_TEMPLATE = """
         </form>
     </div>
     <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
@@ -1847,17 +1988,35 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - BrightWave Habitat Enterprise</title>
+    <title>CEO Dashboard - BrightWave Habitat Enterprise</title>
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#475569">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BrightWave CEO">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
+    <script>
+        const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
+        const USER_NAME = '{{ user_name }}';
+    </script>
     <header class="bg-gray-800 shadow">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-slate-400">BrightWave Habitat Enterprise Dashboard</h1>
             <div>
-                <button id="changePasswordBtn" class="text-slate-400 hover:text-slate-300 mr-4">Change Password</button>
-                <a href="/admin/logout" class="text-slate-400 hover:text-slate-300">Logout</a>
+                <h1 class="text-2xl font-bold text-slate-400">BrightWave Habitat Enterprise</h1>
+                <p class="text-xs text-gray-400">CEO Dashboard &mdash; {{ user_name }}</p>
+            </div>
+            <div class="flex items-center gap-4">
+                {% if pending_sigs_count > 0 %}
+                <button onclick="showSection('signaturesSection')" class="relative bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg">
+                    Pending Signatures
+                    <span class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ pending_sigs_count }}</span>
+                </button>
+                {% endif %}
+                <button id="changePasswordBtn" class="text-slate-400 hover:text-slate-300 text-sm">Change Password</button>
+                <a href="/admin/logout" class="text-slate-400 hover:text-slate-300 text-sm">Logout</a>
             </div>
         </div>
     </header>
@@ -1878,8 +2037,175 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </form>
         </section>
 
+        <!-- CEO Navigation -->
+        <div class="mb-6 flex flex-wrap gap-2">
+            <button onclick="showSection('overviewSection')" class="ceo-nav-btn bg-slate-600 text-white text-sm px-4 py-2 rounded-lg">Overview</button>
+            <button onclick="showSection('signaturesSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">
+                Signatures
+                {% if pending_sigs_count > 0 %}<span class="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
+            </button>
+            <button onclick="showSection('accountsSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Team Accounts</button>
+            <button onclick="showSection('investorsSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Investors</button>
+            <button onclick="showSection('propertiesSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Properties</button>
+            <button onclick="showSection('contentSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Website</button>
+            <button onclick="showSection('teamSection')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Team</button>
+            <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn bg-gray-700 text-white text-sm px-4 py-2 rounded-lg">Inquiries</button>
+        </div>
+
+        <!-- PENDING SIGNATURES SECTION -->
+        <section id="signaturesSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Pending Signatures</h2>
+            <div id="signaturesContent" class="space-y-4">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- TEAM ACCOUNTS SECTION -->
+        <section id="accountsSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Team Accounts</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="font-semibold mb-3 text-slate-300">Create New Account</h3>
+                <form id="createAccountForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Display Name</label>
+                        <input type="text" id="accDisplayName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Username *</label>
+                        <input type="text" id="accUsername" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Email *</label>
+                        <input type="email" id="accEmail" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Password *</label>
+                        <input type="password" id="accPassword" required minlength="8" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Role *</label>
+                        <select id="accRole" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">Select Role</option>
+                            <option value="MANAGER">Manager</option>
+                            <option value="ACCOUNTANT">Accountant</option>
+                            <option value="REALTOR">Realtor</option>
+                            <option value="INVESTOR">Investor</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Additional Roles (optional — e.g. Manager who also does sales)</label>
+                        <div class="flex gap-4 flex-wrap">
+                            <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="MANAGER" class="accent-blue-500"> Manager</label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="ACCOUNTANT" class="accent-green-500"> Accountant</label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="REALTOR" class="accent-amber-500"> Realtor</label>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">Cannot add CEO or same as primary role. Investor cannot have secondary roles.</p>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-2 px-4 rounded-lg w-full">Create Account</button>
+                    </div>
+                </form>
+                <p id="accountMessage" class="text-sm mt-2 hidden"></p>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3 text-slate-300">All Accounts</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="py-2 text-left">Name</th>
+                                <th class="py-2 text-left">Username</th>
+                                <th class="py-2 text-left">Email</th>
+                                <th class="py-2 text-left">Primary Role</th>
+                                <th class="py-2 text-left">Also</th>
+                                <th class="py-2 text-left">Contract</th>
+                                <th class="py-2 text-left">Status</th>
+                                <th class="py-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVESTORS SECTION -->
+        <section id="investorsSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Investor Profiles</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="font-semibold mb-3 text-slate-300">Create Investor Profile</h3>
+                <p class="text-xs text-gray-400 mb-3">First create an INVESTOR account, then link their investment details here.</p>
+                <form id="createInvestorForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Investor Account *</label>
+                        <select id="invUserId" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">Select Investor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Investment Type *</label>
+                        <select id="invType" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="DEBT">Debt (Fixed Return + Principal Back)</option>
+                            <option value="EQUITY">Equity (Project Ownership Stake)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Investment Amount (₦) *</label>
+                        <input type="number" id="invAmount" required step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Investment Date</label>
+                        <input type="date" id="invDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">ROI Rate % (Annual, Debt)</label>
+                        <input type="number" id="invRoi" value="10" step="0.5" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Equity % (Equity type only)</label>
+                        <input type="number" id="invEquity" step="0.1" placeholder="e.g. 10" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Construction Start Date</label>
+                        <input type="date" id="invConstructionStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Expected Completion</label>
+                        <input type="date" id="invCompletion" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Notes</label>
+                        <input type="text" id="invNotes" placeholder="Optional notes" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-3">
+                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-6 rounded-lg">Create Investor Profile</button>
+                        <span id="investorMessage" class="ml-3 text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3 text-slate-300">All Investors</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="py-2 text-left">Investor</th>
+                                <th class="py-2 text-left">Type</th>
+                                <th class="py-2 text-left">Amount</th>
+                                <th class="py-2 text-left">ROI/Equity</th>
+                                <th class="py-2 text-left">Distributed</th>
+                                <th class="py-2 text-left">Completion</th>
+                                <th class="py-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="investorsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!-- Enhanced Statistics -->
-        <section class="mb-8">
+        <section id="overviewSection" class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Dashboard Overview</h2>
             <div id="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <!-- Stats will be populated by JavaScript -->
@@ -1893,7 +2219,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         </section>
 
         <!-- Add Property Form -->
-        <section class="mb-8">
+        <section id="propertiesSection" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Add New Property</h2>
             <div class="bg-gray-800 p-4 rounded-lg">
                 <form id="addPropertyForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1951,7 +2277,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
-        <section class="mb-8">
+        <section id="contentSection" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Website Content</h2>
             <div class="bg-gray-800 p-4 rounded-lg">
                 <form id="siteContentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1995,7 +2321,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
-        <section class="mb-8">
+        <section id="teamSection" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Team Members</h2>
             <div class="bg-gray-800 p-4 rounded-lg mb-4">
                 <form id="teamMemberForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2053,8 +2379,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
-        <!-- Properties Table -->
-        <section class="mb-8">
+        <!-- Properties Table (part of propertiesSection) -->
+        <section class="mb-8 hidden" id="propertiesTableSection">
             <h2 class="text-xl font-semibold mb-4">Properties</h2>
             <div class="bg-gray-800 p-4 rounded-lg overflow-x-auto">
                 <table class="w-full text-sm">
@@ -2075,7 +2401,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         </section>
 
         <!-- Inquiries and Messages Tabs -->
-        <section>
+        <section id="inquiriesSection2" class="hidden">
             <div class="flex space-x-4 mb-4">
                 <button id="inquiriesTab" class="bg-slate-600 text-white px-4 py-2 rounded-lg">Property Inquiries</button>
                 <button id="messagesTab" class="bg-gray-600 text-white px-4 py-2 rounded-lg">Contact Messages</button>
@@ -2574,8 +2900,241 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         document.getElementById('resetTeamForm').addEventListener('click', resetTeamMemberForm);
 
-        // Initialize dashboard
+        // ===== CEO SECTION NAVIGATION =====
+        function showSection(sectionId) {
+            const sections = ['overviewSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(sectionId);
+            if (target) target.classList.remove('hidden');
+            document.querySelectorAll('.ceo-nav-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-600');
+                btn.classList.add('bg-gray-700');
+            });
+            const activeBtn = document.querySelector(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-700');
+                activeBtn.classList.add('bg-slate-600');
+            }
+            if (sectionId === 'signaturesSection') loadPendingContracts();
+            if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
+            if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
+            if (sectionId === 'propertiesSection') {
+                const tableSection = document.getElementById('propertiesTableSection');
+                if (tableSection) tableSection.classList.remove('hidden');
+            }
+        }
+
+        // ===== PENDING SIGNATURES =====
+        async function loadPendingContracts() {
+            try {
+                const contracts = await fetchData('/admin/api/pending-contracts');
+                const el = document.getElementById('signaturesContent');
+                if (!contracts.length) {
+                    el.innerHTML = '<div class="bg-gray-800 p-6 rounded-lg text-gray-400 text-center">No pending signatures.</div>';
+                    return;
+                }
+                el.innerHTML = contracts.map(c => `
+                    <div class="bg-gray-800 p-5 rounded-lg border border-yellow-600">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <p class="font-semibold text-lg">${c.user_name}</p>
+                                <p class="text-sm text-gray-400">${c.user_email} &mdash; <span class="text-yellow-400 font-medium">${c.role}</span></p>
+                                <p class="text-xs text-gray-500 mt-1">User signed: ${c.user_signed_at}</p>
+                            </div>
+                            <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded">Pending CEO Signature</span>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded mb-3">
+                            <p class="text-sm text-gray-300">User signature: <strong class="text-white">"${c.user_signature}"</strong></p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="text" id="ceoSig_${c.id}" placeholder="Type your full name to sign" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <button onclick="ceoSignContract(${c.id})" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-5 rounded-lg">Sign & Approve</button>
+                        </div>
+                        <p id="ceoSigMsg_${c.id}" class="text-sm mt-2 hidden"></p>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('signaturesContent').innerHTML = '<p class="text-red-400">Error loading pending contracts.</p>';
+            }
+        }
+
+        async function ceoSignContract(contractId) {
+            const sig = document.getElementById('ceoSig_' + contractId).value.trim();
+            const msgEl = document.getElementById('ceoSigMsg_' + contractId);
+            if (!sig) { msgEl.textContent = 'Please type your full name to sign'; msgEl.className = 'text-sm mt-2 text-red-400'; msgEl.classList.remove('hidden'); return; }
+            try {
+                const res = await fetchData('/admin/api/contracts/' + contractId + '/ceo-sign', {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({signature: sig})
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm mt-2 text-green-400';
+                msgEl.classList.remove('hidden');
+                setTimeout(() => loadPendingContracts(), 1500);
+            } catch (e) {
+                msgEl.textContent = 'Error signing contract';
+                msgEl.className = 'text-sm mt-2 text-red-400';
+                msgEl.classList.remove('hidden');
+            }
+        }
+
+        // ===== TEAM ACCOUNTS =====
+        async function loadAccounts() {
+            try {
+                const accounts = await fetchData('/admin/api/accounts');
+                const roleColors = {CEO:'bg-purple-700',MANAGER:'bg-blue-700',ACCOUNTANT:'bg-green-700',REALTOR:'bg-amber-700',INVESTOR:'bg-emerald-700'};
+                const statusColors = {completed:'text-green-400',pending_ceo_signature:'text-yellow-400',pending_user_signature:'text-orange-400',no_contract:'text-gray-500'};
+                const statusLabels = {completed:'Signed',pending_ceo_signature:'Awaiting CEO',pending_user_signature:'Awaiting User',no_contract:'No Contract'};
+                document.getElementById('accountsTable').innerHTML = accounts.map(a => {
+                    const secondary = (a.secondary_roles || []).map(r => `<span class="text-xs px-1.5 py-0.5 rounded text-white ${roleColors[r] || 'bg-gray-600'} mr-1">${r}</span>`).join('');
+                    return `
+                    <tr class="border-b border-gray-700 hover:bg-gray-750">
+                        <td class="py-2 pr-3">${a.display_name || '-'}</td>
+                        <td class="py-2 pr-3 text-gray-300">${a.username}</td>
+                        <td class="py-2 pr-3 text-gray-400 text-xs">${a.email}</td>
+                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${roleColors[a.role] || 'bg-gray-600'}">${a.role}</span></td>
+                        <td class="py-2 pr-3">${secondary || '<span class="text-xs text-gray-600">—</span>'}</td>
+                        <td class="py-2 pr-3 text-xs ${statusColors[a.contract_status] || 'text-gray-500'}">${statusLabels[a.contract_status] || a.contract_status}</td>
+                        <td class="py-2 pr-3"><span class="text-xs ${a.is_active ? 'text-green-400' : 'text-red-400'}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td class="py-2">
+                            <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'} mr-2">${a.is_active ? 'Deactivate' : 'Activate'}</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('accountsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading accounts</td></tr>';
+            }
+        }
+
+        async function loadInvestorAccountOptions() {
+            try {
+                const accounts = await fetchData('/admin/api/accounts');
+                const investors = accounts.filter(a => a.role === 'INVESTOR' && a.is_active);
+                const sel = document.getElementById('invUserId');
+                if (!sel) return;
+                sel.innerHTML = '<option value="">Select Investor</option>' + investors.map(a => `<option value="${a.id}">${a.display_name || a.username} (${a.email})</option>`).join('');
+            } catch (e) {}
+        }
+
+        async function toggleAccount(accountId, activate) {
+            try {
+                await fetchData('/admin/api/accounts/' + accountId, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({is_active: activate})
+                });
+                loadAccounts();
+            } catch (e) { alert('Error updating account'); }
+        }
+
+        document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('accountMessage');
+            try {
+                const secondaryChecks = document.querySelectorAll('input[name="secondary_roles"]:checked');
+                const secondaryRoles = Array.from(secondaryChecks).map(cb => cb.value);
+                const res = await fetchData('/admin/api/accounts', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        display_name: document.getElementById('accDisplayName').value,
+                        username: document.getElementById('accUsername').value,
+                        email: document.getElementById('accEmail').value,
+                        password: document.getElementById('accPassword').value,
+                        role: document.getElementById('accRole').value,
+                        secondary_roles: secondaryRoles,
+                    })
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm mt-2 text-green-400';
+                msgEl.classList.remove('hidden');
+                document.getElementById('createAccountForm').reset();
+                loadAccounts();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error creating account';
+                msgEl.className = 'text-sm mt-2 text-red-400';
+                msgEl.classList.remove('hidden');
+            }
+        });
+
+        // ===== INVESTORS =====
+        function formatNGN(amount) {
+            return '₦' + Number(amount).toLocaleString('en-NG');
+        }
+
+        async function loadInvestors() {
+            try {
+                const investors = await fetchData('/admin/api/investors');
+                document.getElementById('investorsTable').innerHTML = investors.map(p => {
+                    const annualReturn = p.investment_type === 'DEBT' ? (p.investment_amount * p.roi_rate / 100) : null;
+                    const display = p.investment_type === 'DEBT'
+                        ? `${p.roi_rate}% p.a = ${formatNGN(annualReturn)}/yr`
+                        : `${p.equity_percentage || '?'}% equity`;
+                    return `
+                        <tr class="border-b border-gray-700 hover:bg-gray-750">
+                            <td class="py-2 pr-3">
+                                <p class="font-medium">${p.investor_name}</p>
+                                <p class="text-xs text-gray-400">${p.investor_email}</p>
+                            </td>
+                            <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${p.investment_type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700'}">${p.investment_type}</span></td>
+                            <td class="py-2 pr-3 font-medium">${formatNGN(p.investment_amount)}</td>
+                            <td class="py-2 pr-3 text-sm text-gray-300">${display}</td>
+                            <td class="py-2 pr-3 text-emerald-400">${formatNGN(p.total_distributed)}</td>
+                            <td class="py-2 pr-3 text-xs text-gray-400">${p.expected_completion_date || 'TBD'}</td>
+                            <td class="py-2">
+                                <button onclick="editInvestor(${p.id}, ${p.total_distributed})" class="text-xs text-blue-400 hover:text-blue-300">Update Dist.</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="7" class="text-gray-400 py-4 text-center">No investor profiles yet</td></tr>';
+            } catch (e) {
+                document.getElementById('investorsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading investors</td></tr>';
+            }
+        }
+
+        async function editInvestor(profileId, currentDist) {
+            const newDist = prompt('Enter total amount distributed so far (₦):', currentDist);
+            if (newDist === null) return;
+            try {
+                await fetchData('/admin/api/investors/' + profileId, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({total_distributed: parseFloat(newDist)})
+                });
+                loadInvestors();
+            } catch (e) { alert('Error updating distribution'); }
+        }
+
+        document.getElementById('createInvestorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('investorMessage');
+            try {
+                const res = await fetchData('/admin/api/investors', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        user_id: document.getElementById('invUserId').value,
+                        investment_type: document.getElementById('invType').value,
+                        investment_amount: document.getElementById('invAmount').value,
+                        investment_date: document.getElementById('invDate').value,
+                        roi_rate: document.getElementById('invRoi').value,
+                        equity_percentage: document.getElementById('invEquity').value || null,
+                        construction_start_date: document.getElementById('invConstructionStart').value,
+                        expected_completion_date: document.getElementById('invCompletion').value,
+                        notes: document.getElementById('invNotes').value,
+                    })
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm text-green-400';
+                document.getElementById('createInvestorForm').reset();
+                loadInvestors();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error creating investor profile';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        });
+
+        // Initialize dashboard - show overview by default
         document.addEventListener('DOMContentLoaded', () => {
+            showSection('overviewSection');
             loadStats();
             loadProperties();
             loadInquiries();
@@ -2583,6 +3142,495 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             loadSiteContent();
             loadTeamMembers();
         });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
+"""
+
+ROLE_DASHBOARD_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user_role }} Portal - BrightWave Habitat Enterprise</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#475569">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BrightWave">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .contract-scroll::-webkit-scrollbar { width: 6px; }
+        .contract-scroll::-webkit-scrollbar-track { background: #374151; }
+        .contract-scroll::-webkit-scrollbar-thumb { background: #6B7280; border-radius: 3px; }
+        .timeline-bar { transition: width 0.8s ease; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <script>
+        const USER_ROLE = '{{ user_role }}';
+        const ALL_ROLES = {{ all_roles_json }};
+        const USER_NAME = '{{ user_name }}';
+        const NEEDS_CONTRACT = {{ 'true' if needs_contract_signing else 'false' }};
+        const AWAITING_CEO = {{ 'true' if awaiting_ceo_signature else 'false' }};
+        const SHOW_AGREEMENT_POPUP = {{ 'true' if show_agreement_popup else 'false' }};
+        const CONTRACT_ID = {{ contract_id or 'null' }};
+        const adminCsrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        let activeRole = USER_ROLE;
+    </script>
+
+    <!-- CONTRACT SIGNING OVERLAY -->
+    {% if needs_contract_signing %}
+    <div id="contractOverlay" class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-screen flex flex-col">
+            <div class="p-6 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center gap-3 mb-1">
+                    <div class="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center text-lg font-bold">BW</div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">BrightWave Habitat Enterprise</p>
+                        <h2 class="text-xl font-bold text-white">{{ contract_title }}</h2>
+                    </div>
+                </div>
+                <p class="text-sm text-yellow-400 mt-2">Please read this agreement carefully before proceeding to your dashboard.</p>
+            </div>
+            <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: 350px;">{{ contract_body }}</div>
+            <div id="scrollPrompt" class="text-center text-xs text-gray-500 py-2 flex-shrink-0">Scroll to the bottom to continue</div>
+            <div id="signatureSection" class="p-6 border-t border-gray-700 flex-shrink-0 hidden">
+                <div class="flex items-start gap-2 mb-4">
+                    <input type="checkbox" id="agreeCheck" class="mt-1 w-4 h-4 accent-emerald-500">
+                    <label for="agreeCheck" class="text-sm text-gray-300 cursor-pointer">I have read and fully understood this agreement. I agree to all terms and conditions.</label>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">Your Full Name (Digital Signature)</label>
+                    <input type="text" id="userSignature" placeholder="Type your full legal name" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 font-medium">
+                </div>
+                <button id="signBtn" onclick="submitSignature()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50">
+                    Sign Agreement &amp; Continue to Dashboard
+                </button>
+                <p id="signError" class="text-red-400 text-sm mt-2 hidden"></p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- AGREEMENT COMPLETE POPUP -->
+    {% if show_agreement_popup %}
+    <div id="agreementPopup" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border border-emerald-600">
+            <div class="w-20 h-20 bg-emerald-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">Agreement Complete</h2>
+            <p class="text-gray-300 mb-1">Two-way agreement signed</p>
+            <div class="bg-gray-700 rounded-lg p-4 my-4 text-left text-sm">
+                <p class="text-gray-400 mb-1">Between:</p>
+                <p class="text-white font-medium">BrightWave Habitat Enterprise (CEO)</p>
+                <p class="text-gray-400 text-xs my-1">and</p>
+                <p class="text-white font-medium">{{ user_name }} ({{ user_role }})</p>
+            </div>
+            <p class="text-gray-400 text-xs mb-6">Your signed agreement is now on record. Welcome to BrightWave Habitat Enterprise.</p>
+            <button onclick="document.getElementById('agreementPopup').remove()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-2 px-8 rounded-lg">Continue to Dashboard</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <header class="bg-gray-800 shadow border-b border-gray-700">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-widest">BrightWave Habitat Enterprise</p>
+                <h1 id="portalTitle" class="text-xl font-bold text-slate-300">
+                    {% if user_role == 'MANAGER' %}Property Manager Portal
+                    {% elif user_role == 'ACCOUNTANT' %}Finance Portal
+                    {% elif user_role == 'REALTOR' %}Realtor Portal
+                    {% elif user_role == 'INVESTOR' %}Investor Portal
+                    {% else %}{{ user_role }} Portal{% endif %}
+                </h1>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                {% if all_roles | length > 1 %}
+                <div id="roleSwitcher" class="flex gap-1 bg-gray-700 p-1 rounded-lg">
+                    {% for r in all_roles %}
+                    <button onclick="switchRole('{{ r }}')" id="roleBtn_{{ r }}"
+                        class="role-switch-btn text-xs font-medium px-3 py-1.5 rounded-md transition-colors {% if r == user_role %}bg-slate-600 text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        {{ r }}
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-medium text-white">{{ user_name }}</p>
+                    <p id="activeRoleLabel" class="text-xs text-gray-400">{{ user_role }}</p>
+                </div>
+                {% if awaiting_ceo_signature %}
+                <span class="bg-yellow-600 text-white text-xs px-3 py-1 rounded-full">Awaiting CEO Signature</span>
+                {% endif %}
+                <a href="/admin/logout" class="text-gray-400 hover:text-white text-sm border border-gray-600 rounded-lg px-3 py-1.5">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    {% if awaiting_ceo_signature %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="bg-yellow-900 border border-yellow-600 rounded-lg p-4 flex items-center gap-3">
+            <svg class="w-5 h-5 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div>
+                <p class="text-yellow-300 font-medium text-sm">Your agreement has been submitted and is pending CEO co-signature.</p>
+                <p class="text-yellow-400 text-xs mt-0.5">You will be notified once the CEO signs. Limited dashboard access is available in the meantime.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+
+        {% for r in all_roles %}
+        <div id="roleSection_{{ r }}" class="{% if r != user_role %}hidden{% endif %}">
+
+            {% if r == 'INVESTOR' %}
+            <!-- INVESTOR DASHBOARD -->
+            <div id="investorLoading" class="text-center py-12 text-gray-400">Loading your investment data...</div>
+            <div id="investorDashboard" class="hidden space-y-6">
+                <div id="investmentSummaryCard" class="bg-gradient-to-br from-slate-800 to-gray-900 border border-slate-600 rounded-2xl p-6"></div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Project Timeline</h3>
+                    <div id="projectTimeline"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Amount Invested</p><p id="invAmountDisplay" class="text-2xl font-bold text-white">-</p></div>
+                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Expected Total Return</p><p id="invExpectedReturn" class="text-2xl font-bold text-emerald-400">-</p><p id="invReturnNote" class="text-xs text-gray-500 mt-1"></p></div>
+                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Distributed So Far</p><p id="invDistributed" class="text-2xl font-bold text-blue-400">-</p></div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Distribution Schedule</h3>
+                    <div id="distributionSchedule"></div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center gap-3 p-4 bg-gray-700 rounded-lg">
+                        <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <div><p class="font-medium text-white">Investment Agreement</p><p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                    </div>
+                </div>
+            </div>
+            <div id="investorNoProfile" class="hidden bg-gray-800 rounded-xl p-8 text-center">
+                <p class="text-gray-400 text-lg font-medium">Investment profile not set up yet</p>
+                <p class="text-gray-500 text-sm mt-2">Your CEO will configure your investment details. Please check back shortly.</p>
+            </div>
+
+            {% elif r == 'MANAGER' %}
+            <!-- MANAGER DASHBOARD -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-3xl font-bold">-</p></div>
+                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-3xl font-bold">-</p></div>
+                <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Team Members</p><p id="mgr_team" class="text-3xl font-bold">-</p></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Inquiries</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="mgr_inquiriesTable"></tbody></table></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
+            </div>
+
+            {% elif r == 'ACCOUNTANT' %}
+            <!-- ACCOUNTANT DASHBOARD -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Inquiries</p><p id="acc_inquiries" class="text-3xl font-bold">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">New Inquiries</p><p id="acc_new_inquiries" class="text-3xl font-bold">-</p></div>
+                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Contact Messages</p><p id="acc_messages" class="text-3xl font-bold">-</p></div>
+            </div>
+            <div class="bg-yellow-900 border border-yellow-700 rounded-xl p-5 mb-6">
+                <p class="text-yellow-300 font-medium">Financial modules are being set up</p>
+                <p class="text-yellow-400 text-sm mt-1">Full payment tracking, rent collection, and investor distribution modules are coming soon.</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Inquiry Overview</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="acc_inquiriesTable"></tbody></table></div>
+            </div>
+
+            {% elif r == 'REALTOR' %}
+            <!-- REALTOR DASHBOARD -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Active Properties</p><p id="rel_properties" class="text-3xl font-bold">-</p></div>
+                <div class="bg-amber-900 rounded-xl p-5"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Open Leads</p><p id="rel_inquiries" class="text-3xl font-bold">-</p></div>
+                <div class="bg-green-900 rounded-xl p-5"><p class="text-xs text-green-300 uppercase tracking-wide mb-1">New Today</p><p id="rel_new" class="text-3xl font-bold">-</p></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Available Properties</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Price</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="rel_propertiesTable"></tbody></table></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Leads / Inquiries</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="rel_inquiriesTable"></tbody></table></div>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+
+    </main>
+
+    <script>
+        async function fetchData(url, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (adminCsrfToken && ['POST','PUT','DELETE'].includes((options.method || 'GET').toUpperCase())) {
+                headers.set('X-CSRF-Token', adminCsrfToken);
+            }
+            const response = await fetch(url, { credentials: 'include', headers, ...options });
+            if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+            return response.json();
+        }
+
+        function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+
+        const ROLE_TITLES = {INVESTOR:'Investor Portal',MANAGER:'Property Manager Portal',ACCOUNTANT:'Finance Portal',REALTOR:'Realtor Portal'};
+
+        function switchRole(role) {
+            activeRole = role;
+            ALL_ROLES.forEach(r => {
+                const sec = document.getElementById('roleSection_' + r);
+                if (sec) sec.classList.toggle('hidden', r !== role);
+                const btn = document.getElementById('roleBtn_' + r);
+                if (btn) {
+                    btn.classList.toggle('bg-slate-600', r === role);
+                    btn.classList.toggle('text-white', r === role);
+                    btn.classList.toggle('text-gray-400', r !== role);
+                }
+            });
+            const labelEl = document.getElementById('activeRoleLabel');
+            if (labelEl) labelEl.textContent = role;
+            const titleEl = document.getElementById('portalTitle');
+            if (titleEl) titleEl.textContent = ROLE_TITLES[role] || role + ' Portal';
+            loadRoleDashboard(role);
+        }
+
+        function loadRoleDashboard(role) {
+            if (role === 'INVESTOR') loadInvestorDashboard();
+            else if (role === 'MANAGER') loadManagerDashboard();
+            else if (role === 'ACCOUNTANT') loadAccountantDashboard();
+            else if (role === 'REALTOR') loadRealtorDashboard();
+        }
+
+        // ===== CONTRACT SIGNING =====
+        if (NEEDS_CONTRACT) {
+            const contractText = document.getElementById('contractText');
+            const scrollPrompt = document.getElementById('scrollPrompt');
+            const signatureSection = document.getElementById('signatureSection');
+            if (contractText) {
+                contractText.addEventListener('scroll', function() {
+                    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 30) {
+                        scrollPrompt.classList.add('hidden');
+                        signatureSection.classList.remove('hidden');
+                    }
+                });
+            }
+        }
+
+        async function submitSignature() {
+            const sig = document.getElementById('userSignature').value.trim();
+            const agreed = document.getElementById('agreeCheck').checked;
+            const errEl = document.getElementById('signError');
+            if (!agreed) { errEl.textContent = 'Please check the agreement box to confirm.'; errEl.classList.remove('hidden'); return; }
+            if (!sig || sig.length < 2) { errEl.textContent = 'Please type your full name as your signature.'; errEl.classList.remove('hidden'); return; }
+            try {
+                document.getElementById('signBtn').disabled = true;
+                document.getElementById('signBtn').textContent = 'Submitting...';
+                await fetchData('/admin/api/my-contract/sign', {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({signature: sig})
+                });
+                document.getElementById('contractOverlay').innerHTML = `
+                    <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+                        <div class="w-16 h-16 bg-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-white mb-2">Agreement Submitted</h2>
+                        <p class="text-gray-300 mb-4">Your agreement has been signed and submitted. It is now awaiting co-signature from the CEO of BrightWave Habitat Enterprise.</p>
+                        <p class="text-gray-400 text-sm">You will be notified once the CEO signs. Your dashboard will be fully available upon completion.</p>
+                        <button onclick="document.getElementById('contractOverlay').remove()" class="mt-6 bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-8 rounded-lg">Continue to Dashboard</button>
+                    </div>`;
+            } catch (e) {
+                document.getElementById('signBtn').disabled = false;
+                document.getElementById('signBtn').textContent = 'Sign Agreement & Continue to Dashboard';
+                errEl.textContent = e.message || 'Error submitting signature. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        // ===== INVESTOR DASHBOARD =====
+        async function loadInvestorDashboard() {
+            try {
+                const profile = await fetchData('/admin/api/my-investment');
+                document.getElementById('investorLoading').classList.add('hidden');
+                if (!profile) {
+                    document.getElementById('investorNoProfile').classList.remove('hidden');
+                    return;
+                }
+                document.getElementById('investorDashboard').classList.remove('hidden');
+
+                const amount = profile.investment_amount;
+                const type = profile.investment_type;
+                const roi = profile.roi_rate;
+                const equity = profile.equity_percentage;
+                const distributed = profile.total_distributed || 0;
+
+                document.getElementById('invAmountDisplay').textContent = formatNGN(amount);
+                document.getElementById('invDistributed').textContent = formatNGN(distributed);
+
+                // Summary card
+                const badgeColor = type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700';
+                const summaryLabel = type === 'DEBT' ? `${roi}% Annual Return` : `${equity}% Project Equity`;
+                document.getElementById('investmentSummaryCard').innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Your Investment</p>
+                            <p class="text-4xl font-bold text-white">${formatNGN(amount)}</p>
+                        </div>
+                        <span class="text-sm font-semibold px-3 py-1 rounded-full text-white ${badgeColor}">${type}</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div><p class="text-gray-400 text-xs">Return Structure</p><p class="text-white font-medium mt-0.5">${summaryLabel}</p></div>
+                        <div><p class="text-gray-400 text-xs">Investment Date</p><p class="text-white font-medium mt-0.5">${profile.investment_date || 'Pending'}</p></div>
+                        <div><p class="text-gray-400 text-xs">Expected Completion</p><p class="text-white font-medium mt-0.5">${profile.expected_completion_date || 'TBD'}</p></div>
+                    </div>`;
+
+                // Expected return
+                if (type === 'DEBT') {
+                    const annualReturn = amount * roi / 100;
+                    const totalInterest = annualReturn * 4;
+                    const grandTotal = amount + totalInterest;
+                    document.getElementById('invExpectedReturn').textContent = formatNGN(grandTotal);
+                    document.getElementById('invReturnNote').textContent = `Principal ${formatNGN(amount)} + ${formatNGN(totalInterest)} interest over 4 years`;
+                } else {
+                    document.getElementById('invExpectedReturn').textContent = `${equity}% ownership`;
+                    document.getElementById('invReturnNote').textContent = 'Returns proportional to project revenue';
+                }
+
+                // Timeline
+                const now = new Date();
+                const completion = profile.expected_completion_date ? new Date(profile.expected_completion_date) : null;
+                const start = profile.construction_start_date ? new Date(profile.construction_start_date) : null;
+                let progress = 0;
+                if (start && completion) {
+                    const total = completion - start;
+                    const elapsed = Math.min(now - start, total);
+                    progress = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+                }
+                const isComplete = completion && now >= completion;
+                document.getElementById('projectTimeline').innerHTML = `
+                    <div class="mb-3">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>${isComplete ? 'Construction Complete' : 'Construction in Progress'}</span>
+                            <span>${progress}%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="timeline-bar ${isComplete ? 'bg-emerald-500' : 'bg-blue-500'} h-3 rounded-full" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-xs text-center mt-3">
+                        <div class="flex flex-col items-center gap-1"><div class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs">1</div><span class="text-gray-400">Land</span><span class="text-emerald-400">Done</span></div>
+                        <div class="flex flex-col items-center gap-1"><div class="w-6 h-6 rounded-full ${start ? 'bg-emerald-600' : 'bg-gray-600'} flex items-center justify-center text-white text-xs">2</div><span class="text-gray-400">Start</span><span class="${start ? 'text-emerald-400' : 'text-gray-500'}">${start ? 'Done' : 'Pending'}</span></div>
+                        <div class="flex flex-col items-center gap-1"><div class="w-6 h-6 rounded-full ${isComplete ? 'bg-emerald-600' : 'bg-blue-600'} flex items-center justify-center text-white text-xs">3</div><span class="text-gray-400">Build</span><span class="${isComplete ? 'text-emerald-400' : 'text-blue-400'}">${isComplete ? 'Done' : 'Active'}</span></div>
+                        <div class="flex flex-col items-center gap-1"><div class="w-6 h-6 rounded-full ${isComplete ? 'bg-emerald-600' : 'bg-gray-600'} flex items-center justify-center text-white text-xs">4</div><span class="text-gray-400">Returns</span><span class="${isComplete ? 'text-emerald-400' : 'text-gray-500'}">${isComplete ? 'Active' : 'Pending'}</span></div>
+                    </div>
+                    <div class="mt-3 text-xs text-gray-500 text-center">
+                        ${!isComplete ? 'No distributions during construction phase. Returns begin upon project completion.' : 'Project complete. Annual distributions are active.'}
+                    </div>`;
+
+                // Distribution schedule (for DEBT: show 4 annual payments)
+                if (type === 'DEBT' && completion) {
+                    const annualReturn = amount * roi / 100;
+                    const scheduleRows = [1, 2, 3, 4].map(yr => {
+                        const paymentDate = new Date(completion);
+                        paymentDate.setFullYear(paymentDate.getFullYear() + yr);
+                        const isPast = now > paymentDate;
+                        const statusClass = isPast ? 'text-emerald-400' : 'text-yellow-400';
+                        const status = isPast ? 'Due' : 'Scheduled';
+                        const finalPayment = yr === 4 ? ` + ${formatNGN(amount)} principal` : '';
+                        return `<div class="flex justify-between items-center py-3 border-b border-gray-700 last:border-0 text-sm">
+                            <div><span class="text-white">Year ${yr} Distribution</span>${finalPayment ? `<span class="text-xs text-emerald-400 ml-2">${finalPayment}</span>` : ''}</div>
+                            <div class="text-right"><p class="font-medium text-white">${formatNGN(yr === 4 ? annualReturn + amount : annualReturn)}</p><p class="text-xs text-gray-400">${paymentDate.toLocaleDateString('en-GB', {month:'short',year:'numeric'})}</p></div>
+                            <span class="text-xs ${statusClass} font-medium">${status}</span>
+                        </div>`;
+                    });
+                    document.getElementById('distributionSchedule').innerHTML = scheduleRows.join('');
+                } else if (type === 'EQUITY') {
+                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Equity distributions are paid annually from project revenues, proportional to your ${equity}% ownership stake. Exact amounts depend on project performance. Distributions begin after project completion.</p>`;
+                } else {
+                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Distribution schedule will be available once the expected completion date is set by the CEO.</p>`;
+                }
+
+                // Contract status
+                document.getElementById('docStatus').textContent = CONTRACT_ID ? 'Both parties signed \u2014 Agreement on file' : 'Pending signatures';
+
+            } catch (e) {
+                document.getElementById('investorLoading').textContent = 'Error loading investment data. Please refresh.';
+            }
+        }
+
+        // ===== MANAGER DASHBOARD =====
+        async function loadManagerDashboard() {
+            try {
+                const stats = await fetchData('/admin/api/stats');
+                document.getElementById('mgr_properties').textContent = stats.active_properties;
+                document.getElementById('mgr_inquiries').textContent = stats.total_inquiries;
+                document.getElementById('mgr_team').textContent = stats.active_team_members;
+                const inquiries = await fetchData('/admin/api/inquiries');
+                document.getElementById('mgr_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `
+                    <tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>
+                `).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries</td></tr>';
+                const props = await fetchData('/admin/api/properties');
+                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `
+                    <tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>
+                `).join('');
+            } catch (e) {}
+        }
+
+        // ===== ACCOUNTANT DASHBOARD =====
+        async function loadAccountantDashboard() {
+            try {
+                const stats = await fetchData('/admin/api/stats');
+                document.getElementById('acc_inquiries').textContent = stats.total_inquiries;
+                document.getElementById('acc_new_inquiries').textContent = stats.new_inquiries;
+                document.getElementById('acc_messages').textContent = stats.contact_messages;
+                const inquiries = await fetchData('/admin/api/inquiries');
+                document.getElementById('acc_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `
+                    <tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td></tr>
+                `).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center">No data</td></tr>';
+            } catch (e) {}
+        }
+
+        // ===== REALTOR DASHBOARD =====
+        async function loadRealtorDashboard() {
+            try {
+                const stats = await fetchData('/admin/api/stats');
+                document.getElementById('rel_properties').textContent = stats.active_properties;
+                document.getElementById('rel_inquiries').textContent = stats.total_inquiries;
+                document.getElementById('rel_new').textContent = stats.new_inquiries;
+                const props = await fetchData('/admin/api/properties');
+                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `
+                    <tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? '₦'+Number(p.price).toLocaleString() : p.price_type}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>
+                `).join('');
+                const inquiries = await fetchData('/admin/api/inquiries');
+                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `
+                    <tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>
+                `).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
+            } catch (e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRoleDashboard(USER_ROLE);
+        });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
     </script>
 </body>
 </html>
