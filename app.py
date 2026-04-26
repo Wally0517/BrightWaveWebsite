@@ -171,7 +171,7 @@ class TeamMember(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 DEFAULT_SITE_CONTENT = {
-    'home.hero_badge': 'Trusted property for students, families, and investors',
+    'home.hero_badge': '',
     'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
     'home.hero_subtitle': 'BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.',
     'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
@@ -182,7 +182,7 @@ DEFAULT_SITE_CONTENT = {
 }
 
 LEGACY_SITE_CONTENT = {
-    'home.hero_badge': 'Trusted property for students, families, and investors',
+    'home.hero_badge': '',
     'home.hero_title': 'Building trusted property opportunities across Nigeria.',
     'home.hero_subtitle': 'BrightWave Habitat Enterprise serves students, families, and investors with live student accommodation in Malete and broader property opportunities presented with clearer process and stronger trust.',
     'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
@@ -192,8 +192,8 @@ LEGACY_SITE_CONTENT = {
 
 OLDER_LEGACY_SITE_CONTENT = {
     'home.hero_badge': 'Now Open: BrightWave Hostel Phase 1',
-    'home.hero_title': 'Affordable student rooms that are ready in Malete.',
-    'home.hero_subtitle': 'The first 10 self-contained rooms are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
+    'home.hero_title': 'Affordable Student Apartment units that are ready in Malete.',
+    'home.hero_subtitle': 'The first 10 Student Apartment units are now available with solar backup, water, security, and easy access to campus life in Kwara State.',
     'home.about_intro': 'BrightWave Habitat Enterprise is focused on real, present inventory first. Phase 1 is open now, while future hostel, land, and residential projects are shown clearly as upcoming.',
     'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, starting with BrightWave Hostel Phase 1 in Malete.',
     'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to build housing people can actually trust. We are currently leading with BrightWave Hostel Phase 1 in Malete, while future hostels, land opportunities, and residential projects remain in the pipeline until they are ready to be presented properly.',
@@ -315,7 +315,7 @@ def init_sample_data():
     # --- Hostels (keep images) ---
     phase1 = Property(
         title='BrightWave Phase 1 Hostel',
-        description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
+        description='Modern 10-unit Student Apartment hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
         property_type='hostel',
         location='Malete, Kwara State, Nigeria',
         price=None, price_type='Now Open - Contact for Rates',
@@ -332,7 +332,7 @@ def init_sample_data():
         property_type='hostel', location='Malete, Kwara State',
         price=480000, price_type='per session',
         total_rooms=20, available_rooms=20,
-        amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
+        amenities=['Student Apartment units','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
         images=['images/hostels/brightwave-phase2-render.jpg'],
         construction_status='planning', completion_date=datetime(2027, 6, 30).date(),
         featured=False, status='active'
@@ -344,7 +344,7 @@ def init_sample_data():
         property_type='hostel', location='GreenCity, Malete, Kwara State',
         price=520000, price_type='per session',
         total_rooms=40, available_rooms=40,
-        amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
+        amenities=['Student Apartment units','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
         images=['images/hostels/brightwave-phase3-concept.jpg'],
         construction_status='pending', completion_date=datetime(2028, 12, 31).date(),
         featured=False, status='active'

@@ -205,10 +205,6 @@
     <div class="hero-shell relative px-4 py-14 md:py-28 xl:py-32 z-10 w-full">
       <div class="hero-main-grid grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] gap-10 items-start">
         <div class="hero-copy text-white">
-          <div id="homeHeroBadge" class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white mb-6">
-            <i class="fas fa-building text-[var(--bw-accent)]"></i>
-            <span class="hero-kicker" style="color:var(--bw-accent)">Trusted property for students, families, and investors</span>
-          </div>
           <p class="eyebrow mb-5">BrightWave Habitat Enterprise</p>
           <h1 id="homeHeroTitle" class="brand-display text-4xl sm:text-5xl md:text-6xl xl:text-[5.2rem] font-semibold leading-[1.05] xl:leading-[0.96] mb-6 max-w-5xl">
             Property opportunities in Nigeria, presented with <span class="gradient-text">real proof and clear process</span>.
@@ -256,7 +252,7 @@
                 </div>
                 <div class="hero-proof-pill">
                   <i class="fas fa-bed text-[var(--bw-accent)]"></i>
-                  <span>Self-contained rooms</span>
+                  <span>Student Apartment units</span>
                 </div>
               </div>
               <a href="/hostels/detail" class="brand-button-secondary mt-5">
@@ -282,8 +278,8 @@
               <img src="/assets/images/phase1/phase1-bedroom.jpg" alt="BrightWave Phase 1 finished room interior" class="hero-proof-thumb" loading="lazy" decoding="async" />
               <div class="hero-proof-copy">
                 <p class="hero-kicker text-[var(--bw-sea)]">What is available</p>
-                <h3 class="brand-display text-2xl font-semibold mt-2">Self-contained rooms</h3>
-                <p class="text-sm text-slate-300 mt-3">Private rooms, dependable utilities, and a cleaner living standard close to student demand.</p>
+                <h3 class="brand-display text-2xl font-semibold mt-2">Student Apartment units</h3>
+                <p class="text-sm text-slate-300 mt-3">Private units, dependable utilities, and a cleaner living standard close to student demand.</p>
                 <a href="/hostels/detail" class="inline-flex items-center gap-2 text-sm font-semibold text-[var(--bw-accent-strong)] mt-4">
                   <span>View flagship details</span>
                   <i class="fas fa-arrow-right"></i>
@@ -340,7 +336,7 @@
           <h3 class="services-card-title brand-display text-2xl font-semibold mb-4 text-slate-50">Student Hostels</h3>
           <p class="services-card-copy text-slate-300 mb-6 leading-7">Purpose-built student accommodation remains our active flagship, with BrightWave Hostel Phase 1 now open in Malete and future phases in the pipeline.</p>
           <ul class="services-feature-list text-sm text-slate-400 space-y-2 mb-6">
-            <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Self-contained rooms</li>
+            <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Student Apartment units</li>
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>24/7 Security & CCTV</li>
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Solar power backup</li>
             <li><i class="fas fa-check text-[var(--bw-sea)] mr-2"></i>Recreation facilities</li>
@@ -980,9 +976,6 @@ document.addEventListener('keydown', (e) => {
       fetch('/api/site-content')
         .then(response => response.json())
         .then(content => {
-          if (content['home.hero_badge']) {
-            document.getElementById('homeHeroBadge').innerHTML = `<i class="fas fa-building text-emerald-400"></i><span class="hero-kicker">${content['home.hero_badge']}</span>`;
-          }
           if (content['home.hero_title']) {
             document.getElementById('homeHeroTitle').textContent = content['home.hero_title'];
           }
@@ -1242,7 +1235,7 @@ document.addEventListener('keydown', (e) => {
   location: 'Malete, Kwara State',
   price: null,
   price_type: 'Now Open - Contact for Rates',
-  description: 'Modern 10-room self-contained hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
+  description: 'Modern 10-unit Student Apartment hostel near KWASU. Features 24/7 security, solar power, and recreational facilities.',
             construction_status: 'completed',
   featured: true,
   images: ['images/phase1/phase1-main-entrance.jpg']
