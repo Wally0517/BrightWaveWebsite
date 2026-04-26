@@ -2051,7 +2051,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <!-- NAV TABS -->
     <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700/50 sticky top-16 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex gap-1 overflow-x-auto scrollbar-none py-2">
+            <!-- Mobile: hamburger bar -->
+            <div class="flex items-center justify-between md:hidden h-12">
+                <span id="mobileNavLabel" class="text-sm font-medium text-white flex items-center gap-1.5">
+                    <i class="fas fa-chart-line text-slate-400"></i> Overview
+                </span>
+                <button id="hamburgerBtn" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors" aria-label="Menu">
+                    <i class="fas fa-bars text-base" id="hamburgerIcon"></i>
+                </button>
+            </div>
+            <!-- Desktop: full tab row -->
+            <div id="navItemsContainer" class="hidden md:flex gap-1 overflow-x-auto scrollbar-none py-2">
                 <button onclick="showSection('overviewSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
                     <i class="fas fa-chart-line mr-1.5"></i>Overview
                 </button>
@@ -2075,6 +2085,33 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 </button>
                 <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
                     <i class="fas fa-envelope mr-1.5"></i>Inquiries
+                </button>
+            </div>
+            <!-- Mobile: dropdown menu (hidden by default) -->
+            <div id="mobileNavMenu" class="md:hidden hidden pb-2 space-y-0.5">
+                <button onclick="showSection('overviewSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-chart-line w-4 text-center"></i>Overview
+                </button>
+                <button onclick="showSection('signaturesSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-signature w-4 text-center"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
+                </button>
+                <button onclick="showSection('accountsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-users w-4 text-center"></i>Accounts
+                </button>
+                <button onclick="showSection('investorsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-chart-pie w-4 text-center"></i>Investors
+                </button>
+                <button onclick="showSection('propertiesSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-building w-4 text-center"></i>Properties
+                </button>
+                <button onclick="showSection('contentSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-globe w-4 text-center"></i>Website
+                </button>
+                <button onclick="showSection('teamSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-id-card w-4 text-center"></i>Our Team
+                </button>
+                <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-envelope w-4 text-center"></i>Inquiries
                 </button>
             </div>
         </div>
@@ -2109,6 +2146,37 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         <!-- TEAM ACCOUNTS SECTION -->
         <section id="accountsSection" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Team Accounts</h2>
+
+            <!-- Edit Account Panel (hidden until Edit clicked) -->
+            <div id="editAccountPanel" class="hidden bg-gray-700 border border-slate-500/50 p-4 rounded-xl mb-4">
+                <h4 class="font-semibold mb-3 text-slate-200 flex items-center gap-2"><i class="fas fa-user-edit text-blue-400"></i> Editing: <span id="editAccName" class="text-white"></span></h4>
+                <input type="hidden" id="editAccId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Primary Role</label>
+                        <select id="editAccRole" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm">
+                            <option value="MANAGER">Manager</option>
+                            <option value="ACCOUNTANT">Accountant</option>
+                            <option value="REALTOR">Realtor</option>
+                            <option value="INVESTOR">Investor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Additional Roles</label>
+                        <div class="flex gap-4 flex-wrap pt-1">
+                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-blue-500" value="MANAGER"> Manager</label>
+                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-green-500" value="ACCOUNTANT"> Accountant</label>
+                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-amber-500" value="REALTOR"> Realtor</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="saveAccountEdit()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors">Save Changes</button>
+                    <button onclick="closeAccountEdit()" class="bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors">Cancel</button>
+                    <span id="editAccMessage" class="text-sm ml-1"></span>
+                </div>
+            </div>
+
             <div class="bg-gray-800 p-4 rounded-lg mb-4">
                 <h3 class="font-semibold mb-3 text-slate-300">Create New Account</h3>
                 <form id="createAccountForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2973,6 +3041,15 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         document.getElementById('resetTeamForm').addEventListener('click', resetTeamMemberForm);
 
+        // ===== HAMBURGER MENU =====
+        document.getElementById('hamburgerBtn')?.addEventListener('click', () => {
+            const menu = document.getElementById('mobileNavMenu');
+            const icon = document.getElementById('hamburgerIcon');
+            const isOpen = !menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', isOpen);
+            icon.className = isOpen ? 'fas fa-bars text-base' : 'fas fa-times text-base';
+        });
+
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
             const sections = ['overviewSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection'];
@@ -2983,8 +3060,16 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const target = document.getElementById(sectionId);
             if (target) target.classList.remove('hidden');
             document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
-            const activeBtn = document.querySelector(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`);
-            if (activeBtn) activeBtn.classList.add('active');
+            // Mark both desktop and mobile nav buttons as active
+            document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
+            // Update mobile label and close mobile menu
+            const mobileLabelBtn = document.querySelector(`.mobile-nav-item[onclick="showSection('${sectionId}')"]`);
+            const mobileLabel = document.getElementById('mobileNavLabel');
+            if (mobileLabelBtn && mobileLabel) mobileLabel.innerHTML = mobileLabelBtn.innerHTML.replace('w-full text-left', '').trim().split('</i>')[0] + '</i>' + mobileLabelBtn.textContent.trim();
+            const mobileMenu = document.getElementById('mobileNavMenu');
+            if (mobileMenu) mobileMenu.classList.add('hidden');
+            const hamburgerIcon = document.getElementById('hamburgerIcon');
+            if (hamburgerIcon) hamburgerIcon.className = 'fas fa-bars text-base';
             if (sectionId === 'signaturesSection') loadPendingContracts();
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
@@ -3065,8 +3150,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2 pr-3">${secondary || '<span class="text-xs text-gray-600">—</span>'}</td>
                         <td class="py-2 pr-3 text-xs ${statusColors[a.contract_status] || 'text-gray-500'}">${statusLabels[a.contract_status] || a.contract_status}</td>
                         <td class="py-2 pr-3"><span class="text-xs ${a.is_active ? 'text-green-400' : 'text-red-400'}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
-                        <td class="py-2">
-                            <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'} mr-2">${a.is_active ? 'Deactivate' : 'Activate'}</button>
+                        <td class="py-2 flex gap-2 flex-wrap">
+                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username)}, '${a.role}', ${JSON.stringify(a.secondary_roles || [])})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}">${a.is_active ? 'Deactivate' : 'Activate'}</button>
                         </td>
                     </tr>`;
                 }).join('');
@@ -3092,6 +3178,43 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 });
                 loadAccounts();
             } catch (e) { alert('Error updating account'); }
+        }
+
+        function editAccount(id, name, currentRole, currentSecondary) {
+            document.getElementById('editAccId').value = id;
+            document.getElementById('editAccName').textContent = name;
+            document.getElementById('editAccRole').value = currentRole;
+            document.querySelectorAll('.edit-sec-role').forEach(cb => {
+                cb.checked = currentSecondary.includes(cb.value);
+            });
+            const panel = document.getElementById('editAccountPanel');
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            document.getElementById('editAccMessage').textContent = '';
+        }
+
+        function closeAccountEdit() {
+            document.getElementById('editAccountPanel').classList.add('hidden');
+        }
+
+        async function saveAccountEdit() {
+            const id = document.getElementById('editAccId').value;
+            const role = document.getElementById('editAccRole').value;
+            const secondaryRoles = Array.from(document.querySelectorAll('.edit-sec-role:checked')).map(cb => cb.value);
+            const msgEl = document.getElementById('editAccMessage');
+            try {
+                const res = await fetchData('/admin/api/accounts/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ role, secondary_roles: secondaryRoles })
+                });
+                msgEl.textContent = '✓ ' + (res.message || 'Saved');
+                msgEl.className = 'text-sm ml-1 text-green-400';
+                setTimeout(() => { closeAccountEdit(); loadAccounts(); }, 1200);
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error saving';
+                msgEl.className = 'text-sm ml-1 text-red-400';
+            }
         }
 
         document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
