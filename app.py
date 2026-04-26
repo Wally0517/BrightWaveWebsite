@@ -207,6 +207,33 @@ class InvestorProfile(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('Admin', backref='investor_profile_rel', foreign_keys=[user_id])
 
+class Tenant(db.Model):
+    __tablename__ = 'tenant'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(150), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    property_name = db.Column(db.String(150), nullable=True)
+    unit_number = db.Column(db.String(30), nullable=True)
+    lease_start = db.Column(db.Date, nullable=True)
+    lease_end = db.Column(db.Date, nullable=True)
+    monthly_rent = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='active')
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PaymentRecord(db.Model):
+    __tablename__ = 'payment_record'
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+    tenant_name = db.Column(db.String(120), nullable=True)
+    amount = db.Column(db.Float, nullable=False)
+    payment_date = db.Column(db.Date, nullable=False, default=date_type.today)
+    payment_type = db.Column(db.String(30), default='rent')
+    description = db.Column(db.Text, nullable=True)
+    recorded_by = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
     'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
@@ -557,13 +584,16 @@ All property data, client information, tenant details, team data, and operationa
 4. CODE OF CONDUCT
 The Manager agrees to maintain the highest professional standards in all interactions with tenants, clients, contractors, and team members. Any conduct that damages the reputation of BrightWave Habitat Enterprise may result in immediate access revocation and legal action.
 
-5. DATA SECURITY
+5. COMMISSION STRUCTURE
+The Manager is entitled to a commission of 10% of the gross rent value per unit successfully leased or let on behalf of BrightWave Habitat Enterprise during their term of engagement. Commission is payable upon confirmed tenant occupancy and receipt of the first payment. The CEO reserves the right to adjust commission terms with 14 days written notice.
+
+6. DATA SECURITY
 The Manager is solely responsible for keeping their login credentials secure and must not share access with any other person. Any breach of system security must be reported to the CEO immediately.
 
-6. INTELLECTUAL PROPERTY
+7. INTELLECTUAL PROPERTY
 All work produced, materials created, and processes developed during the term of this agreement remain the intellectual property of BrightWave Habitat Enterprise.
 
-7. AGREEMENT TERM
+8. AGREEMENT TERM
 This agreement is effective from the date both parties sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct or breach of any term of this agreement.
 
 By signing below, the Manager confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
@@ -619,7 +649,11 @@ The Realtor agrees to represent BrightWave Habitat Enterprise and its clients wi
 For properties actively listed under BrightWave Habitat Enterprise, the Realtor agrees to represent only BrightWave's interests and must not simultaneously represent competing parties on the same transaction without prior written CEO approval.
 
 5. COMMISSION STRUCTURE
-Commission rates and payment terms are as agreed separately with the CEO and are subject to review. Commissions are earned upon successful completion of a transaction and are subject to company payment schedules.
+The Realtor is entitled to the following commission rates on transactions successfully completed on behalf of BrightWave Habitat Enterprise:
+   — 10% of the gross rent value per residential or hostel unit successfully leased or let.
+   — 10% of the agreed sale price per land plot sold.
+   — 10% of the gross contract value per service apartment successfully arranged or let.
+Commission is earned upon completion of the transaction, confirmed in writing by the CEO, and is subject to the company's standard payment schedule. The CEO reserves the right to adjust commission terms with 14 days written notice.
 
 6. CONFIDENTIALITY
 All client details, property pricing information, negotiation discussions, and internal company information are strictly confidential. The Realtor agrees not to disclose such information to competitors or unauthorised parties.
@@ -822,7 +856,7 @@ def pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v1';
+const CACHE_NAME = 'brightwave-portal-v2';
 const STATIC_ASSETS = ['/admin/login'];
 
 self.addEventListener('install', event => {
@@ -841,15 +875,17 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Network-first: always try network, fall back to cache for navigation
+// Network-first for static assets only; never cache admin pages or API calls
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
-    if (event.request.url.includes('/admin/api/')) return; // never cache API calls
+    const url = event.request.url;
+    if (url.includes('/admin/')) return; // never cache admin pages or API
+    if (url.includes('/sw.js')) return;
 
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                if (response.ok) {
+                if (response.ok && (url.includes('/assets/') || url.includes('/manifest.json'))) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
                 }
@@ -1160,6 +1196,7 @@ def handle_property_inquiry():
 def admin_stats():
     """Get enhanced dashboard statistics"""
     try:
+        from sqlalchemy import func as sqlfunc
         ensure_cms_baseline()
         total_properties = Property.query.count()
         active_properties = Property.query.filter_by(status='active').count()
@@ -1167,16 +1204,30 @@ def admin_stats():
         land_plots = Property.query.filter_by(property_type='land').count()
         residential = Property.query.filter_by(property_type='residential').count()
         active_team_members = TeamMember.query.filter_by(is_active=True).count()
-        
+
         total_inquiries = PropertyInquiry.query.count()
         new_inquiries = PropertyInquiry.query.filter_by(status='new').count()
         contact_messages = ContactMessage.query.count()
         new_messages = ContactMessage.query.filter_by(status='new').count()
-        
-        # Recent activity
+
+        # Tenant stats
+        active_tenants = Tenant.query.filter_by(status='active').count()
+        total_tenants = Tenant.query.count()
+
+        # Revenue stats
+        now = datetime.utcnow()
+        month_start = date_type(now.year, now.month, 1)
+        monthly_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).filter(
+            PaymentRecord.payment_date >= month_start
+        ).scalar() or 0
+        total_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).scalar() or 0
+
+        # Recent data
         recent_inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).limit(5).all()
         recent_messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(5).all()
-        
+        recent_payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(5).all()
+        recent_tenants = Tenant.query.order_by(Tenant.created_at.desc()).limit(5).all()
+
         return jsonify({
             'total_properties': total_properties,
             'active_properties': active_properties,
@@ -1190,6 +1241,10 @@ def admin_stats():
             'contact_messages': contact_messages,
             'new_messages': new_messages,
             'active_team_members': active_team_members,
+            'active_tenants': active_tenants,
+            'total_tenants': total_tenants,
+            'monthly_revenue': monthly_revenue,
+            'total_revenue': total_revenue,
             'recent_activity': {
                 'inquiries': [{
                     'id': inq.id,
@@ -1202,7 +1257,21 @@ def admin_stats():
                     'name': msg.full_name,
                     'form_origin': msg.form_origin,
                     'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M')
-                } for msg in recent_messages]
+                } for msg in recent_messages],
+                'payments': [{
+                    'id': p.id,
+                    'tenant_name': p.tenant_name or 'Unknown',
+                    'amount': p.amount,
+                    'payment_type': p.payment_type,
+                    'payment_date': p.payment_date.strftime('%Y-%m-%d') if p.payment_date else ''
+                } for p in recent_payments],
+                'tenants': [{
+                    'id': t.id,
+                    'name': t.name,
+                    'property_name': t.property_name or '',
+                    'status': t.status,
+                    'created_at': t.created_at.strftime('%Y-%m-%d')
+                } for t in recent_tenants]
             }
         })
     except Exception as e:
@@ -1750,6 +1819,10 @@ def admin_accounts():
         )
         db.session.add(new_admin)
         db.session.commit()
+        if new_admin.role != 'CEO':
+            contract = UserContract(user_id=new_admin.id, contract_type=new_admin.role, status='pending_user_signature')
+            db.session.add(contract)
+            db.session.commit()
         return jsonify({"success": True, "message": f"{data['role']} account created successfully", "id": new_admin.id})
     except IntegrityError:
         db.session.rollback()
@@ -1794,6 +1867,124 @@ def admin_account_detail(account_id):
         return jsonify({"success": True, "message": "Account deactivated"})
     except Exception as e:
         logger.error(f"Error on account {account_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== TENANT API ==========
+@app.route('/admin/api/tenants', methods=['GET', 'POST'])
+@login_required
+def admin_tenants():
+    try:
+        if request.method == 'GET':
+            status_filter = request.args.get('status')
+            q = Tenant.query
+            if status_filter:
+                q = q.filter_by(status=status_filter)
+            tenants = q.order_by(Tenant.created_at.desc()).all()
+            return jsonify([{
+                'id': t.id,
+                'name': t.name,
+                'email': t.email or '',
+                'phone': t.phone or '',
+                'property_name': t.property_name or '',
+                'unit_number': t.unit_number or '',
+                'lease_start': t.lease_start.isoformat() if t.lease_start else '',
+                'lease_end': t.lease_end.isoformat() if t.lease_end else '',
+                'monthly_rent': t.monthly_rent or 0,
+                'status': t.status,
+                'notes': t.notes or '',
+                'created_at': t.created_at.strftime('%Y-%m-%d'),
+            } for t in tenants])
+
+        data = request.get_json() or {}
+        if not data.get('name'):
+            return jsonify({"success": False, "message": "Tenant name is required"}), 400
+        tenant = Tenant(
+            name=data['name'].strip(),
+            email=(data.get('email') or '').strip() or None,
+            phone=(data.get('phone') or '').strip() or None,
+            property_name=(data.get('property_name') or '').strip() or None,
+            unit_number=(data.get('unit_number') or '').strip() or None,
+            lease_start=date_type.fromisoformat(data['lease_start']) if data.get('lease_start') else None,
+            lease_end=date_type.fromisoformat(data['lease_end']) if data.get('lease_end') else None,
+            monthly_rent=float(data.get('monthly_rent') or 0),
+            status=data.get('status', 'active'),
+            notes=(data.get('notes') or '').strip() or None,
+        )
+        db.session.add(tenant)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Tenant added", "id": tenant.id})
+    except Exception as e:
+        logger.error(f"Error managing tenants: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/tenants/<int:tenant_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_tenant_detail(tenant_id):
+    try:
+        tenant = Tenant.query.get_or_404(tenant_id)
+        if request.method == 'DELETE':
+            tenant.status = 'vacated'
+            db.session.commit()
+            return jsonify({"success": True, "message": "Tenant marked as vacated"})
+        data = request.get_json() or {}
+        for field in ['name', 'email', 'phone', 'property_name', 'unit_number', 'status', 'notes']:
+            if field in data:
+                setattr(tenant, field, (data[field] or '').strip() or None if field != 'status' else data[field])
+        if data.get('monthly_rent') is not None:
+            tenant.monthly_rent = float(data['monthly_rent'])
+        if data.get('lease_start'):
+            tenant.lease_start = date_type.fromisoformat(data['lease_start'])
+        if data.get('lease_end'):
+            tenant.lease_end = date_type.fromisoformat(data['lease_end'])
+        db.session.commit()
+        return jsonify({"success": True, "message": "Tenant updated"})
+    except Exception as e:
+        logger.error(f"Error on tenant {tenant_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== PAYMENT RECORD API ==========
+@app.route('/admin/api/payments', methods=['GET', 'POST'])
+@login_required
+def admin_payments():
+    try:
+        if request.method == 'GET':
+            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
+            return jsonify([{
+                'id': p.id,
+                'tenant_id': p.tenant_id,
+                'tenant_name': p.tenant_name or '',
+                'amount': p.amount,
+                'payment_date': p.payment_date.isoformat() if p.payment_date else '',
+                'payment_type': p.payment_type,
+                'description': p.description or '',
+                'recorded_by': p.recorded_by or '',
+                'created_at': p.created_at.strftime('%Y-%m-%d %H:%M'),
+            } for p in payments])
+
+        data = request.get_json() or {}
+        if not data.get('amount'):
+            return jsonify({"success": False, "message": "Amount is required"}), 400
+        tenant_name = data.get('tenant_name', '').strip()
+        tenant_id = data.get('tenant_id') or None
+        if tenant_id:
+            t = Tenant.query.get(int(tenant_id))
+            if t:
+                tenant_name = t.name
+        admin = get_current_admin()
+        payment = PaymentRecord(
+            tenant_id=int(tenant_id) if tenant_id else None,
+            tenant_name=tenant_name or None,
+            amount=float(data['amount']),
+            payment_date=date_type.fromisoformat(data['payment_date']) if data.get('payment_date') else date_type.today(),
+            payment_type=data.get('payment_type', 'rent'),
+            description=(data.get('description') or '').strip() or None,
+            recorded_by=admin.display_name or admin.username if admin else None,
+        )
+        db.session.add(payment)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment recorded", "id": payment.id})
+    except Exception as e:
+        logger.error(f"Error managing payments: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== INVESTOR PROFILE API ==========
@@ -2065,6 +2256,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <button onclick="showSection('overviewSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
                     <i class="fas fa-chart-line mr-1.5"></i>Overview
                 </button>
+                <button onclick="showSection('tenantsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-home mr-1.5"></i>Tenants
+                </button>
+                <button onclick="showSection('paymentsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-money-bill-wave mr-1.5"></i>Payments
+                </button>
                 <button onclick="showSection('signaturesSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
                     <i class="fas fa-signature mr-1.5"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-1.5 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
                 </button>
@@ -2091,6 +2288,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div id="mobileNavMenu" class="md:hidden hidden pb-2 space-y-0.5">
                 <button onclick="showSection('overviewSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
                     <i class="fas fa-chart-line w-4 text-center"></i>Overview
+                </button>
+                <button onclick="showSection('tenantsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-home w-4 text-center"></i>Tenants
+                </button>
+                <button onclick="showSection('paymentsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-money-bill-wave w-4 text-center"></i>Payments
                 </button>
                 <button onclick="showSection('signaturesSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
                     <i class="fas fa-signature w-4 text-center"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
@@ -2318,14 +2521,109 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
+        <!-- TENANTS SECTION -->
+        <section id="tenantsSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Tenants</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="font-semibold mb-3 text-slate-300">Add Tenant</h3>
+                <form id="addTenantForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input type="text" id="tnName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input type="email" id="tnEmail" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input type="text" id="tnPhone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input type="text" id="tnProperty" placeholder="e.g. BrightWave Hostel Phase 1" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label><input type="text" id="tnUnit" placeholder="e.g. Room 12" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent (₦)</label><input type="number" id="tnRent" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input type="date" id="tnLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input type="date" id="tnLeaseEnd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label>
+                        <select id="tnStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="active">Active</option><option value="vacated">Vacated</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="tnNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                    <div class="flex items-end gap-3">
+                        <button type="submit" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Add Tenant</button>
+                        <span id="tenantMsg" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <h3 class="font-semibold text-slate-300 flex-1">All Tenants</h3>
+                    <select id="tnFilterStatus" onchange="loadTenants(this.value)" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white">
+                        <option value="">All</option><option value="active">Active</option><option value="vacated">Vacated</option>
+                    </select>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="border-b border-gray-600">
+                            <th class="py-2 text-left text-gray-400">Name</th>
+                            <th class="py-2 text-left text-gray-400">Contact</th>
+                            <th class="py-2 text-left text-gray-400">Property / Unit</th>
+                            <th class="py-2 text-left text-gray-400">Rent</th>
+                            <th class="py-2 text-left text-gray-400">Lease</th>
+                            <th class="py-2 text-left text-gray-400">Status</th>
+                            <th class="py-2 text-left text-gray-400">Actions</th>
+                        </tr></thead>
+                        <tbody id="tenantsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAYMENTS SECTION -->
+        <section id="paymentsSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Payments</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="font-semibold mb-3 text-slate-300">Record Payment</h3>
+                <form id="addPaymentForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Tenant</label>
+                        <select id="pmtTenantId" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">-- Select or type below --</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Tenant Name (if not listed)</label><input type="text" id="pmtTenantName" placeholder="Free-text name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="pmtAmount" required step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input type="date" id="pmtDate" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label>
+                        <select id="pmtType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input type="text" id="pmtDesc" placeholder="Optional notes" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div class="flex items-end gap-3">
+                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Record Payment</button>
+                        <span id="paymentMsg" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3 text-slate-300">Recent Payments (last 50)</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="border-b border-gray-600">
+                            <th class="py-2 text-left text-gray-400">Tenant</th>
+                            <th class="py-2 text-left text-gray-400">Amount</th>
+                            <th class="py-2 text-left text-gray-400">Date</th>
+                            <th class="py-2 text-left text-gray-400">Type</th>
+                            <th class="py-2 text-left text-gray-400">Description</th>
+                            <th class="py-2 text-left text-gray-400">Recorded By</th>
+                        </tr></thead>
+                        <tbody id="paymentsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!-- Enhanced Statistics -->
         <section id="overviewSection" class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Dashboard Overview</h2>
-            <div id="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div id="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <!-- Stats will be populated by JavaScript -->
             </div>
-            <div id="propertyBreakdown" class="bg-gray-800 p-4 rounded-lg mb-4">
-                <!-- Property breakdown will be populated -->
+            <div id="businessStats" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <!-- Business metrics cards -->
             </div>
             <div id="recentActivity" class="bg-gray-800 p-4 rounded-lg">
                 <!-- Recent activity will be populated -->
@@ -2583,12 +2881,34 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             return response.json();
         }
 
+        function fmtNGN(v) { return '\u20a6' + Number(v || 0).toLocaleString('en-NG'); }
+
         async function loadStats() {
             try {
                 const stats = await fetchData('/admin/api/stats');
-                
-                // Main stats cards
-                document.getElementById('stats').innerHTML = `
+
+                // Business metrics row
+                document.getElementById('businessStats').innerHTML = `
+                    <div class="bg-teal-800/60 border border-teal-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-teal-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-users text-teal-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-teal-400 font-medium uppercase tracking-wide">Active Tenants</p>
+                            <p class="text-3xl font-bold text-white mt-0.5">${stats.active_tenants}</p>
+                            <p class="text-xs text-teal-300 mt-1">${stats.total_tenants} total recorded</p>
+                        </div>
+                    </div>
+                    <div class="bg-emerald-800/60 border border-emerald-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-emerald-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-money-bill-wave text-emerald-300"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide">This Month Revenue</p>
+                            <p class="text-2xl font-bold text-white mt-0.5">${fmtNGN(stats.monthly_revenue)}</p>
+                            <p class="text-xs text-emerald-300 mt-1">All time: ${fmtNGN(stats.total_revenue)}</p>
+                        </div>
+                    </div>
                     <div class="bg-slate-700/80 border border-slate-600/40 p-5 rounded-xl flex items-start gap-4 shadow">
                         <div class="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-building text-slate-300"></i>
@@ -2596,9 +2916,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div>
                             <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Properties</p>
                             <p class="text-3xl font-bold text-white mt-0.5">${stats.total_properties}</p>
-                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active</p>
+                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active &bull; H:${stats.property_breakdown.hostels} L:${stats.property_breakdown.land_plots} R:${stats.property_breakdown.residential}</p>
                         </div>
                     </div>
+                `;
+
+                // Website metrics row
+                document.getElementById('stats').innerHTML = `
                     <div class="bg-green-800/60 border border-green-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
                         <div class="w-10 h-10 bg-green-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-search text-green-300"></i>
@@ -2619,16 +2943,6 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <p class="text-xs text-blue-300 mt-1">${stats.new_messages} new</p>
                         </div>
                     </div>
-                    <div class="bg-amber-800/60 border border-amber-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-amber-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-layer-group text-amber-300"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs text-amber-400 font-medium uppercase tracking-wide">By Type</p>
-                            <p class="text-sm text-white mt-1">Hostels: <span class="font-bold">${stats.property_breakdown.hostels}</span></p>
-                            <p class="text-sm text-amber-200">Land: <span class="font-bold">${stats.property_breakdown.land_plots}</span> &nbsp; Homes: <span class="font-bold">${stats.property_breakdown.residential}</span></p>
-                        </div>
-                    </div>
                     <div class="bg-purple-800/60 border border-purple-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
                         <div class="w-10 h-10 bg-purple-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-users text-purple-300"></i>
@@ -2642,29 +2956,53 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 `;
 
                 // Recent activity
-                const noActivity = '<p class="text-gray-500 text-sm italic">None yet</p>';
+                const noRows = '<tr><td colspan="99" class="text-gray-500 text-sm py-3 text-center italic">None yet</td></tr>';
                 document.getElementById('recentActivity').innerHTML = `
                     <h3 class="text-base font-semibold text-slate-300 mb-4 flex items-center gap-2"><i class="fas fa-clock text-slate-400"></i> Recent Activity</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
-                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-search text-green-500"></i> Latest Inquiries</h4>
+                            <h4 class="text-xs font-semibold text-teal-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-money-bill-wave"></i> Recent Payments</h4>
+                            <table class="w-full text-sm">
+                                <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Tenant</th><th class="py-1 text-left text-gray-500 font-medium">Amount</th><th class="py-1 text-left text-gray-500 font-medium">Date</th></tr></thead>
+                                <tbody>${stats.recent_activity.payments.length ? stats.recent_activity.payments.map(p => `
+                                    <tr class="border-b border-gray-700/50">
+                                        <td class="py-2 text-white">${p.tenant_name}</td>
+                                        <td class="py-2 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
+                                        <td class="py-2 text-gray-400 text-xs">${p.payment_date}</td>
+                                    </tr>`).join('') : noRows}</tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-users"></i> Recent Tenants</h4>
+                            <table class="w-full text-sm">
+                                <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Name</th><th class="py-1 text-left text-gray-500 font-medium">Property</th><th class="py-1 text-left text-gray-500 font-medium">Status</th></tr></thead>
+                                <tbody>${stats.recent_activity.tenants.length ? stats.recent_activity.tenants.map(t => `
+                                    <tr class="border-b border-gray-700/50">
+                                        <td class="py-2 text-white">${t.name}</td>
+                                        <td class="py-2 text-gray-400 text-xs">${t.property_name || '—'}</td>
+                                        <td class="py-2"><span class="text-xs px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-teal-800 text-teal-300' : 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
+                                    </tr>`).join('') : noRows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                        <div>
+                            <h4 class="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-search"></i> Latest Inquiries</h4>
                             ${stats.recent_activity.inquiries.length ? stats.recent_activity.inquiries.map(inq => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
                                     <span class="font-semibold text-white">${inq.name}</span>
                                     <span class="ml-2 text-xs bg-green-800/60 text-green-300 px-2 py-0.5 rounded-full">${inq.inquiry_type}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${inq.created_at}</span>
-                                </div>
-                            `).join('') : noActivity}
+                                </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
                         </div>
                         <div>
-                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-envelope text-blue-500"></i> Latest Messages</h4>
+                            <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-envelope"></i> Latest Messages</h4>
                             ${stats.recent_activity.messages.length ? stats.recent_activity.messages.map(msg => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
                                     <span class="font-semibold text-white">${msg.name}</span>
                                     <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${msg.form_origin}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${msg.created_at}</span>
-                                </div>
-                            `).join('') : noActivity}
+                                </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
                         </div>
                     </div>
                 `;
@@ -3052,7 +3390,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
-            const sections = ['overviewSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection'];
+            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -3060,9 +3398,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const target = document.getElementById(sectionId);
             if (target) target.classList.remove('hidden');
             document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
-            // Mark both desktop and mobile nav buttons as active
             document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
-            // Update mobile label and close mobile menu
             const mobileLabelBtn = document.querySelector(`.mobile-nav-item[onclick="showSection('${sectionId}')"]`);
             const mobileLabel = document.getElementById('mobileNavLabel');
             if (mobileLabelBtn && mobileLabel) mobileLabel.innerHTML = mobileLabelBtn.innerHTML.replace('w-full text-left', '').trim().split('</i>')[0] + '</i>' + mobileLabelBtn.textContent.trim();
@@ -3073,6 +3409,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'signaturesSection') loadPendingContracts();
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
+            if (sectionId === 'tenantsSection') loadTenants();
+            if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
@@ -3322,6 +3660,124 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
+        // ===== TENANTS =====
+        async function loadTenants(statusFilter) {
+            try {
+                const url = statusFilter ? '/admin/api/tenants?status=' + statusFilter : '/admin/api/tenants';
+                const tenants = await fetchData(url);
+                const statusColors = {active:'bg-teal-800 text-teal-300', vacated:'bg-gray-700 text-gray-400'};
+                document.getElementById('tenantsTable').innerHTML = tenants.length ? tenants.map(t => `
+                    <tr class="border-b border-gray-700 hover:bg-gray-750">
+                        <td class="py-2 pr-3 font-medium text-white">${t.name}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400">${t.email || ''}${t.phone ? '<br>'+t.phone : ''}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-300">${t.property_name || '—'}${t.unit_number ? ' / '+t.unit_number : ''}</td>
+                        <td class="py-2 pr-3 text-emerald-400 font-medium text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400">${t.lease_start || ''}${t.lease_end ? ' → '+t.lease_end : ''}</td>
+                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
+                        <td class="py-2">
+                            <button onclick="vacateTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
+                        </td>
+                    </tr>`).join('') : '<tr><td colspan="7" class="text-gray-400 py-4 text-center">No tenants found</td></tr>';
+            } catch (e) {
+                document.getElementById('tenantsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading tenants</td></tr>';
+            }
+        }
+
+        async function vacateTenant(id) {
+            if (!confirm('Mark this tenant as vacated?')) return;
+            try {
+                await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+            } catch (e) { alert('Error updating tenant'); }
+        }
+
+        document.getElementById('addTenantForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('tenantMsg');
+            try {
+                const res = await fetchData('/admin/api/tenants', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        name: document.getElementById('tnName').value,
+                        email: document.getElementById('tnEmail').value,
+                        phone: document.getElementById('tnPhone').value,
+                        property_name: document.getElementById('tnProperty').value,
+                        unit_number: document.getElementById('tnUnit').value,
+                        monthly_rent: document.getElementById('tnRent').value,
+                        lease_start: document.getElementById('tnLeaseStart').value,
+                        lease_end: document.getElementById('tnLeaseEnd').value,
+                        status: document.getElementById('tnStatus').value,
+                        notes: document.getElementById('tnNotes').value,
+                    })
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm text-green-400';
+                document.getElementById('addTenantForm').reset();
+                loadTenants();
+                loadStats();
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error adding tenant';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        });
+
+        // ===== PAYMENTS =====
+        async function loadTenantOptions() {
+            try {
+                const tenants = await fetchData('/admin/api/tenants?status=active');
+                const sel = document.getElementById('pmtTenantId');
+                if (!sel) return;
+                sel.innerHTML = '<option value="">-- Select tenant --</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.property_name ? ' ('+t.property_name+')' : ''}</option>`).join('');
+            } catch (e) {}
+        }
+
+        async function loadPayments() {
+            try {
+                const payments = await fetchData('/admin/api/payments');
+                document.getElementById('paymentsTable').innerHTML = payments.length ? payments.map(p => `
+                    <tr class="border-b border-gray-700">
+                        <td class="py-2 pr-3 text-white">${p.tenant_name || '—'}</td>
+                        <td class="py-2 pr-3 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400">${p.payment_date}</td>
+                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">${p.payment_type}</span></td>
+                        <td class="py-2 pr-3 text-xs text-gray-400">${p.description || '—'}</td>
+                        <td class="py-2 text-xs text-gray-500">${p.recorded_by || '—'}</td>
+                    </tr>`).join('') : '<tr><td colspan="6" class="text-gray-400 py-4 text-center">No payments recorded</td></tr>';
+            } catch (e) {
+                document.getElementById('paymentsTable').innerHTML = '<tr><td colspan="6" class="text-red-400 py-2">Error loading payments</td></tr>';
+            }
+        }
+
+        document.getElementById('addPaymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('paymentMsg');
+            try {
+                const tenantSelect = document.getElementById('pmtTenantId');
+                const res = await fetchData('/admin/api/payments', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        tenant_id: tenantSelect.value || null,
+                        tenant_name: document.getElementById('pmtTenantName').value,
+                        amount: document.getElementById('pmtAmount').value,
+                        payment_date: document.getElementById('pmtDate').value,
+                        payment_type: document.getElementById('pmtType').value,
+                        description: document.getElementById('pmtDesc').value,
+                    })
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm text-green-400';
+                document.getElementById('addPaymentForm').reset();
+                loadPayments();
+                loadStats();
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error recording payment';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        });
+
         // Initialize dashboard - show overview by default
         document.addEventListener('DOMContentLoaded', () => {
             showSection('overviewSection');
@@ -3389,7 +3845,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
                 <p class="text-sm text-yellow-400 mt-2">Please read this agreement carefully before proceeding to your dashboard.</p>
             </div>
-            <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: 350px;">{{ contract_body }}</div>
+            <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: calc(60vh - 120px); min-height: 180px;">{{ contract_body }}</div>
             <div id="scrollPrompt" class="text-center text-xs text-gray-500 py-2 flex-shrink-0">Scroll to the bottom to continue</div>
             <div id="signatureSection" class="p-6 border-t border-gray-700 flex-shrink-0 hidden">
                 <div class="flex items-start gap-2 mb-4">
@@ -3613,13 +4069,17 @@ ROLE_DASHBOARD_TEMPLATE = """
             const contractText = document.getElementById('contractText');
             const scrollPrompt = document.getElementById('scrollPrompt');
             const signatureSection = document.getElementById('signatureSection');
+            function checkContractScrollEnd() {
+                if (!contractText) return;
+                if (contractText.scrollTop + contractText.clientHeight >= contractText.scrollHeight - 40) {
+                    scrollPrompt.classList.add('hidden');
+                    signatureSection.classList.remove('hidden');
+                }
+            }
             if (contractText) {
-                contractText.addEventListener('scroll', function() {
-                    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 30) {
-                        scrollPrompt.classList.add('hidden');
-                        signatureSection.classList.remove('hidden');
-                    }
-                });
+                contractText.addEventListener('scroll', checkContractScrollEnd);
+                // Check immediately on load — short contracts or large screens may not need scrolling
+                setTimeout(checkContractScrollEnd, 200);
             }
         }
 
