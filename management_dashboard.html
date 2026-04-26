@@ -3,1370 +3,1074 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Management Dashboard — BrightWave Habitat Enterprise</title>
+  <title>Management — BrightWave Habitat Enterprise</title>
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
-  <link rel="stylesheet" href="/assets/style.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    :root {
-      --sidebar-w: 240px;
-      --header-h: 60px;
-      --brand-navy: #1a2744;
-      --brand-teal: #0d9488;
-      --brand-gold: #c9a94b;
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; margin: 0; min-height: 100vh; }
+    :root { --sb: 240px; --hh: 60px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; }
 
     /* ── Sidebar ── */
-    #sidebar {
-      position: fixed; top: 0; left: 0; height: 100vh; width: var(--sidebar-w);
+    #sb {
+      position: fixed; inset: 0 auto 0 0; width: var(--sb);
       background: #111827; border-right: 1px solid rgba(255,255,255,0.07);
-      display: flex; flex-direction: column; z-index: 40;
-      transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column; z-index: 50;
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
     }
-    #sidebar.hidden-mobile { transform: translateX(-100%); }
-    .sidebar-logo { padding: 1.1rem 1.25rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
-    .sidebar-logo img { height: 28px; object-fit: contain; }
-    .sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
-    .nav-item {
-      display: flex; align-items: center; gap: 0.75rem;
-      padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 500;
-      color: #94a3b8; border-left: 3px solid transparent;
-      cursor: pointer; transition: all 0.15s; user-select: none;
-      border-radius: 0;
+    .sb-logo { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+    .sb-nav  { flex: 1; overflow-y: auto; padding: .5rem 0; }
+    .sb-foot { padding: .75rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+    .ni {
+      display: flex; align-items: center; gap: .7rem; padding: .58rem 1.25rem;
+      font-size: .875rem; font-weight: 500; color: #94a3b8;
+      border-left: 3px solid transparent; cursor: pointer;
+      transition: all .15s; user-select: none;
     }
-    .nav-item:hover { color: #f1f5f9; background: rgba(255,255,255,0.04); }
-    .nav-item.active { color: #2dd4bf; border-left-color: #0d9488; background: rgba(13,148,136,0.08); }
-    .nav-item i { width: 16px; text-align: center; font-size: 0.85rem; }
-    .sidebar-footer { padding: 0.75rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); }
+    .ni:hover { color: #f1f5f9; background: rgba(255,255,255,0.04); }
+    .ni.active { color: #2dd4bf; border-left-color: #0d9488; background: rgba(13,148,136,0.08); }
+    .ni i { width: 16px; text-align: center; font-size: .85rem; flex-shrink: 0; }
+    .ni .nb { margin-left: auto; font-size: .7rem; background: #ef4444; color: #fff; border-radius: 9999px; padding: .1rem .45rem; display: none; }
+    .ni .nb.show { display: inline; }
 
     /* ── Header ── */
-    #header {
-      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--header-h);
+    #hdr {
+      position: fixed; top: 0; left: var(--sb); right: 0; height: var(--hh);
       background: #111827; border-bottom: 1px solid rgba(255,255,255,0.07);
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 1.25rem; z-index: 30;
+      padding: 0 1.25rem; z-index: 40;
     }
-    #header.full-width { left: 0; }
 
-    /* ── Main content ── */
-    #main { margin-left: var(--sidebar-w); margin-top: var(--header-h); padding: 1.5rem; min-height: calc(100vh - var(--header-h)); }
-    #main.full-width { margin-left: 0; }
+    /* ── Main ── */
+    #main { margin-left: var(--sb); margin-top: var(--hh); padding: 1.5rem; }
 
-    /* ── Overlay (mobile) ── */
-    #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 35; }
-    #overlay.show { display: block; }
+    /* ── Overlay ── */
+    #ov { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 45; }
+    #ov.on { display: block; }
+
+    /* ── Mobile ── */
+    @media (max-width: 767px) {
+      #sb  { transform: translateX(-100%); }
+      #sb.open { transform: translateX(0); }
+      #hdr { left: 0; }
+      #main { margin-left: 0; padding: 1rem; }
+    }
+
+    /* ── Panels & cards ── */
+    .panel { background: #1e293b; border-radius: .75rem; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+    .ph { padding: .9rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+    .pb { padding: 1.1rem; }
+    .sc { background: #1e293b; border-radius: .75rem; padding: 1.1rem; border: 1px solid rgba(255,255,255,0.06); }
 
     /* ── Tab panels ── */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tp { display: none; }
+    .tp.on { display: block; }
 
-    /* ── Cards ── */
-    .stat-card { background: #1e293b; border-radius: 0.75rem; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.06); }
-    .panel { background: #1e293b; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.06); }
-    .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; }
-    .panel-body { padding: 1.25rem; }
+    /* ── Tables ── */
+    .wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table.dt { width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 480px; }
+    table.dt th { padding: .55rem .7rem; text-align: left; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+    table.dt td { padding: .65rem .7rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    table.dt tr:last-child td { border-bottom: none; }
+    table.dt tr:hover td { background: rgba(255,255,255,0.02); }
+    .empty-row td { color: #475569; text-align: center; padding: 2rem .7rem; }
 
-    /* ── Form inputs ── */
-    .f-input {
+    /* ── Inputs ── */
+    .fi {
       background: #0f172a; border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;
-      padding: 0.55rem 0.85rem; border-radius: 0.45rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color 0.15s;
+      padding: .52rem .85rem; border-radius: .45rem; font-size: .875rem; width: 100%; outline: none; transition: border-color .15s;
     }
-    .f-input:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
-    .f-input::placeholder { color: rgba(255,255,255,0.25); }
-    select.f-input option { background: #1e293b; }
+    .fi:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+    .fi::placeholder { color: rgba(255,255,255,0.25); }
+    select.fi option { background: #1e293b; }
+    .fi-sm { padding: .35rem .65rem; font-size: .8rem; }
 
     /* ── Buttons ── */
-    .btn { padding: 0.5rem 1rem; border-radius: 0.45rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
-    .btn-teal { background: #0d9488; color: white; }
-    .btn-teal:hover { background: #0f766e; }
-    .btn-ghost { background: rgba(255,255,255,0.07); color: #94a3b8; }
-    .btn-ghost:hover { background: rgba(255,255,255,0.12); color: #f1f5f9; }
-    .btn-danger { background: rgba(239,68,68,0.15); color: #f87171; }
-    .btn-danger:hover { background: rgba(239,68,68,0.25); }
-    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* ── Table ── */
-    .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .data-table th { padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .data-table td { padding: 0.7rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
-    .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .btn { padding: .48rem 1rem; border-radius: .45rem; font-size: .84rem; font-weight: 500; cursor: pointer; border: none; transition: all .15s; display: inline-flex; align-items: center; gap: .35rem; }
+    .bt  { background: #0d9488; color: #fff; }
+    .bt:hover  { background: #0f766e; }
+    .bg  { background: rgba(255,255,255,0.07); color: #94a3b8; }
+    .bg:hover  { background: rgba(255,255,255,0.12); color: #f1f5f9; }
+    .bd  { background: rgba(239,68,68,0.12); color: #f87171; }
+    .bd:hover  { background: rgba(239,68,68,0.22); }
+    .bw  { background: rgba(34,197,94,0.12); color: #4ade80; }
+    .bw:hover  { background: rgba(34,197,94,0.22); }
+    .btn-sm { padding: .28rem .6rem; font-size: .78rem; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
 
     /* ── Badges ── */
-    .badge { display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
-    .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
-    .badge-yellow { background: rgba(234,179,8,0.15); color: #facc15; }
-    .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
-    .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
-    .badge-slate { background: rgba(100,116,139,0.15); color: #94a3b8; }
-    .badge-teal { background: rgba(13,148,136,0.15); color: #2dd4bf; }
+    .badge { display: inline-flex; align-items: center; padding: .18rem .52rem; border-radius: 9999px; font-size: .71rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+    .bg-g  { background: rgba(34,197,94,0.14);  color: #4ade80; }
+    .bg-y  { background: rgba(234,179,8,0.14);   color: #facc15; }
+    .bg-r  { background: rgba(239,68,68,0.14);   color: #f87171; }
+    .bg-b  { background: rgba(59,130,246,0.14);  color: #60a5fa; }
+    .bg-s  { background: rgba(100,116,139,0.14); color: #94a3b8; }
+    .bg-t  { background: rgba(13,148,136,0.14);  color: #2dd4bf; }
+    .bg-o  { background: rgba(249,115,22,0.14);  color: #fb923c; }
 
     /* ── Modal ── */
-    .modal-backdrop { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 1rem; }
-    .modal-backdrop.open { display: flex; }
-    .modal { background: #1e293b; border-radius: 0.875rem; border: 1px solid rgba(255,255,255,0.09); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
-    .modal-header { padding: 1.1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; }
-    .modal-body { padding: 1.25rem; }
-    .modal-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); display: flex; justify-content: flex-end; gap: 0.5rem; }
+    .mb { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.6); align-items: center; justify-content: center; padding: 1rem; }
+    .mb.open { display: flex; }
+    .mc { background: #1e293b; border-radius: .875rem; border: 1px solid rgba(255,255,255,0.09); width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; }
+    .mh { padding: 1rem 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; }
+    .mbody { padding: 1.2rem; }
+    .mf { padding: .9rem 1.2rem; border-top: 1px solid rgba(255,255,255,0.07); display: flex; justify-content: flex-end; gap: .5rem; }
+    .lbl { display: block; font-size: .75rem; font-weight: 500; color: #94a3b8; margin-bottom: .3rem; }
 
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      #sidebar { transform: translateX(-100%); }
-      #sidebar.mobile-open { transform: translateX(0); }
-      #header, #main { left: 0; margin-left: 0; }
-      #header { left: 0; }
-      #main { padding: 1rem; }
-    }
+    /* ── Search bar ── */
+    .search-wrap { position: relative; }
+    .search-wrap i { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: #475569; font-size: .8rem; pointer-events: none; }
+    .search-wrap .fi { padding-left: 2rem; }
+
+    /* ── Divider ── */
+    .div { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: .75rem 0; }
   </style>
 </head>
 <body>
 
-<!-- ── Sidebar ── -->
-<aside id="sidebar">
-  <div class="sidebar-logo">
-    <div class="flex items-center gap-2">
-      <img src="/assets/images/brightwave-logo.png" alt="BrightWave"
-           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-      <i class="fa-solid fa-building text-teal-400 text-lg hidden"></i>
+<!-- Sidebar -->
+<aside id="sb">
+  <div class="sb-logo">
+    <div style="display:flex;align-items:center;gap:.6rem">
+      <img src="/assets/images/brightwave-logo.png" alt="" style="height:26px;object-fit:contain"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <i class="fa-solid fa-building" style="color:#2dd4bf;font-size:1.1rem;display:none"></i>
       <div>
-        <p class="text-white font-semibold text-sm leading-tight">BrightWave</p>
-        <p class="text-slate-500 text-xs">Management</p>
+        <p style="font-weight:700;font-size:.875rem;color:#f1f5f9;line-height:1.2">BrightWave</p>
+        <p style="font-size:.72rem;color:#475569">Management</p>
       </div>
     </div>
   </div>
 
-  <nav class="sidebar-nav">
-    <div class="nav-item active" data-tab="overview">
-      <i class="fa-solid fa-chart-line"></i>
-      <span>Overview</span>
-    </div>
-    <div class="nav-item" data-tab="tenants">
-      <i class="fa-solid fa-users"></i>
-      <span>Tenants</span>
-    </div>
-    <div class="nav-item" data-tab="payments">
-      <i class="fa-solid fa-naira-sign"></i>
-      <span>Payments</span>
-    </div>
-    <div class="nav-item" data-tab="inquiries">
-      <i class="fa-solid fa-inbox"></i>
-      <span>Inquiries</span>
-      <span id="navBadgeInq" class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 hidden"></span>
-    </div>
-    <div class="nav-item" data-tab="messages">
-      <i class="fa-solid fa-envelope"></i>
-      <span>Messages</span>
-      <span id="navBadgeMsg" class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 hidden"></span>
-    </div>
-    <div class="nav-item" data-tab="website">
-      <i class="fa-solid fa-globe"></i>
-      <span>Website</span>
-    </div>
-    <div class="nav-item" data-tab="properties">
-      <i class="fa-solid fa-building-columns"></i>
-      <span>Properties</span>
-    </div>
-    <div class="nav-item admin-only" data-tab="accounts" style="display:none">
-      <i class="fa-solid fa-user-shield"></i>
-      <span>Accounts</span>
-    </div>
+  <nav class="sb-nav">
+    <div class="ni active" data-tab="overview"><i class="fa-solid fa-chart-line"></i><span>Overview</span></div>
+    <div class="ni" data-tab="tenants"><i class="fa-solid fa-users"></i><span>Tenants</span></div>
+    <div class="ni" data-tab="payments"><i class="fa-solid fa-naira-sign"></i><span>Payments</span></div>
+    <div class="ni" data-tab="inquiries"><i class="fa-solid fa-inbox"></i><span>Inquiries</span><span class="nb" id="nbInq"></span></div>
+    <div class="ni" data-tab="messages"><i class="fa-solid fa-envelope"></i><span>Messages</span><span class="nb" id="nbMsg"></span></div>
+    <div class="ni" data-tab="website"><i class="fa-solid fa-globe"></i><span>Website</span></div>
+    <div class="ni" data-tab="properties"><i class="fa-solid fa-building-columns"></i><span>Properties</span></div>
+    <div class="ni admin-only" data-tab="accounts" style="display:none"><i class="fa-solid fa-user-shield"></i><span>Accounts</span></div>
   </nav>
 
-  <div class="sidebar-footer">
-    <a href="/management/logout" class="flex items-center gap-2 text-slate-500 hover:text-red-400 transition-colors text-sm py-1">
-      <i class="fa-solid fa-right-from-bracket text-sm w-4 text-center"></i>
-      <span>Sign out</span>
+  <div class="sb-foot">
+    <a href="/management/logout" style="display:flex;align-items:center;gap:.5rem;color:#64748b;font-size:.84rem;text-decoration:none;transition:color .15s" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#64748b'">
+      <i class="fa-solid fa-right-from-bracket" style="width:14px;text-align:center"></i><span>Sign out</span>
     </a>
   </div>
 </aside>
 
-<!-- ── Mobile overlay ── -->
-<div id="overlay"></div>
+<!-- Overlay -->
+<div id="ov"></div>
 
-<!-- ── Header ── -->
-<header id="header">
-  <div class="flex items-center gap-3">
-    <button id="menuToggle" class="text-slate-400 hover:text-white transition-colors md:hidden">
-      <i class="fa-solid fa-bars text-lg"></i>
+<!-- Header -->
+<header id="hdr">
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <button id="menuBtn" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:.25rem;display:none" onclick="toggleSb()">
+      <i class="fa-solid fa-bars" style="font-size:1.1rem"></i>
     </button>
-    <h1 id="pageTitle" class="text-white font-semibold text-base">Overview</h1>
+    <span id="pageTitle" style="font-weight:600;font-size:.95rem;color:#f1f5f9">Overview</span>
   </div>
-  <div class="flex items-center gap-3">
-    <span class="text-slate-500 text-sm hidden sm:block" id="headerUsername"></span>
-    <a href="/" target="_blank" class="text-slate-500 hover:text-teal-400 transition-colors text-sm" title="View website">
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <span id="hdrUser" style="font-size:.84rem;color:#64748b"></span>
+    <a href="/" target="_blank" title="View live site" style="color:#64748b;text-decoration:none;font-size:.84rem" onmouseover="this.style.color='#2dd4bf'" onmouseout="this.style.color='#64748b'">
       <i class="fa-solid fa-arrow-up-right-from-square"></i>
     </a>
-    <a href="/management/logout" class="btn btn-ghost btn-sm hidden sm:inline-flex">
-      <i class="fa-solid fa-right-from-bracket mr-1"></i>Logout
+    <a href="/management/logout" class="btn bg btn-sm" style="text-decoration:none">
+      <i class="fa-solid fa-right-from-bracket"></i><span id="logoutLabel">Logout</span>
     </a>
   </div>
 </header>
 
-<!-- ── Main ── -->
+<!-- Main -->
 <main id="main">
 
-  <!-- ══ OVERVIEW ══ -->
-  <div class="tab-panel active" id="panel-overview">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="overviewCards">
-      <div class="stat-card col-span-2 md:col-span-1 animate-pulse bg-slate-800 h-24 rounded-xl"></div>
-      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
-      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
-      <div class="stat-card animate-pulse bg-slate-800 h-24 rounded-xl hidden md:block"></div>
+<!-- ══════════ OVERVIEW ══════════ -->
+<div class="tp on" id="tp-overview">
+  <!-- Quick actions -->
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+    <button class="btn bt btn-sm" onclick="switchTab('tenants');setTimeout(()=>openTenantModal(),300)"><i class="fa-solid fa-plus"></i>Add Tenant</button>
+    <button class="btn bt btn-sm" onclick="switchTab('payments');setTimeout(()=>openPaymentModal(),300)"><i class="fa-solid fa-naira-sign"></i>Record Payment</button>
+    <button class="btn bg btn-sm" onclick="switchTab('inquiries')"><i class="fa-solid fa-inbox"></i>View Inquiries</button>
+  </div>
+  <!-- Stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1rem" id="ovCards">
+    <div class="sc" style="grid-column:span 2"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Loading…</p></div>
+  </div>
+  <!-- Recent tables -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" id="ovTables">
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Recent Payments</span><button class="btn bg btn-sm" onclick="switchTab('payments')">View all</button></div>
+      <div class="wrap"><table class="dt" id="ovPayT"><thead><tr><th>Tenant</th><th>Amount</th><th>Type</th><th>Date</th></tr></thead><tbody class="loading-body"></tbody></table></div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="panel">
-        <div class="panel-header"><span class="font-semibold text-sm">Recent Payments</span></div>
-        <div class="panel-body overflow-x-auto">
-          <table class="data-table" id="overviewPaymentsTable">
-            <thead><tr><th>Tenant</th><th>Amount</th><th>Type</th><th>Date</th></tr></thead>
-            <tbody><tr><td colspan="4" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-header"><span class="font-semibold text-sm">Recent Tenants</span></div>
-        <div class="panel-body overflow-x-auto">
-          <table class="data-table" id="overviewTenantsTable">
-            <thead><tr><th>Name</th><th>Unit</th><th>Status</th><th>Move In</th></tr></thead>
-            <tbody><tr><td colspan="4" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Recent Tenants</span><button class="btn bg btn-sm" onclick="switchTab('tenants')">View all</button></div>
+      <div class="wrap"><table class="dt" id="ovTenT"><thead><tr><th>Name</th><th>Unit</th><th>Status</th><th>Move In</th></tr></thead><tbody class="loading-body"></tbody></table></div>
     </div>
   </div>
+</div>
 
-  <!-- ══ TENANTS ══ -->
-  <div class="tab-panel" id="panel-tenants">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-      <div class="flex gap-2 flex-wrap" id="tenantStatusFilters">
-        <button class="btn btn-teal btn-sm tenant-filter active" data-status="">All</button>
-        <button class="btn btn-ghost btn-sm tenant-filter" data-status="active">Active</button>
-        <button class="btn btn-ghost btn-sm tenant-filter" data-status="vacated">Vacated</button>
-      </div>
-      <button class="btn btn-teal btn-sm" onclick="openTenantModal()">
-        <i class="fa-solid fa-plus mr-1"></i>Add Tenant
-      </button>
+<!-- ══════════ TENANTS ══════════ -->
+<div class="tp" id="tp-tenants">
+  <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn bt btn-sm tf" data-s="">All</button>
+      <button class="btn bg btn-sm tf" data-s="active">Active</button>
+      <button class="btn bg btn-sm tf" data-s="reserved">Reserved</button>
+      <button class="btn bg btn-sm tf" data-s="vacated">Vacated</button>
     </div>
-    <div class="panel overflow-x-auto">
-      <table class="data-table" id="tenantsTable">
-        <thead><tr><th>Name</th><th>Phone</th><th>Unit</th><th>Move In</th><th>Move Out</th><th>Status</th><th>Rent</th><th></th></tr></thead>
-        <tbody><tr><td colspan="8" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    <div class="search-wrap" style="flex:1;min-width:160px;max-width:260px"><i class="fa-solid fa-magnifying-glass"></i><input class="fi fi-sm" id="tenantSearch" placeholder="Search name or phone…" oninput="filterTenants()"></div>
+    <button class="btn bt btn-sm" style="margin-left:auto" onclick="openTenantModal()"><i class="fa-solid fa-plus"></i>Add Tenant</button>
   </div>
+  <div class="panel wrap"><table class="dt" id="tenantTable">
+    <thead><tr><th>Name</th><th>Phone</th><th>Unit</th><th>Move In</th><th>Rent</th><th>Status</th><th></th></tr></thead>
+    <tbody class="loading-body"></tbody>
+  </table></div>
+</div>
 
-  <!-- ══ PAYMENTS ══ -->
-  <div class="tab-panel" id="panel-payments">
-    <div class="flex justify-between items-center mb-4">
-      <p class="text-slate-400 text-sm" id="paymentsSummary"></p>
-      <button class="btn btn-teal btn-sm" onclick="openPaymentModal()">
-        <i class="fa-solid fa-plus mr-1"></i>Record Payment
-      </button>
-    </div>
-    <div class="panel overflow-x-auto">
-      <table class="data-table" id="paymentsTable">
-        <thead><tr><th>Date</th><th>Tenant</th><th>Amount</th><th>Type</th><th>Description</th><th></th></tr></thead>
-        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-      </table>
-    </div>
+<!-- ══════════ PAYMENTS ══════════ -->
+<div class="tp" id="tp-payments">
+  <!-- Summary cards -->
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1rem" id="payCards">
+    <div class="sc"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Total</p><p style="font-size:1.4rem;font-weight:700;color:#2dd4bf" id="payTotal">—</p></div>
+    <div class="sc"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">This Month</p><p style="font-size:1.4rem;font-weight:700;color:#60a5fa" id="payMonth">—</p></div>
   </div>
-
-  <!-- ══ INQUIRIES ══ -->
-  <div class="tab-panel" id="panel-inquiries">
-    <div class="panel overflow-x-auto">
-      <table class="data-table" id="inquiriesTable">
-        <thead><tr><th>Name</th><th>Property</th><th>Type</th><th>Phone</th><th>Date</th><th>Status</th><th></th></tr></thead>
-        <tbody><tr><td colspan="7" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-      </table>
+  <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn bt btn-sm pf" data-t="">All</button>
+      <button class="btn bg btn-sm pf" data-t="rent">Rent</button>
+      <button class="btn bg btn-sm pf" data-t="deposit">Deposit</button>
+      <button class="btn bg btn-sm pf" data-t="service">Service</button>
+      <button class="btn bg btn-sm pf" data-t="other">Other</button>
     </div>
+    <div class="search-wrap" style="flex:1;min-width:140px;max-width:220px"><i class="fa-solid fa-magnifying-glass"></i><input class="fi fi-sm" id="paySearch" placeholder="Search tenant…" oninput="filterPayments()"></div>
+    <button class="btn bt btn-sm" style="margin-left:auto" onclick="openPaymentModal()"><i class="fa-solid fa-plus"></i>Record Payment</button>
   </div>
+  <div class="panel wrap"><table class="dt" id="payTable">
+    <thead><tr><th>Date</th><th>Tenant</th><th>Amount</th><th>Type</th><th>Description</th><th></th></tr></thead>
+    <tbody class="loading-body"></tbody>
+  </table></div>
+</div>
 
-  <!-- ══ MESSAGES ══ -->
-  <div class="tab-panel" id="panel-messages">
-    <div class="panel overflow-x-auto">
-      <table class="data-table" id="messagesTable">
-        <thead><tr><th>Name</th><th>Source</th><th>Subject</th><th>Date</th><th>Status</th><th></th></tr></thead>
-        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-      </table>
+<!-- ══════════ INQUIRIES ══════════ -->
+<div class="tp" id="tp-inquiries">
+  <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn bt btn-sm iqf" data-s="">All</button>
+      <button class="btn bg btn-sm iqf" data-s="new">New</button>
+      <button class="btn bg btn-sm iqf" data-s="contacted">Contacted</button>
+      <button class="btn bg btn-sm iqf" data-s="qualified">Qualified</button>
+      <button class="btn bg btn-sm iqf" data-s="converted">Converted</button>
     </div>
+    <div class="search-wrap" style="flex:1;min-width:140px;max-width:220px"><i class="fa-solid fa-magnifying-glass"></i><input class="fi fi-sm" id="iqSearch" placeholder="Search name…" oninput="filterInquiries()"></div>
   </div>
+  <div class="panel wrap"><table class="dt" id="iqTable">
+    <thead><tr><th>Name</th><th>Type</th><th>Phone</th><th>Date</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+    <tbody class="loading-body"></tbody>
+  </table></div>
+</div>
 
-  <!-- ══ WEBSITE ══ -->
-  <div class="tab-panel" id="panel-website">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+<!-- ══════════ MESSAGES ══════════ -->
+<div class="tp" id="tp-messages">
+  <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn bt btn-sm mf2" data-s="">All</button>
+      <button class="btn bg btn-sm mf2" data-s="new">New</button>
+      <button class="btn bg btn-sm mf2" data-s="read">Read</button>
+      <button class="btn bg btn-sm mf2" data-s="responded">Responded</button>
+    </div>
+    <div class="search-wrap" style="flex:1;min-width:140px;max-width:220px"><i class="fa-solid fa-magnifying-glass"></i><input class="fi fi-sm" id="msgSearch" placeholder="Search name…" oninput="filterMessages()"></div>
+  </div>
+  <div class="panel wrap"><table class="dt" id="msgTable">
+    <thead><tr><th>Name</th><th>Source</th><th>Subject</th><th>Date</th><th>Status</th><th></th></tr></thead>
+    <tbody class="loading-body"></tbody>
+  </table></div>
+</div>
 
-      <!-- Site content -->
-      <div class="panel lg:col-span-2">
-        <div class="panel-header">
-          <span class="font-semibold text-sm">Site Copy</span>
-          <span id="contentSaveMsg" class="text-xs hidden"></span>
-        </div>
-        <div class="panel-body">
-          <form id="siteContentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label class="block text-xs font-medium text-slate-400 mb-1">Home Hero Title</label>
-              <input type="text" id="home_hero_title" class="f-input" />
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-xs font-medium text-slate-400 mb-1">Home Hero Subtitle</label>
-              <textarea id="home_hero_subtitle" rows="3" class="f-input"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-xs font-medium text-slate-400 mb-1">Home About Intro</label>
-              <textarea id="home_about_intro" rows="3" class="f-input"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-xs font-medium text-slate-400 mb-1">About Page Subtitle</label>
-              <textarea id="about_hero_subtitle" rows="2" class="f-input"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-xs font-medium text-slate-400 mb-1">About Intro Body</label>
-              <textarea id="about_intro_body" rows="4" class="f-input"></textarea>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Team Section Heading</label>
-              <input type="text" id="about_team_heading" class="f-input" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Team Section Subheading</label>
-              <input type="text" id="about_team_subheading" class="f-input" />
-            </div>
-            <div class="md:col-span-2">
-              <button type="submit" class="btn btn-teal">Save Content</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Team members -->
-      <div class="panel lg:col-span-2">
-        <div class="panel-header">
-          <span class="font-semibold text-sm">Team Members</span>
-          <button class="btn btn-teal btn-sm" onclick="openTeamModal()"><i class="fa-solid fa-plus mr-1"></i>Add</button>
-        </div>
-        <div class="panel-body overflow-x-auto">
-          <table class="data-table" id="teamTable">
-            <thead><tr><th>Name</th><th>Role</th><th>Order</th><th>Active</th><th></th></tr></thead>
-            <tbody><tr><td colspan="5" class="text-slate-600 text-center py-4">Loading…</td></tr></tbody>
-          </table>
-        </div>
+<!-- ══════════ WEBSITE ══════════ -->
+<div class="tp" id="tp-website">
+  <div style="display:grid;gap:1rem">
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Site Copy</span><span id="copyMsg" style="font-size:.78rem"></span></div>
+      <div class="pb">
+        <form id="siteForm" style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
+          <div style="grid-column:span 2"><label class="lbl">Home Hero Title</label><input type="text" id="c_hht" class="fi" /></div>
+          <div style="grid-column:span 2"><label class="lbl">Home Hero Subtitle</label><textarea id="c_hhs" rows="3" class="fi"></textarea></div>
+          <div style="grid-column:span 2"><label class="lbl">Home About Intro</label><textarea id="c_hai" rows="3" class="fi"></textarea></div>
+          <div style="grid-column:span 2"><label class="lbl">About Page Subtitle</label><textarea id="c_ahs" rows="2" class="fi"></textarea></div>
+          <div style="grid-column:span 2"><label class="lbl">About Intro Body</label><textarea id="c_aib" rows="4" class="fi"></textarea></div>
+          <div><label class="lbl">Team Section Heading</label><input type="text" id="c_ath" class="fi" /></div>
+          <div><label class="lbl">Team Section Subheading</label><input type="text" id="c_ats" class="fi" /></div>
+          <div style="grid-column:span 2"><button type="submit" class="btn bt">Save Content</button></div>
+        </form>
       </div>
     </div>
-  </div>
-
-  <!-- ══ PROPERTIES ══ -->
-  <div class="tab-panel" id="panel-properties">
-    <div class="flex justify-between items-center mb-4">
-      <p class="text-slate-400 text-sm">Manage the property catalog.</p>
-      <button class="btn btn-teal btn-sm" onclick="openPropertyModal()">
-        <i class="fa-solid fa-plus mr-1"></i>Add Property
-      </button>
-    </div>
-    <div class="panel overflow-x-auto">
-      <table class="data-table" id="propertiesTable">
-        <thead><tr><th>Title</th><th>Type</th><th>Location</th><th>Status</th><th>Construction</th><th></th></tr></thead>
-        <tbody><tr><td colspan="6" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-      </table>
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Team Members</span><button class="btn bt btn-sm" onclick="openTeamModal()"><i class="fa-solid fa-plus"></i>Add</button></div>
+      <div class="wrap"><table class="dt" id="teamTable"><thead><tr><th>Name</th><th>Role</th><th>Order</th><th>Visible</th><th></th></tr></thead><tbody class="loading-body"></tbody></table></div>
     </div>
   </div>
+</div>
 
-  <!-- ══ ACCOUNTS ══ -->
-  <div class="tab-panel" id="panel-accounts">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+<!-- ══════════ PROPERTIES ══════════ -->
+<div class="tp" id="tp-properties">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
+    <button class="btn bt btn-sm" onclick="openPropertyModal()"><i class="fa-solid fa-plus"></i>Add Property</button>
+  </div>
+  <div class="panel wrap"><table class="dt" id="propTable">
+    <thead><tr><th>Title</th><th>Type</th><th>Location</th><th>Status</th><th>Construction</th><th></th></tr></thead>
+    <tbody class="loading-body"></tbody>
+  </table></div>
+</div>
 
-      <!-- Account list -->
-      <div class="panel lg:col-span-2">
-        <div class="panel-header">
-          <span class="font-semibold text-sm">Team Accounts</span>
-          <button class="btn btn-teal btn-sm" onclick="openAccountModal()">
-            <i class="fa-solid fa-plus mr-1"></i>Add Account
-          </button>
-        </div>
-        <div class="panel-body overflow-x-auto">
-          <table class="data-table" id="accountsTable">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Last Login</th>
-                <th>Last IP</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody><tr><td colspan="7" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Login history -->
-      <div class="panel lg:col-span-2">
-        <div class="panel-header">
-          <span class="font-semibold text-sm">Login History</span>
-          <span class="text-slate-500 text-xs">Last 50 logins</span>
-        </div>
-        <div class="panel-body overflow-x-auto">
-          <table class="data-table" id="loginLogsTable">
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Username</th>
-                <th>Name</th>
-                <th>IP Address</th>
-                <th>Device / Browser</th>
-              </tr>
-            </thead>
-            <tbody><tr><td colspan="5" class="text-slate-600 text-center py-6">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
+<!-- ══════════ ACCOUNTS ══════════ -->
+<div class="tp" id="tp-accounts">
+  <div style="display:grid;gap:1rem">
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Team Accounts</span><button class="btn bt btn-sm" onclick="openAccountModal()"><i class="fa-solid fa-plus"></i>Add Account</button></div>
+      <div class="wrap"><table class="dt" id="accTable">
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last Login</th><th>IP</th><th></th></tr></thead>
+        <tbody class="loading-body"></tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem">Login History</span><span style="font-size:.75rem;color:#475569">Last 50 logins</span></div>
+      <div class="wrap"><table class="dt" id="logTable">
+        <thead><tr><th>When</th><th>Username</th><th>Name</th><th>IP</th><th>Device</th></tr></thead>
+        <tbody class="loading-body"></tbody>
+      </table></div>
     </div>
   </div>
+</div>
 
 </main>
 
-<!-- ════════════ MODALS ════════════ -->
+<!-- ════════════════ MODALS ════════════════ -->
 
-<!-- Tenant modal -->
-<div class="modal-backdrop" id="tenantModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="tenantModalTitle">Add Tenant</h3>
-      <button onclick="closeTenantModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="tenantForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input type="hidden" id="tenantId" />
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Full Name *</label><input type="text" id="t_name" required class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Phone *</label><input type="text" id="t_phone" required class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Email</label><input type="email" id="t_email" class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Unit Number</label><input type="text" id="t_unit" class="f-input" placeholder="e.g. A1" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Move In Date</label><input type="date" id="t_movein" class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Move Out Date</label><input type="date" id="t_moveout" class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Rent Amount (₦)</label><input type="number" id="t_rent" class="f-input" step="1000" /></div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Status</label>
-          <select id="t_status" class="f-input">
-            <option value="active">Active</option>
-            <option value="vacated">Vacated</option>
-            <option value="reserved">Reserved</option>
-          </select>
-        </div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Notes</label><textarea id="t_notes" rows="2" class="f-input"></textarea></div>
+<!-- Tenant -->
+<div class="mb" id="mTenant">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mTenantTitle">Add Tenant</span><button onclick="cls('mTenant')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody">
+      <form id="fTenant" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <input type="hidden" id="t_id">
+        <div><label class="lbl">Full Name *</label><input type="text" id="t_name" class="fi" required></div>
+        <div><label class="lbl">Phone *</label><input type="text" id="t_phone" class="fi" required></div>
+        <div><label class="lbl">Email</label><input type="email" id="t_email" class="fi"></div>
+        <div><label class="lbl">Unit Number</label><input type="text" id="t_unit" class="fi" placeholder="e.g. A1"></div>
+        <div><label class="lbl">Move In</label><input type="date" id="t_in" class="fi"></div>
+        <div><label class="lbl">Move Out</label><input type="date" id="t_out" class="fi"></div>
+        <div><label class="lbl">Rent (₦)</label><input type="number" id="t_rent" class="fi" step="1000"></div>
+        <div><label class="lbl">Status</label><select id="t_status" class="fi"><option value="active">Active</option><option value="reserved">Reserved</option><option value="vacated">Vacated</option></select></div>
+        <div style="grid-column:span 2"><label class="lbl">Notes</label><textarea id="t_notes" rows="2" class="fi"></textarea></div>
       </form>
-      <p id="tenantFormMsg" class="text-xs mt-2 hidden"></p>
+      <p id="mTenantMsg" style="font-size:.78rem;margin-top:.5rem"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeTenantModal()">Cancel</button>
-      <button class="btn btn-teal" onclick="saveTenant()" id="saveTenantBtn">Save</button>
-    </div>
+    <div class="mf"><button class="btn bg" onclick="cls('mTenant')">Cancel</button><button class="btn bt" id="btnSaveTenant" onclick="saveTenant()">Save</button></div>
   </div>
 </div>
 
-<!-- Payment modal -->
-<div class="modal-backdrop" id="paymentModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="paymentModalTitle">Record Payment</h3>
-      <button onclick="closePaymentModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="paymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input type="hidden" id="paymentId" />
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Tenant</label>
-          <select id="p_tenant" class="f-input"><option value="">— None —</option></select>
-        </div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Amount (₦) *</label><input type="number" id="p_amount" required class="f-input" step="1000" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Payment Date *</label><input type="date" id="p_date" required class="f-input" /></div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Type</label>
-          <select id="p_type" class="f-input">
-            <option value="rent">Rent</option>
-            <option value="deposit">Deposit</option>
-            <option value="service">Service charge</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Description</label><input type="text" id="p_desc" class="f-input" /></div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Notes</label><textarea id="p_notes" rows="2" class="f-input"></textarea></div>
+<!-- Tenant Detail -->
+<div class="mb" id="mTenantView">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mTenantViewTitle">Tenant</span><button onclick="cls('mTenantView')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody" id="mTenantViewBody"></div>
+    <div class="mf"><button class="btn bg" onclick="cls('mTenantView')">Close</button></div>
+  </div>
+</div>
+
+<!-- Payment -->
+<div class="mb" id="mPayment">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mPayTitle">Record Payment</span><button onclick="cls('mPayment')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody">
+      <form id="fPayment" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <input type="hidden" id="p_id">
+        <div style="grid-column:span 2"><label class="lbl">Tenant</label><select id="p_tenant" class="fi"><option value="">— None —</option></select></div>
+        <div><label class="lbl">Amount (₦) *</label><input type="number" id="p_amount" class="fi" step="1000" required></div>
+        <div><label class="lbl">Date *</label><input type="date" id="p_date" class="fi" required></div>
+        <div><label class="lbl">Type</label><select id="p_type" class="fi"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="service">Service charge</option><option value="other">Other</option></select></div>
+        <div><label class="lbl">Description</label><input type="text" id="p_desc" class="fi"></div>
+        <div style="grid-column:span 2"><label class="lbl">Notes</label><textarea id="p_notes" rows="2" class="fi"></textarea></div>
       </form>
-      <p id="paymentFormMsg" class="text-xs mt-2 hidden"></p>
+      <p id="mPayMsg" style="font-size:.78rem;margin-top:.5rem"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closePaymentModal()">Cancel</button>
-      <button class="btn btn-teal" onclick="savePayment()" id="savePaymentBtn">Save</button>
-    </div>
+    <div class="mf"><button class="btn bg" onclick="cls('mPayment')">Cancel</button><button class="btn bt" id="btnSavePay" onclick="savePayment()">Save</button></div>
   </div>
 </div>
 
-<!-- Team member modal -->
-<div class="modal-backdrop" id="teamModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="teamModalTitle">Add Team Member</h3>
-      <button onclick="closeTeamModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="teamForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input type="hidden" id="teamId" />
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Name *</label><input type="text" id="tm_name" required class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Role *</label><input type="text" id="tm_role" required class="f-input" /></div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Bio *</label><textarea id="tm_bio" rows="3" required class="f-input"></textarea></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Image Path</label><input type="text" id="tm_img" class="f-input" placeholder="images/name.jpg" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Sort Order</label><input type="number" id="tm_order" value="0" class="f-input" /></div>
-        <div class="flex items-center gap-2 sm:col-span-2">
-          <input type="checkbox" id="tm_active" checked class="w-4 h-4 accent-teal-500" />
-          <label for="tm_active" class="text-sm text-slate-300">Visible on About page</label>
-        </div>
+<!-- Inquiry Detail -->
+<div class="mb" id="mInq">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mInqTitle">Inquiry</span><button onclick="cls('mInq')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody" id="mInqBody"></div>
+    <div class="mf" id="mInqFoot"></div>
+  </div>
+</div>
+
+<!-- Message Detail -->
+<div class="mb" id="mMsg">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mMsgTitle">Message</span><button onclick="cls('mMsg')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody" id="mMsgBody"></div>
+    <div class="mf" id="mMsgFoot"></div>
+  </div>
+</div>
+
+<!-- Team -->
+<div class="mb" id="mTeam">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mTeamTitle">Team Member</span><button onclick="cls('mTeam')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody">
+      <form id="fTeam" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <input type="hidden" id="tm_id">
+        <div><label class="lbl">Name *</label><input type="text" id="tm_name" class="fi" required></div>
+        <div><label class="lbl">Role *</label><input type="text" id="tm_role" class="fi" required></div>
+        <div style="grid-column:span 2"><label class="lbl">Bio *</label><textarea id="tm_bio" rows="3" class="fi" required></textarea></div>
+        <div><label class="lbl">Image Path</label><input type="text" id="tm_img" class="fi" placeholder="images/name.jpg"></div>
+        <div><label class="lbl">Sort Order</label><input type="number" id="tm_order" class="fi" value="0"></div>
+        <div style="grid-column:span 2;display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="tm_active" checked style="width:14px;height:14px;accent-color:#0d9488"><label for="tm_active" style="font-size:.875rem;color:#cbd5e1">Visible on About page</label></div>
       </form>
-      <p id="teamFormMsg" class="text-xs mt-2 hidden"></p>
+      <p id="mTeamMsg" style="font-size:.78rem;margin-top:.5rem"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeTeamModal()">Cancel</button>
-      <button class="btn btn-teal" onclick="saveTeamMember()" id="saveTeamBtn">Save</button>
-    </div>
+    <div class="mf"><button class="btn bg" onclick="cls('mTeam')">Cancel</button><button class="btn bt" id="btnSaveTeam" onclick="saveTeam()">Save</button></div>
   </div>
 </div>
 
-<!-- Property modal -->
-<div class="modal-backdrop" id="propertyModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="propertyModalTitle">Add Property</h3>
-      <button onclick="closePropertyModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="propertyForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input type="hidden" id="propertyId" />
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Title *</label><input type="text" id="pr_title" required class="f-input" /></div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Description *</label><textarea id="pr_desc" rows="3" required class="f-input"></textarea></div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Type *</label>
-          <select id="pr_type" required class="f-input">
-            <option value="hostel">Hostel</option>
-            <option value="land">Land</option>
-            <option value="residential">Residential</option>
-          </select>
-        </div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Location *</label><input type="text" id="pr_loc" required class="f-input" /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Price (₦)</label><input type="number" id="pr_price" class="f-input" /></div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Price Type</label>
-          <select id="pr_pricetype" class="f-input">
-            <option value="">—</option>
-            <option value="per session">Per session</option>
-            <option value="per year">Per year</option>
-            <option value="per plot">Per plot</option>
-            <option value="total">Total</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Construction</label>
-          <select id="pr_const" class="f-input">
-            <option value="">—</option>
-            <option value="completed">Completed</option>
-            <option value="ongoing-final">Ongoing — Final Stage</option>
-            <option value="coming-soon">Coming Soon</option>
-            <option value="planning">Planning</option>
-            <option value="pending">Pending</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Status</label>
-          <select id="pr_status" class="f-input">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2 sm:col-span-2">
-          <input type="checkbox" id="pr_featured" class="w-4 h-4 accent-teal-500" />
-          <label for="pr_featured" class="text-sm text-slate-300">Featured property</label>
-        </div>
+<!-- Property -->
+<div class="mb" id="mProp">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mPropTitle">Property</span><button onclick="cls('mProp')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody">
+      <form id="fProp" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <input type="hidden" id="pr_id">
+        <div style="grid-column:span 2"><label class="lbl">Title *</label><input type="text" id="pr_title" class="fi" required></div>
+        <div style="grid-column:span 2"><label class="lbl">Description *</label><textarea id="pr_desc" rows="3" class="fi" required></textarea></div>
+        <div><label class="lbl">Type *</label><select id="pr_type" class="fi"><option value="hostel">Hostel</option><option value="land">Land</option><option value="residential">Residential</option></select></div>
+        <div><label class="lbl">Location *</label><input type="text" id="pr_loc" class="fi" required></div>
+        <div><label class="lbl">Price (₦)</label><input type="number" id="pr_price" class="fi"></div>
+        <div><label class="lbl">Price Type</label><select id="pr_pricetype" class="fi"><option value="">—</option><option value="per session">Per session</option><option value="per year">Per year</option><option value="per plot">Per plot</option><option value="total">Total</option></select></div>
+        <div><label class="lbl">Construction</label><select id="pr_const" class="fi"><option value="">—</option><option value="completed">Completed</option><option value="ongoing-final">Ongoing — Final Stage</option><option value="coming-soon">Coming Soon</option><option value="planning">Planning</option><option value="pending">Pending</option></select></div>
+        <div><label class="lbl">Status</label><select id="pr_status" class="fi"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+        <div style="grid-column:span 2;display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="pr_featured" style="width:14px;height:14px;accent-color:#0d9488"><label for="pr_featured" style="font-size:.875rem;color:#cbd5e1">Featured property</label></div>
       </form>
-      <p id="propertyFormMsg" class="text-xs mt-2 hidden"></p>
+      <p id="mPropMsg" style="font-size:.78rem;margin-top:.5rem"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closePropertyModal()">Cancel</button>
-      <button class="btn btn-teal" onclick="saveProperty()" id="savePropertyBtn">Save</button>
-    </div>
+    <div class="mf"><button class="btn bg" onclick="cls('mProp')">Cancel</button><button class="btn bt" id="btnSaveProp" onclick="saveProp()">Save</button></div>
   </div>
 </div>
 
-<!-- Account modal -->
-<div class="modal-backdrop" id="accountModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="accountModalTitle">Add Account</h3>
-      <button onclick="closeAccountModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="accountForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input type="hidden" id="accountId" />
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Full Name</label><input type="text" id="ac_name" class="f-input" placeholder="e.g. Al-Ameen A." /></div>
-        <div><label class="block text-xs font-medium text-slate-400 mb-1">Username *</label><input type="text" id="ac_username" required class="f-input" placeholder="e.g. alameen" autocomplete="off" /></div>
-        <div class="sm:col-span-2"><label class="block text-xs font-medium text-slate-400 mb-1">Email *</label><input type="email" id="ac_email" required class="f-input" autocomplete="off" /></div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Password <span id="ac_pw_hint" class="text-slate-600">(required for new account)</span></label>
-          <input type="password" id="ac_password" class="f-input" placeholder="Min. 8 characters" autocomplete="new-password" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Role</label>
-          <select id="ac_role" class="f-input">
-            <option value="viewer">Viewer — read-only access</option>
-            <option value="admin">Admin — full access</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2 sm:col-span-2" id="ac_active_row">
-          <input type="checkbox" id="ac_active" checked class="w-4 h-4 accent-teal-500" />
-          <label for="ac_active" class="text-sm text-slate-300">Account active (can log in)</label>
-        </div>
+<!-- Account -->
+<div class="mb" id="mAcc">
+  <div class="mc">
+    <div class="mh"><span style="font-weight:600;font-size:.9rem" id="mAccTitle">Add Account</span><button onclick="cls('mAcc')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem">✕</button></div>
+    <div class="mbody">
+      <form id="fAcc" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem" autocomplete="off">
+        <input type="hidden" id="ac_id">
+        <div><label class="lbl">Full Name</label><input type="text" id="ac_name" class="fi" placeholder="e.g. Al-Ameen A."></div>
+        <div><label class="lbl">Username *</label><input type="text" id="ac_user" class="fi" required autocomplete="off"></div>
+        <div style="grid-column:span 2"><label class="lbl">Email *</label><input type="email" id="ac_email" class="fi" required autocomplete="off"></div>
+        <div><label class="lbl">Password <span id="ac_pwHint" style="color:#475569;font-size:.72rem">(required)</span></label><input type="password" id="ac_pw" class="fi" placeholder="Min. 8 chars" autocomplete="new-password"></div>
+        <div><label class="lbl">Role</label><select id="ac_role" class="fi"><option value="viewer">Viewer — read only</option><option value="admin">Admin — full access</option></select></div>
+        <div style="display:flex;align-items:center;gap:.5rem;grid-column:span 2" id="ac_activeRow"><input type="checkbox" id="ac_active" checked style="width:14px;height:14px;accent-color:#0d9488"><label for="ac_active" style="font-size:.875rem;color:#cbd5e1">Account active (can log in)</label></div>
       </form>
-      <p id="accountFormMsg" class="text-xs mt-2 hidden"></p>
+      <p id="mAccMsg" style="font-size:.78rem;margin-top:.5rem"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeAccountModal()">Cancel</button>
-      <button class="btn btn-teal" onclick="saveAccount()" id="saveAccountBtn">Create Account</button>
-    </div>
+    <div class="mf"><button class="btn bg" onclick="cls('mAcc')">Cancel</button><button class="btn bt" id="btnSaveAcc" onclick="saveAccount()">Save</button></div>
   </div>
 </div>
 
-<!-- Detail / view modal (inquiries & messages) -->
-<div class="modal-backdrop" id="detailModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="font-semibold text-white text-sm" id="detailModalTitle">Details</h3>
-      <button onclick="document.getElementById('detailModal').classList.remove('open')" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" id="detailModalBody"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="document.getElementById('detailModal').classList.remove('open')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════ JAVASCRIPT ════════════ -->
+<!-- ════════════════ SCRIPT ════════════════ -->
 <script>
-// ── State ──
-let csrfToken = '';
-let tenantsCache = [];
-let propertiesCache = [];
+'use strict';
+// ── State ──────────────────────────────────────────────────────────
+let csrf = '', myId = null, myRole = 'viewer';
+let tenantsC = [], paymentsC = [], inquiriesC = [], messagesC = [], propsC = [], teamC = [], accsC = [];
+let tenantFilter = '', payFilter = '', iqFilter = '', msgFilter = '';
 
-// ── Fetch helper ──
-async function apiFetch(url, options = {}) {
-  const headers = new Headers({ 'Content-Type': 'application/json', ...(options.headers || {}) });
-  const method = (options.method || 'GET').toUpperCase();
-  if (['POST','PUT','DELETE'].includes(method) && csrfToken) {
-    headers.set('X-CSRF-Token', csrfToken);
-  }
-  const res = await fetch(url, { credentials: 'include', ...options, headers });
-  if (res.status === 401 || res.status === 302) { window.location.href = '/management/login'; return; }
-  return res.json();
+// ── Utilities ──────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmtN = v => v == null ? '—' : '₦' + Number(v).toLocaleString('en-NG');
+const fmtD = d => { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); };
+const fmtDT = d => { if (!d) return '—'; return fmtD(d) + ' ' + d.slice(11,16) + ' UTC'; };
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function badge(s) {
+  const m = { active:'bg-g', new:'bg-b', completed:'bg-t', vacated:'bg-s', reserved:'bg-y',
+              contacted:'bg-y', qualified:'bg-y', converted:'bg-g', closed:'bg-r',
+              read:'bg-s', responded:'bg-g', inactive:'bg-r', admin:'bg-t', viewer:'bg-s',
+              high:'bg-r', medium:'bg-y', low:'bg-s', rent:'bg-t', deposit:'bg-b', service:'bg-o', other:'bg-s' };
+  return `<span class="badge ${m[s]||'bg-s'}">${esc(s)}</span>`;
 }
 
-// ── Formatting helpers ──
-function fmtMoney(v) { if (v == null) return '—'; return '₦' + Number(v).toLocaleString('en-NG'); }
-function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
-function statusBadge(s) {
-  const map = { active:'badge-green', new:'badge-blue', completed:'badge-teal', vacated:'badge-slate',
-                contacted:'badge-yellow', qualified:'badge-yellow', converted:'badge-green',
-                closed:'badge-red', read:'badge-slate', responded:'badge-green', reserved:'badge-yellow' };
-  return `<span class="badge ${map[s]||'badge-slate'}">${s}</span>`;
+function ua(str) {
+  if (!str) return '—';
+  if (/iPhone|iPad/.test(str)) return 'iOS';
+  if (/Android.*Chrome/.test(str)) return 'Android / Chrome';
+  if (/Android/.test(str)) return 'Android';
+  if (/Chrome/.test(str) && !/Edge|OPR/.test(str)) return 'Chrome';
+  if (/Firefox/.test(str)) return 'Firefox';
+  if (/Safari/.test(str) && !/Chrome/.test(str)) return 'Safari';
+  if (/Edge/.test(str)) return 'Edge';
+  return str.substring(0, 38);
 }
 
-// ── Sidebar nav ──
-const tabTitles = { overview:'Overview', tenants:'Tenants', payments:'Payments',
-                    inquiries:'Inquiries', messages:'Messages', website:'Website',
-                    properties:'Properties', accounts:'Accounts' };
-
-document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
-  item.addEventListener('click', () => {
-    const tab = item.dataset.tab;
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    item.classList.add('active');
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + tab).classList.add('active');
-    document.getElementById('pageTitle').textContent = tabTitles[tab] || tab;
-    closeMobileSidebar();
-    loadTab(tab);
-  });
-});
-
-function loadTab(tab) {
-  if (tab === 'overview') loadOverview();
-  else if (tab === 'tenants') loadTenants();
-  else if (tab === 'payments') loadPayments();
-  else if (tab === 'inquiries') loadInquiries();
-  else if (tab === 'messages') loadMessages();
-  else if (tab === 'website') { loadSiteContent(); loadTeam(); }
-  else if (tab === 'properties') loadProperties();
+function showMsg(elId, text, ok) {
+  const el = $(elId);
+  el.textContent = text;
+  el.style.color = ok ? '#4ade80' : '#f87171';
 }
 
-// ── Mobile sidebar ──
-const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('overlay');
-document.getElementById('menuToggle').addEventListener('click', () => {
-  sidebar.classList.toggle('mobile-open');
-  overlay.classList.toggle('show');
-});
-overlay.addEventListener('click', closeMobileSidebar);
-function closeMobileSidebar() { sidebar.classList.remove('mobile-open'); overlay.classList.remove('show'); }
+function cls(id) { $(id).classList.remove('open'); }
 
-// ── Overview ──
-async function loadOverview() {
-  try {
-    const d = await apiFetch('/management/api/overview');
-    const occ = d.occupancy_pct || 0;
-    document.getElementById('overviewCards').innerHTML = `
-      <div class="stat-card">
-        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Active Tenants</p>
-        <p class="text-3xl font-bold text-white">${d.active_tenants}</p>
-        <p class="text-slate-500 text-xs mt-1">${d.total_units} total units &bull; ${occ}% occupied</p>
-      </div>
-      <div class="stat-card">
-        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">Monthly Revenue</p>
-        <p class="text-3xl font-bold text-teal-400">${fmtMoney(d.monthly_revenue)}</p>
-        <p class="text-slate-500 text-xs mt-1">All-time: ${fmtMoney(d.total_revenue)}</p>
-      </div>
-      <div class="stat-card cursor-pointer hover:border-blue-500/30 transition-colors" onclick="switchTab('inquiries')">
-        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">New Inquiries</p>
-        <p class="text-3xl font-bold text-blue-400">${d.new_inquiries}</p>
-        <p class="text-slate-500 text-xs mt-1">Awaiting follow-up</p>
-      </div>
-      <div class="stat-card cursor-pointer hover:border-purple-500/30 transition-colors" onclick="switchTab('messages')">
-        <p class="text-slate-500 text-xs uppercase font-semibold mb-1">New Messages</p>
-        <p class="text-3xl font-bold text-purple-400">${d.new_messages}</p>
-        <p class="text-slate-500 text-xs mt-1">Contact form messages</p>
-      </div>`;
-    updateNavBadges(d.new_inquiries, d.new_messages);
-    document.getElementById('overviewPaymentsTable').querySelector('tbody').innerHTML =
-      (d.recent_payments.length ? d.recent_payments : []).map(p => `
-        <tr><td>${fmtDate(p.payment_date)}</td><td>${p.tenant_name||'—'}</td>
-        <td class="text-teal-400 font-medium">${fmtMoney(p.amount)}</td>
-        <td><span class="badge badge-slate">${p.payment_type}</span></td></tr>`).join('') ||
-      '<tr><td colspan="4" class="text-slate-600 text-center py-4">No payments yet</td></tr>';
-    document.getElementById('overviewTenantsTable').querySelector('tbody').innerHTML =
-      (d.recent_tenants.length ? d.recent_tenants : []).map(t => `
-        <tr><td>${t.full_name}</td><td>${t.unit_number||'—'}</td>
-        <td>${statusBadge(t.status)}</td><td>${fmtDate(t.move_in_date)}</td></tr>`).join('') ||
-      '<tr><td colspan="4" class="text-slate-600 text-center py-4">No tenants yet</td></tr>';
-  } catch(e) { console.error('Overview load error', e); }
-}
+// Close modal on backdrop click
+document.querySelectorAll('.mb').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
-function updateNavBadges(inq, msg) {
-  const bi = document.getElementById('navBadgeInq');
-  const bm = document.getElementById('navBadgeMsg');
-  bi.textContent = inq; bi.classList.toggle('hidden', !inq);
-  bm.textContent = msg; bm.classList.toggle('hidden', !msg);
+// ── Responsive sidebar ─────────────────────────────────────────────
+function toggleSb() {
+  $('sb').classList.toggle('open');
+  $('ov').classList.toggle('on');
 }
+$('ov').addEventListener('click', () => { $('sb').classList.remove('open'); $('ov').classList.remove('on'); });
+
+function applyMobile() {
+  const mobile = window.innerWidth < 768;
+  $('menuBtn').style.display = mobile ? 'block' : 'none';
+}
+window.addEventListener('resize', applyMobile);
+applyMobile();
+
+// ── Tab routing ────────────────────────────────────────────────────
+const TITLES = { overview:'Overview', tenants:'Tenants', payments:'Payments', inquiries:'Inquiries', messages:'Messages', website:'Website', properties:'Properties', accounts:'Accounts' };
 
 function switchTab(name) {
-  document.querySelectorAll('.nav-item[data-tab]').forEach(n => {
-    if (n.dataset.tab === name) n.click();
-  });
+  document.querySelectorAll('.ni[data-tab]').forEach(n => n.classList.toggle('active', n.dataset.tab === name));
+  document.querySelectorAll('.tp').forEach(p => p.classList.remove('on'));
+  const p = $('tp-' + name);
+  if (p) p.classList.add('on');
+  $('pageTitle').textContent = TITLES[name] || name;
+  $('sb').classList.remove('open'); $('ov').classList.remove('on');
+  loadTab(name);
 }
 
-// ── Tenants ──
-let tenantFilter = '';
-document.querySelectorAll('.tenant-filter').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tenant-filter').forEach(b => { b.classList.remove('btn-teal'); b.classList.add('btn-ghost'); });
-    btn.classList.add('btn-teal'); btn.classList.remove('btn-ghost');
-    tenantFilter = btn.dataset.status;
-    loadTenants();
-  });
-});
+document.querySelectorAll('.ni[data-tab]').forEach(n => n.addEventListener('click', () => switchTab(n.dataset.tab)));
 
+function loadTab(t) {
+  if (t === 'overview') loadOverview();
+  else if (t === 'tenants') loadTenants();
+  else if (t === 'payments') loadPayments();
+  else if (t === 'inquiries') loadInquiries();
+  else if (t === 'messages') loadMessages();
+  else if (t === 'website') { loadSite(); loadTeam(); }
+  else if (t === 'properties') loadProps();
+  else if (t === 'accounts') { loadAccounts(); loadLogs(); }
+}
+
+// ── Fetch ──────────────────────────────────────────────────────────
+async function api(url, opts = {}) {
+  const hdrs = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const m = (opts.method || 'GET').toUpperCase();
+  if (['POST','PUT','DELETE'].includes(m) && csrf) hdrs['X-CSRF-Token'] = csrf;
+  const r = await fetch(url, { credentials: 'include', ...opts, headers: hdrs });
+  if (r.status === 401) { location.href = '/management/login'; return null; }
+  return r.json();
+}
+
+// ── Overview ───────────────────────────────────────────────────────
+async function loadOverview() {
+  const d = await api('/management/api/overview');
+  if (!d) return;
+  const nb = d.new_inquiries, nm = d.new_messages;
+  $('nbInq').textContent = nb; $('nbInq').classList.toggle('show', !!nb);
+  $('nbMsg').textContent = nm; $('nbMsg').classList.toggle('show', !!nm);
+
+  $('ovCards').innerHTML = `
+    <div class="sc"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Active Tenants</p>
+      <p style="font-size:1.6rem;font-weight:700;color:#f1f5f9">${d.active_tenants}</p>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.3rem">${d.total_units} units · ${d.occupancy_pct}% occupied</p></div>
+    <div class="sc"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Monthly Revenue</p>
+      <p style="font-size:1.6rem;font-weight:700;color:#2dd4bf">${fmtN(d.monthly_revenue)}</p>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.3rem">All-time: ${fmtN(d.total_revenue)}</p></div>
+    <div class="sc" style="cursor:pointer" onclick="switchTab('inquiries')"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">New Inquiries</p>
+      <p style="font-size:1.6rem;font-weight:700;color:#60a5fa">${d.new_inquiries}</p>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.3rem">Tap to view →</p></div>
+    <div class="sc" style="cursor:pointer" onclick="switchTab('messages')"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">New Messages</p>
+      <p style="font-size:1.6rem;font-weight:700;color:#c084fc">${d.new_messages}</p>
+      <p style="font-size:.78rem;color:#64748b;margin-top:.3rem">Tap to view →</p></div>`;
+
+  // Responsive overview tables
+  const w = window.innerWidth;
+  if (w < 640) $('ovTables').style.gridTemplateColumns = '1fr';
+  else $('ovTables').style.gridTemplateColumns = '1fr 1fr';
+
+  $('ovPayT').querySelector('tbody').innerHTML = d.recent_payments.length
+    ? d.recent_payments.map(p => `<tr><td>${esc(p.tenant_name||'—')}</td><td style="color:#2dd4bf;font-weight:600">${fmtN(p.amount)}</td><td>${badge(p.payment_type)}</td><td style="color:#94a3b8;font-size:.78rem">${fmtD(p.payment_date)}</td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No payments yet</td></tr>';
+
+  $('ovTenT').querySelector('tbody').innerHTML = d.recent_tenants.length
+    ? d.recent_tenants.map(t => `<tr><td style="font-weight:500">${esc(t.full_name)}</td><td style="color:#94a3b8">${esc(t.unit_number||'—')}</td><td>${badge(t.status)}</td><td style="color:#94a3b8;font-size:.78rem">${fmtD(t.move_in_date)}</td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No tenants yet</td></tr>';
+}
+
+// ── Tenants ────────────────────────────────────────────────────────
 async function loadTenants() {
   const url = tenantFilter ? `/management/api/tenants?status=${tenantFilter}` : '/management/api/tenants';
-  try {
-    tenantsCache = await apiFetch(url) || [];
-    document.getElementById('tenantsTable').querySelector('tbody').innerHTML =
-      tenantsCache.length ? tenantsCache.map(t => `
-        <tr>
-          <td class="font-medium">${t.full_name}</td>
-          <td>${t.phone}</td>
-          <td>${t.unit_number||'—'}</td>
-          <td>${fmtDate(t.move_in_date)}</td>
-          <td>${fmtDate(t.move_out_date)}</td>
-          <td>${statusBadge(t.status)}</td>
-          <td>${fmtMoney(t.rent_amount)}</td>
-          <td class="whitespace-nowrap">
-            <button class="btn btn-ghost btn-sm mr-1" onclick="editTenant(${t.id})"><i class="fa-solid fa-pen text-xs"></i></button>
-            <button class="btn btn-danger btn-sm" onclick="deleteTenant(${t.id})"><i class="fa-solid fa-trash text-xs"></i></button>
-          </td>
-        </tr>`).join('') :
-      '<tr><td colspan="8" class="text-slate-600 text-center py-6">No tenants found</td></tr>';
-  } catch(e) { console.error(e); }
+  tenantsC = await api(url) || [];
+  renderTenants();
 }
+
+function filterTenants() { renderTenants(); }
+
+function renderTenants() {
+  const q = ($('tenantSearch').value||'').toLowerCase();
+  const rows = tenantsC.filter(t => !q || t.full_name.toLowerCase().includes(q) || (t.phone||'').includes(q));
+  $('tenantTable').querySelector('tbody').innerHTML = rows.length
+    ? rows.map(t => `<tr>
+        <td style="font-weight:500">${esc(t.full_name)}</td>
+        <td style="color:#94a3b8">${esc(t.phone)}</td>
+        <td>${esc(t.unit_number||'—')}</td>
+        <td style="color:#94a3b8;font-size:.8rem">${fmtD(t.move_in_date)}</td>
+        <td style="color:#2dd4bf;font-weight:500">${fmtN(t.rent_amount)}</td>
+        <td>${badge(t.status)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="viewTenant(${t.id})" style="margin-right:.25rem"><i class="fa-solid fa-eye" style="font-size:.7rem"></i></button>
+          <button class="btn bg btn-sm" onclick="editTenant(${t.id})" style="margin-right:.25rem"><i class="fa-solid fa-pen" style="font-size:.7rem"></i></button>
+          <button class="btn bd btn-sm" onclick="delTenant(${t.id})"><i class="fa-solid fa-trash" style="font-size:.7rem"></i></button>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="7">No tenants found</td></tr>';
+}
+
+// Tenant filter buttons
+document.querySelectorAll('.tf').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tf').forEach(x => { x.className = 'btn bg btn-sm tf'; });
+  b.className = 'btn bt btn-sm tf';
+  tenantFilter = b.dataset.s;
+  loadTenants();
+}));
 
 function openTenantModal(id) {
-  document.getElementById('tenantModalTitle').textContent = id ? 'Edit Tenant' : 'Add Tenant';
-  document.getElementById('tenantId').value = id || '';
-  if (!id) { document.getElementById('tenantForm').reset(); }
-  document.getElementById('tenantFormMsg').classList.add('hidden');
-  document.getElementById('tenantModal').classList.add('open');
+  $('mTenantTitle').textContent = id ? 'Edit Tenant' : 'Add Tenant';
+  $('t_id').value = id || '';
+  if (!id) $('fTenant').reset();
+  $('mTenantMsg').textContent = '';
+  $('mTenant').classList.add('open');
 }
-function closeTenantModal() { document.getElementById('tenantModal').classList.remove('open'); }
-
 function editTenant(id) {
-  const t = tenantsCache.find(x => x.id === id);
-  if (!t) return;
+  const t = tenantsC.find(x => x.id === id); if (!t) return;
   openTenantModal(id);
-  document.getElementById('t_name').value = t.full_name;
-  document.getElementById('t_phone').value = t.phone;
-  document.getElementById('t_email').value = t.email || '';
-  document.getElementById('t_unit').value = t.unit_number || '';
-  document.getElementById('t_movein').value = t.move_in_date || '';
-  document.getElementById('t_moveout').value = t.move_out_date || '';
-  document.getElementById('t_rent').value = t.rent_amount || '';
-  document.getElementById('t_status').value = t.status || 'active';
-  document.getElementById('t_notes').value = t.notes || '';
+  $('t_name').value = t.full_name; $('t_phone').value = t.phone;
+  $('t_email').value = t.email||''; $('t_unit').value = t.unit_number||'';
+  $('t_in').value = t.move_in_date||''; $('t_out').value = t.move_out_date||'';
+  $('t_rent').value = t.rent_amount||''; $('t_status').value = t.status||'active';
+  $('t_notes').value = t.notes||'';
 }
-
+function viewTenant(id) {
+  const t = tenantsC.find(x => x.id === id); if (!t) return;
+  $('mTenantViewTitle').textContent = t.full_name;
+  $('mTenantViewBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;font-size:.85rem;margin-bottom:1rem">
+      ${[['Phone',t.phone],['Email',t.email||'—'],['Unit',t.unit_number||'—'],['Status',badge(t.status)],
+         ['Move In',fmtD(t.move_in_date)],['Move Out',fmtD(t.move_out_date)],['Rent',fmtN(t.rent_amount)]].map(([l,v])=>`
+        <div><p style="color:#64748b;font-size:.72rem;margin-bottom:.15rem">${l}</p><p>${v}</p></div>`).join('')}
+      ${t.notes ? `<div style="grid-column:span 2"><p style="color:#64748b;font-size:.72rem;margin-bottom:.15rem">Notes</p><p style="color:#94a3b8">${esc(t.notes)}</p></div>` : ''}
+    </div>
+    <hr class="div">
+    <p style="font-weight:600;font-size:.85rem;margin-bottom:.6rem">Payment History</p>
+    <div id="tvPayments" style="color:#64748b;font-size:.84rem">Loading…</div>`;
+  $('mTenantView').classList.add('open');
+  api(`/management/api/tenants/${id}`).then(d => {
+    if (!d) return;
+    $('tvPayments').innerHTML = d.payments && d.payments.length
+      ? `<table class="dt" style="min-width:0"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Desc</th></tr></thead><tbody>${
+          d.payments.map(p=>`<tr><td>${fmtD(p.payment_date)}</td><td style="color:#2dd4bf;font-weight:600">${fmtN(p.amount)}</td><td>${badge(p.payment_type)}</td><td style="color:#94a3b8">${esc(p.description||'—')}</td></tr>`).join('')
+        }</tbody></table>`
+      : '<p style="color:#475569">No payments recorded for this tenant.</p>';
+  });
+}
 async function saveTenant() {
-  const id = document.getElementById('tenantId').value;
-  const body = {
-    full_name: document.getElementById('t_name').value.trim(),
-    phone: document.getElementById('t_phone').value.trim(),
-    email: document.getElementById('t_email').value.trim(),
-    unit_number: document.getElementById('t_unit').value.trim(),
-    move_in_date: document.getElementById('t_movein').value || null,
-    move_out_date: document.getElementById('t_moveout').value || null,
-    rent_amount: parseFloat(document.getElementById('t_rent').value) || null,
-    status: document.getElementById('t_status').value,
-    notes: document.getElementById('t_notes').value.trim(),
-  };
-  if (!body.full_name || !body.phone) { showFormMsg('tenantFormMsg', 'Name and phone are required.', 'error'); return; }
-  const btn = document.getElementById('saveTenantBtn');
-  btn.disabled = true;
-  try {
-    const url = id ? `/management/api/tenants/${id}` : '/management/api/tenants';
-    const method = id ? 'PUT' : 'POST';
-    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
-    if (res.success) { closeTenantModal(); loadTenants(); loadOverview(); }
-    else showFormMsg('tenantFormMsg', res.message || 'Error saving tenant', 'error');
-  } catch { showFormMsg('tenantFormMsg', 'Network error', 'error'); }
+  const id = $('t_id').value;
+  const body = { full_name:$('t_name').value.trim(), phone:$('t_phone').value.trim(), email:$('t_email').value.trim(),
+    unit_number:$('t_unit').value.trim(), move_in_date:$('t_in').value||null, move_out_date:$('t_out').value||null,
+    rent_amount:parseFloat($('t_rent').value)||null, status:$('t_status').value, notes:$('t_notes').value.trim() };
+  if (!body.full_name||!body.phone) { showMsg('mTenantMsg','Name and phone required.'); return; }
+  const btn = $('btnSaveTenant'); btn.disabled = true;
+  const r = await api(id?`/management/api/tenants/${id}`:'/management/api/tenants', { method:id?'PUT':'POST', body:JSON.stringify(body) });
   btn.disabled = false;
+  if (r && r.success) { cls('mTenant'); loadTenants(); loadOverview(); }
+  else showMsg('mTenantMsg', (r&&r.message)||'Error');
 }
-
-async function deleteTenant(id) {
-  if (!confirm('Remove this tenant? This cannot be undone.')) return;
-  await apiFetch(`/management/api/tenants/${id}`, { method: 'DELETE' });
+async function delTenant(id) {
+  const t = tenantsC.find(x=>x.id===id);
+  if (!confirm(`Remove ${t?t.full_name:'this tenant'}?`)) return;
+  await api(`/management/api/tenants/${id}`, { method:'DELETE' });
   loadTenants(); loadOverview();
 }
 
-// ── Payments ──
-let paymentsCache = [];
+// ── Payments ───────────────────────────────────────────────────────
 async function loadPayments() {
-  try {
-    paymentsCache = await apiFetch('/management/api/payments') || [];
-    const total = paymentsCache.reduce((s, p) => s + (p.amount || 0), 0);
-    document.getElementById('paymentsSummary').textContent = `${paymentsCache.length} records — Total: ${fmtMoney(total)}`;
-    document.getElementById('paymentsTable').querySelector('tbody').innerHTML =
-      paymentsCache.length ? paymentsCache.map(p => `
-        <tr>
-          <td>${fmtDate(p.payment_date)}</td>
-          <td>${p.tenant_name||'—'}</td>
-          <td class="text-teal-400 font-semibold">${fmtMoney(p.amount)}</td>
-          <td><span class="badge badge-slate">${p.payment_type}</span></td>
-          <td class="text-slate-400 text-xs">${p.description||'—'}</td>
-          <td class="whitespace-nowrap">
-            <button class="btn btn-ghost btn-sm mr-1" onclick="editPayment(${p.id})"><i class="fa-solid fa-pen text-xs"></i></button>
-            <button class="btn btn-danger btn-sm" onclick="deletePayment(${p.id})"><i class="fa-solid fa-trash text-xs"></i></button>
-          </td>
-        </tr>`).join('') :
-      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No payments recorded yet</td></tr>';
-  } catch(e) { console.error(e); }
+  paymentsC = await api('/management/api/payments') || [];
+  renderPayments();
+  const now = new Date(), ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const total = paymentsC.reduce((s,p)=>s+(p.amount||0),0);
+  const month = paymentsC.filter(p=>p.payment_date&&p.payment_date.startsWith(ym)).reduce((s,p)=>s+(p.amount||0),0);
+  $('payTotal').textContent = fmtN(total);
+  $('payMonth').textContent = fmtN(month);
 }
+
+function filterPayments() { renderPayments(); }
+
+function renderPayments() {
+  const q = ($('paySearch').value||'').toLowerCase();
+  const rows = paymentsC.filter(p =>
+    (!payFilter || p.payment_type === payFilter) &&
+    (!q || (p.tenant_name||'').toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q)));
+  $('payTable').querySelector('tbody').innerHTML = rows.length
+    ? rows.map(p => `<tr>
+        <td style="color:#94a3b8;font-size:.8rem;white-space:nowrap">${fmtD(p.payment_date)}</td>
+        <td style="font-weight:500">${esc(p.tenant_name||'—')}</td>
+        <td style="color:#2dd4bf;font-weight:600">${fmtN(p.amount)}</td>
+        <td>${badge(p.payment_type)}</td>
+        <td style="color:#64748b;font-size:.8rem">${esc(p.description||'—')}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="editPayment(${p.id})" style="margin-right:.25rem"><i class="fa-solid fa-pen" style="font-size:.7rem"></i></button>
+          <button class="btn bd btn-sm" onclick="delPayment(${p.id})"><i class="fa-solid fa-trash" style="font-size:.7rem"></i></button>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No payments found</td></tr>';
+}
+
+document.querySelectorAll('.pf').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.pf').forEach(x => { x.className = 'btn bg btn-sm pf'; });
+  b.className = 'btn bt btn-sm pf'; payFilter = b.dataset.t; renderPayments();
+}));
 
 function openPaymentModal(id) {
-  document.getElementById('paymentModalTitle').textContent = id ? 'Edit Payment' : 'Record Payment';
-  document.getElementById('paymentId').value = id || '';
-  if (!id) {
-    document.getElementById('paymentForm').reset();
-    document.getElementById('p_date').value = new Date().toISOString().split('T')[0];
-  }
-  document.getElementById('paymentFormMsg').classList.add('hidden');
-  // Populate tenant dropdown
-  const sel = document.getElementById('p_tenant');
-  sel.innerHTML = '<option value="">— None —</option>' +
-    tenantsCache.map(t => `<option value="${t.id}">${t.full_name} ${t.unit_number ? `(${t.unit_number})` : ''}</option>`).join('');
-  document.getElementById('paymentModal').classList.add('open');
+  $('mPayTitle').textContent = id ? 'Edit Payment' : 'Record Payment';
+  $('p_id').value = id || '';
+  if (!id) { $('fPayment').reset(); $('p_date').value = new Date().toISOString().slice(0,10); }
+  $('mPayMsg').textContent = '';
+  const sel = $('p_tenant');
+  sel.innerHTML = '<option value="">— None —</option>' + tenantsC.map(t=>`<option value="${t.id}">${esc(t.full_name)}${t.unit_number?' ('+t.unit_number+')':''}</option>`).join('');
+  $('mPayment').classList.add('open');
 }
-function closePaymentModal() { document.getElementById('paymentModal').classList.remove('open'); }
-
 function editPayment(id) {
-  const p = paymentsCache.find(x => x.id === id);
-  if (!p) return;
+  const p = paymentsC.find(x=>x.id===id); if (!p) return;
   openPaymentModal(id);
-  setTimeout(() => {
-    document.getElementById('p_tenant').value = p.tenant_id || '';
-    document.getElementById('p_amount').value = p.amount;
-    document.getElementById('p_date').value = p.payment_date;
-    document.getElementById('p_type').value = p.payment_type;
-    document.getElementById('p_desc').value = p.description || '';
-    document.getElementById('p_notes').value = p.notes || '';
+  setTimeout(()=>{
+    $('p_tenant').value = p.tenant_id||''; $('p_amount').value = p.amount;
+    $('p_date').value = p.payment_date; $('p_type').value = p.payment_type;
+    $('p_desc').value = p.description||''; $('p_notes').value = p.notes||'';
   }, 10);
 }
-
 async function savePayment() {
-  const id = document.getElementById('paymentId').value;
-  const body = {
-    tenant_id: document.getElementById('p_tenant').value || null,
-    amount: parseFloat(document.getElementById('p_amount').value),
-    payment_date: document.getElementById('p_date').value,
-    payment_type: document.getElementById('p_type').value,
-    description: document.getElementById('p_desc').value.trim(),
-    notes: document.getElementById('p_notes').value.trim(),
-  };
-  if (!body.amount || !body.payment_date) { showFormMsg('paymentFormMsg', 'Amount and date are required.', 'error'); return; }
-  const btn = document.getElementById('savePaymentBtn');
-  btn.disabled = true;
-  try {
-    const url = id ? `/management/api/payments/${id}` : '/management/api/payments';
-    const method = id ? 'PUT' : 'POST';
-    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
-    if (res.success) { closePaymentModal(); loadPayments(); loadOverview(); }
-    else showFormMsg('paymentFormMsg', res.message || 'Error saving payment', 'error');
-  } catch { showFormMsg('paymentFormMsg', 'Network error', 'error'); }
+  const id = $('p_id').value;
+  const body = { tenant_id:$('p_tenant').value||null, amount:parseFloat($('p_amount').value),
+    payment_date:$('p_date').value, payment_type:$('p_type').value,
+    description:$('p_desc').value.trim(), notes:$('p_notes').value.trim() };
+  if (!body.amount||!body.payment_date) { showMsg('mPayMsg','Amount and date required.'); return; }
+  const btn = $('btnSavePay'); btn.disabled = true;
+  const r = await api(id?`/management/api/payments/${id}`:'/management/api/payments', { method:id?'PUT':'POST', body:JSON.stringify(body) });
   btn.disabled = false;
+  if (r && r.success) { cls('mPayment'); loadPayments(); loadOverview(); }
+  else showMsg('mPayMsg', (r&&r.message)||'Error');
 }
-
-async function deletePayment(id) {
+async function delPayment(id) {
   if (!confirm('Delete this payment record?')) return;
-  await apiFetch(`/management/api/payments/${id}`, { method: 'DELETE' });
+  await api(`/management/api/payments/${id}`, { method:'DELETE' });
   loadPayments(); loadOverview();
 }
 
-// ── Inquiries ──
-let inquiriesCache = [];
+// ── Inquiries ──────────────────────────────────────────────────────
 async function loadInquiries() {
-  try {
-    inquiriesCache = await apiFetch('/management/api/inquiries') || [];
-    document.getElementById('inquiriesTable').querySelector('tbody').innerHTML =
-      inquiriesCache.length ? inquiriesCache.map(inq => `
-        <tr>
-          <td class="font-medium">${inq.full_name}</td>
-          <td class="text-slate-400 text-xs">${inq.property_title||'General'}</td>
-          <td><span class="badge badge-blue">${inq.inquiry_type}</span></td>
-          <td>${inq.phone}</td>
-          <td class="text-slate-500 text-xs">${fmtDate(inq.created_at)}</td>
-          <td>
-            <select onchange="updateInquiryStatus(${inq.id},this.value)" class="f-input text-xs py-1 px-2 w-28">
-              ${['new','contacted','qualified','converted','closed'].map(s=>`<option value="${s}" ${inq.status===s?'selected':''}>${s}</option>`).join('')}
-            </select>
-          </td>
-          <td><button class="btn btn-ghost btn-sm" onclick="viewInquiry(${inq.id})"><i class="fa-solid fa-eye text-xs"></i></button></td>
-        </tr>`).join('') :
-      '<tr><td colspan="7" class="text-slate-600 text-center py-6">No inquiries yet</td></tr>';
-  } catch(e) { console.error(e); }
+  inquiriesC = await api('/management/api/inquiries') || [];
+  renderInquiries();
 }
-
-async function updateInquiryStatus(id, status) {
-  await apiFetch(`/management/api/inquiries/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
-  loadOverview();
+function filterInquiries() { renderInquiries(); }
+function renderInquiries() {
+  const q = ($('iqSearch').value||'').toLowerCase();
+  const rows = inquiriesC.filter(i =>
+    (!iqFilter || i.status === iqFilter) &&
+    (!q || i.full_name.toLowerCase().includes(q) || (i.phone||'').includes(q)));
+  $('iqTable').querySelector('tbody').innerHTML = rows.length
+    ? rows.map(i => `<tr>
+        <td style="font-weight:500">${esc(i.full_name)}</td>
+        <td>${badge(i.inquiry_type)}</td>
+        <td style="color:#94a3b8">${esc(i.phone)}</td>
+        <td style="color:#64748b;font-size:.78rem;white-space:nowrap">${fmtD(i.created_at)}</td>
+        <td><select class="fi fi-sm" style="width:90px" onchange="updateIqPriority(${i.id},this.value)">
+          ${['high','medium','low'].map(p=>`<option value="${p}" ${i.priority===p?'selected':''}>${p}</option>`).join('')}
+        </select></td>
+        <td><select class="fi fi-sm" style="width:108px" onchange="updateIqStatus(${i.id},this.value)">
+          ${['new','contacted','qualified','converted','closed'].map(s=>`<option value="${s}" ${i.status===s?'selected':''}>${s}</option>`).join('')}
+        </select></td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="viewInquiry(${i.id})" style="margin-right:.25rem"><i class="fa-solid fa-eye" style="font-size:.7rem"></i></button>
+          <a href="https://wa.me/${esc(i.phone.replace(/\D/g,''))}?text=${encodeURIComponent('Hi '+i.full_name+', following up on your BrightWave inquiry.')}" target="_blank" class="btn bw btn-sm" style="text-decoration:none"><i class="fa-brands fa-whatsapp" style="font-size:.75rem"></i></a>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="7">No inquiries found</td></tr>';
 }
-
+document.querySelectorAll('.iqf').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.iqf').forEach(x => { x.className = 'btn bg btn-sm iqf'; });
+  b.className = 'btn bt btn-sm iqf'; iqFilter = b.dataset.s; renderInquiries();
+}));
+async function updateIqStatus(id, status) { await api(`/management/api/inquiries/${id}`, { method:'PUT', body:JSON.stringify({status}) }); loadOverview(); }
+async function updateIqPriority(id, priority) { await api(`/management/api/inquiries/${id}`, { method:'PUT', body:JSON.stringify({priority}) }); }
 function viewInquiry(id) {
-  const inq = inquiriesCache.find(x => x.id === id);
-  if (!inq) return;
-  document.getElementById('detailModalTitle').textContent = 'Inquiry — ' + inq.full_name;
-  document.getElementById('detailModalBody').innerHTML = `
-    <dl class="space-y-2 text-sm">
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Name</dt><dd class="text-white font-medium">${inq.full_name}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Email</dt><dd>${inq.email}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Phone</dt><dd>${inq.phone}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Property</dt><dd>${inq.property_title||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Type</dt><dd>${inq.inquiry_type}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">University</dt><dd>${inq.university||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Year</dt><dd>${inq.year_of_study||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Move Date</dt><dd>${fmtDate(inq.preferred_move_date)}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Budget</dt><dd>${inq.budget_range||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Date</dt><dd>${fmtDate(inq.created_at)}</dd></div>
-      <div class="mt-3 pt-3 border-t border-white/10"><p class="text-slate-400 text-xs mb-1">Message</p><p class="text-white leading-relaxed">${inq.message}</p></div>
-    </dl>`;
-  document.getElementById('detailModal').classList.add('open');
+  const i = inquiriesC.find(x=>x.id===id); if (!i) return;
+  $('mInqTitle').textContent = 'Inquiry — ' + i.full_name;
+  $('mInqBody').innerHTML = `<dl style="display:grid;gap:.5rem;font-size:.85rem">
+    ${[['Name',i.full_name],['Email',i.email],['Phone',i.phone],['Property',i.property_title||'General'],
+       ['Type',i.inquiry_type],['University',i.university||'—'],['Year',i.year_of_study||'—'],
+       ['Budget',i.budget_range||'—'],['Move Date',fmtD(i.preferred_move_date)],['Received',fmtD(i.created_at)]].map(([l,v])=>`
+      <div style="display:flex;gap:.5rem"><dt style="color:#64748b;min-width:90px;flex-shrink:0">${l}</dt><dd>${esc(v)}</dd></div>`).join('')}
+    <div style="margin-top:.5rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,0.06)"><p style="color:#64748b;margin-bottom:.3rem">Message</p><p style="color:#cbd5e1;line-height:1.6">${esc(i.message)}</p></div>
+  </dl>`;
+  $('mInqFoot').innerHTML = `
+    <button class="btn bg" onclick="cls('mInq')">Close</button>
+    <a href="mailto:${esc(i.email)}?subject=BrightWave%20Inquiry%20Follow-up&body=Hi%20${encodeURIComponent(i.full_name)}%2C%0A%0AThank%20you%20for%20your%20inquiry." class="btn bt" style="text-decoration:none"><i class="fa-solid fa-envelope"></i>Reply by Email</a>
+    <a href="https://wa.me/${esc(i.phone.replace(/\D/g,''))}?text=${encodeURIComponent('Hi '+i.full_name+', following up on your BrightWave inquiry.')}" target="_blank" class="btn bw" style="text-decoration:none"><i class="fa-brands fa-whatsapp"></i>WhatsApp</a>`;
+  $('mInq').classList.add('open');
 }
 
-// ── Messages ──
-let messagesCache = [];
+// ── Messages ───────────────────────────────────────────────────────
 async function loadMessages() {
-  try {
-    messagesCache = await apiFetch('/management/api/contact-messages') || [];
-    document.getElementById('messagesTable').querySelector('tbody').innerHTML =
-      messagesCache.length ? messagesCache.map(msg => `
-        <tr>
-          <td class="font-medium">${msg.full_name}</td>
-          <td><span class="badge badge-blue">${msg.form_origin}</span></td>
-          <td class="text-slate-400 text-xs">${msg.subject||'—'}</td>
-          <td class="text-slate-500 text-xs">${fmtDate(msg.created_at)}</td>
-          <td>
-            <select onchange="updateMessageStatus(${msg.id},this.value)" class="f-input text-xs py-1 px-2 w-28">
-              ${['new','read','responded','closed'].map(s=>`<option value="${s}" ${msg.status===s?'selected':''}>${s}</option>`).join('')}
-            </select>
-          </td>
-          <td><button class="btn btn-ghost btn-sm" onclick="viewMessage(${msg.id})"><i class="fa-solid fa-eye text-xs"></i></button></td>
-        </tr>`).join('') :
-      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No messages yet</td></tr>';
-  } catch(e) { console.error(e); }
+  messagesC = await api('/management/api/contact-messages') || [];
+  renderMessages();
 }
-
-async function updateMessageStatus(id, status) {
-  await apiFetch(`/management/api/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
-  loadOverview();
+function filterMessages() { renderMessages(); }
+function renderMessages() {
+  const q = ($('msgSearch').value||'').toLowerCase();
+  const rows = messagesC.filter(m =>
+    (!msgFilter || m.status === msgFilter) &&
+    (!q || m.full_name.toLowerCase().includes(q) || (m.subject||'').toLowerCase().includes(q)));
+  $('msgTable').querySelector('tbody').innerHTML = rows.length
+    ? rows.map(m => `<tr>
+        <td style="font-weight:500">${esc(m.full_name)}</td>
+        <td>${badge(m.form_origin.toLowerCase().replace(/\s+/g,'-'))}<span style="font-size:.78rem;color:#64748b;margin-left:.3rem">${esc(m.form_origin)}</span></td>
+        <td style="color:#94a3b8;font-size:.82rem">${esc(m.subject||'—')}</td>
+        <td style="color:#64748b;font-size:.78rem;white-space:nowrap">${fmtD(m.created_at)}</td>
+        <td><select class="fi fi-sm" style="width:108px" onchange="updateMsgStatus(${m.id},this.value)">
+          ${['new','read','responded','closed'].map(s=>`<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`).join('')}
+        </select></td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="viewMessage(${m.id})" style="margin-right:.25rem"><i class="fa-solid fa-eye" style="font-size:.7rem"></i></button>
+          <a href="mailto:${esc(m.email)}?subject=Re%3A%20${encodeURIComponent(m.subject||'Your message')}&body=Hi%20${encodeURIComponent(m.full_name)}%2C%0A%0A" class="btn bt btn-sm" style="text-decoration:none"><i class="fa-solid fa-envelope" style="font-size:.7rem"></i></a>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No messages found</td></tr>';
 }
-
+document.querySelectorAll('.mf2').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.mf2').forEach(x => { x.className = 'btn bg btn-sm mf2'; });
+  b.className = 'btn bt btn-sm mf2'; msgFilter = b.dataset.s; renderMessages();
+}));
+async function updateMsgStatus(id, status) { await api(`/management/api/contact-messages/${id}`, { method:'PUT', body:JSON.stringify({status}) }); loadOverview(); }
 function viewMessage(id) {
-  const msg = messagesCache.find(x => x.id === id);
-  if (!msg) return;
-  document.getElementById('detailModalTitle').textContent = 'Message — ' + msg.full_name;
-  document.getElementById('detailModalBody').innerHTML = `
-    <dl class="space-y-2 text-sm">
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Name</dt><dd class="text-white font-medium">${msg.full_name}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Email</dt><dd>${msg.email}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Phone</dt><dd>${msg.phone||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Source</dt><dd>${msg.form_origin}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Subject</dt><dd>${msg.subject||'—'}</dd></div>
-      <div class="flex gap-2"><dt class="text-slate-500 w-32 flex-shrink-0">Date</dt><dd>${fmtDate(msg.created_at)}</dd></div>
-      <div class="mt-3 pt-3 border-t border-white/10"><p class="text-slate-400 text-xs mb-1">Message</p><p class="text-white leading-relaxed">${msg.message}</p></div>
-    </dl>`;
-  document.getElementById('detailModal').classList.add('open');
+  const m = messagesC.find(x=>x.id===id); if (!m) return;
+  $('mMsgTitle').textContent = 'Message — ' + m.full_name;
+  $('mMsgBody').innerHTML = `<dl style="display:grid;gap:.5rem;font-size:.85rem">
+    ${[['Name',m.full_name],['Email',m.email],['Phone',m.phone||'—'],['Source',m.form_origin],['Subject',m.subject||'—'],['Received',fmtD(m.created_at)]].map(([l,v])=>`
+      <div style="display:flex;gap:.5rem"><dt style="color:#64748b;min-width:80px;flex-shrink:0">${l}</dt><dd>${esc(v)}</dd></div>`).join('')}
+    <div style="margin-top:.5rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,0.06)"><p style="color:#64748b;margin-bottom:.3rem">Message</p><p style="color:#cbd5e1;line-height:1.6">${esc(m.message)}</p></div>
+  </dl>`;
+  $('mMsgFoot').innerHTML = `
+    <button class="btn bg" onclick="cls('mMsg')">Close</button>
+    <a href="mailto:${esc(m.email)}?subject=Re%3A%20${encodeURIComponent(m.subject||'Your message')}&body=Hi%20${encodeURIComponent(m.full_name)}%2C%0A%0A" class="btn bt" style="text-decoration:none"><i class="fa-solid fa-envelope"></i>Reply by Email</a>`;
+  if (m.phone) $('mMsgFoot').innerHTML += `<a href="https://wa.me/${esc(m.phone.replace(/\D/g,''))}" target="_blank" class="btn bw" style="text-decoration:none"><i class="fa-brands fa-whatsapp"></i>WhatsApp</a>`;
+  $('mMsg').classList.add('open');
 }
 
-// ── Site content ──
-async function loadSiteContent() {
-  try {
-    const d = await apiFetch('/management/api/site-content');
-    document.getElementById('home_hero_title').value = d['home.hero_title'] || '';
-    document.getElementById('home_hero_subtitle').value = d['home.hero_subtitle'] || '';
-    document.getElementById('home_about_intro').value = d['home.about_intro'] || '';
-    document.getElementById('about_hero_subtitle').value = d['about.hero_subtitle'] || '';
-    document.getElementById('about_intro_body').value = d['about.intro_body'] || '';
-    document.getElementById('about_team_heading').value = d['about.team_heading'] || '';
-    document.getElementById('about_team_subheading').value = d['about.team_subheading'] || '';
-  } catch(e) { console.error(e); }
+// ── Website / Site content ─────────────────────────────────────────
+async function loadSite() {
+  const d = await api('/management/api/site-content');
+  if (!d) return;
+  $('c_hht').value = d['home.hero_title']||''; $('c_hhs').value = d['home.hero_subtitle']||'';
+  $('c_hai').value = d['home.about_intro']||''; $('c_ahs').value = d['about.hero_subtitle']||'';
+  $('c_aib').value = d['about.intro_body']||''; $('c_ath').value = d['about.team_heading']||'';
+  $('c_ats').value = d['about.team_subheading']||'';
 }
-
-document.getElementById('siteContentForm').addEventListener('submit', async (e) => {
+$('siteForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const msg = document.getElementById('contentSaveMsg');
-  try {
-    const payload = {
-      'home.hero_title': document.getElementById('home_hero_title').value,
-      'home.hero_subtitle': document.getElementById('home_hero_subtitle').value,
-      'home.about_intro': document.getElementById('home_about_intro').value,
-      'about.hero_subtitle': document.getElementById('about_hero_subtitle').value,
-      'about.intro_body': document.getElementById('about_intro_body').value,
-      'about.team_heading': document.getElementById('about_team_heading').value,
-      'about.team_subheading': document.getElementById('about_team_subheading').value,
-    };
-    const res = await apiFetch('/management/api/site-content', { method: 'PUT', body: JSON.stringify(payload) });
-    msg.textContent = res.success ? '✓ Saved' : (res.message || 'Error');
-    msg.className = `text-xs ${res.success ? 'text-green-400' : 'text-red-400'}`;
-    msg.classList.remove('hidden');
-    setTimeout(() => msg.classList.add('hidden'), 3000);
-  } catch { msg.textContent = 'Save failed'; msg.className = 'text-xs text-red-400'; msg.classList.remove('hidden'); }
+  const msg = $('copyMsg');
+  const payload = {
+    'home.hero_title': $('c_hht').value, 'home.hero_subtitle': $('c_hhs').value,
+    'home.about_intro': $('c_hai').value, 'about.hero_subtitle': $('c_ahs').value,
+    'about.intro_body': $('c_aib').value, 'about.team_heading': $('c_ath').value,
+    'about.team_subheading': $('c_ats').value
+  };
+  const r = await api('/management/api/site-content', { method:'PUT', body:JSON.stringify(payload) });
+  msg.textContent = r && r.success ? '✓ Saved' : 'Error saving';
+  msg.style.color = r && r.success ? '#4ade80' : '#f87171';
+  setTimeout(() => { msg.textContent = ''; }, 3000);
 });
 
-// ── Team members ──
-let teamCache = [];
+// ── Team ───────────────────────────────────────────────────────────
 async function loadTeam() {
-  try {
-    teamCache = await apiFetch('/management/api/team-members') || [];
-    document.getElementById('teamTable').querySelector('tbody').innerHTML =
-      teamCache.length ? teamCache.map(m => `
-        <tr>
-          <td class="font-medium">${m.name}</td>
-          <td class="text-slate-400">${m.role}</td>
-          <td>${m.sort_order}</td>
-          <td>${m.is_active ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-slate">No</span>'}</td>
-          <td class="whitespace-nowrap">
-            <button class="btn btn-ghost btn-sm mr-1" onclick="editTeamMember(${m.id})"><i class="fa-solid fa-pen text-xs"></i></button>
-            <button class="btn btn-danger btn-sm" onclick="deleteTeamMember(${m.id})"><i class="fa-solid fa-trash text-xs"></i></button>
-          </td>
-        </tr>`).join('') :
-      '<tr><td colspan="5" class="text-slate-600 text-center py-4">No team members</td></tr>';
-  } catch(e) { console.error(e); }
+  teamC = await api('/management/api/team-members') || [];
+  $('teamTable').querySelector('tbody').innerHTML = teamC.length
+    ? teamC.map(m => `<tr>
+        <td style="font-weight:500">${esc(m.name)}</td>
+        <td style="color:#94a3b8">${esc(m.role)}</td>
+        <td style="color:#64748b">${m.sort_order}</td>
+        <td>${m.is_active ? '<span class="badge bg-g">Yes</span>' : '<span class="badge bg-s">No</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="editTeam(${m.id})" style="margin-right:.25rem"><i class="fa-solid fa-pen" style="font-size:.7rem"></i></button>
+          <button class="btn bd btn-sm" onclick="delTeam(${m.id})"><i class="fa-solid fa-trash" style="font-size:.7rem"></i></button>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="5">No team members</td></tr>';
 }
-
 function openTeamModal(id) {
-  document.getElementById('teamModalTitle').textContent = id ? 'Edit Team Member' : 'Add Team Member';
-  document.getElementById('teamId').value = id || '';
-  if (!id) document.getElementById('teamForm').reset();
-  document.getElementById('teamFormMsg').classList.add('hidden');
-  document.getElementById('teamModal').classList.add('open');
+  $('mTeamTitle').textContent = id ? 'Edit Team Member' : 'Add Team Member';
+  $('tm_id').value = id||''; if (!id) $('fTeam').reset();
+  $('mTeamMsg').textContent = ''; $('mTeam').classList.add('open');
 }
-function closeTeamModal() { document.getElementById('teamModal').classList.remove('open'); }
-
-function editTeamMember(id) {
-  const m = teamCache.find(x => x.id === id);
-  if (!m) return;
+function editTeam(id) {
+  const m = teamC.find(x=>x.id===id); if (!m) return;
   openTeamModal(id);
-  document.getElementById('tm_name').value = m.name;
-  document.getElementById('tm_role').value = m.role;
-  document.getElementById('tm_bio').value = m.bio;
-  document.getElementById('tm_img').value = m.image_path || '';
-  document.getElementById('tm_order').value = m.sort_order;
-  document.getElementById('tm_active').checked = m.is_active;
+  $('tm_name').value = m.name; $('tm_role').value = m.role; $('tm_bio').value = m.bio;
+  $('tm_img').value = m.image_path||''; $('tm_order').value = m.sort_order; $('tm_active').checked = m.is_active;
 }
-
-async function saveTeamMember() {
-  const id = document.getElementById('teamId').value;
-  const body = {
-    name: document.getElementById('tm_name').value.trim(),
-    role: document.getElementById('tm_role').value.trim(),
-    bio: document.getElementById('tm_bio').value.trim(),
-    image_path: document.getElementById('tm_img').value.trim(),
-    sort_order: parseInt(document.getElementById('tm_order').value) || 0,
-    is_active: document.getElementById('tm_active').checked,
-  };
-  if (!body.name || !body.role || !body.bio) { showFormMsg('teamFormMsg', 'Name, role, and bio are required.', 'error'); return; }
-  const btn = document.getElementById('saveTeamBtn');
-  btn.disabled = true;
-  try {
-    const url = id ? `/management/api/team-members/${id}` : '/management/api/team-members';
-    const method = id ? 'PUT' : 'POST';
-    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
-    if (res.success) { closeTeamModal(); loadTeam(); }
-    else showFormMsg('teamFormMsg', res.message || 'Error', 'error');
-  } catch { showFormMsg('teamFormMsg', 'Network error', 'error'); }
+async function saveTeam() {
+  const id = $('tm_id').value;
+  const body = { name:$('tm_name').value.trim(), role:$('tm_role').value.trim(), bio:$('tm_bio').value.trim(),
+    image_path:$('tm_img').value.trim(), sort_order:parseInt($('tm_order').value)||0, is_active:$('tm_active').checked };
+  if (!body.name||!body.role||!body.bio) { showMsg('mTeamMsg','Name, role, and bio required.'); return; }
+  const btn = $('btnSaveTeam'); btn.disabled = true;
+  const r = await api(id?`/management/api/team-members/${id}`:'/management/api/team-members', { method:id?'PUT':'POST', body:JSON.stringify(body) });
   btn.disabled = false;
+  if (r && r.success) { cls('mTeam'); loadTeam(); }
+  else showMsg('mTeamMsg', (r&&r.message)||'Error');
 }
-
-async function deleteTeamMember(id) {
-  if (!confirm('Remove this team member?')) return;
-  await apiFetch(`/management/api/team-members/${id}`, { method: 'DELETE' });
+async function delTeam(id) {
+  const m = teamC.find(x=>x.id===id);
+  if (!confirm(`Remove ${m?m.name:'this member'}?`)) return;
+  await api(`/management/api/team-members/${id}`, { method:'DELETE' });
   loadTeam();
 }
 
-// ── Properties ──
-async function loadProperties() {
-  try {
-    propertiesCache = await apiFetch('/management/api/properties') || [];
-    document.getElementById('propertiesTable').querySelector('tbody').innerHTML =
-      propertiesCache.length ? propertiesCache.map(p => `
-        <tr>
-          <td class="font-medium">${p.title}</td>
-          <td><span class="badge ${p.property_type==='hostel'?'badge-teal':p.property_type==='land'?'badge-green':'badge-yellow'}">${p.property_type}</span></td>
-          <td class="text-slate-400 text-xs">${p.location}</td>
-          <td>${statusBadge(p.status)}</td>
-          <td class="text-slate-400 text-xs">${p.construction_status||'—'}</td>
-          <td class="whitespace-nowrap">
-            <button class="btn btn-danger btn-sm" onclick="deleteProperty(${p.id})"><i class="fa-solid fa-trash text-xs"></i></button>
-          </td>
-        </tr>`).join('') :
-      '<tr><td colspan="6" class="text-slate-600 text-center py-6">No properties</td></tr>';
-  } catch(e) { console.error(e); }
+// ── Properties ─────────────────────────────────────────────────────
+async function loadProps() {
+  propsC = await api('/management/api/properties') || [];
+  $('propTable').querySelector('tbody').innerHTML = propsC.length
+    ? propsC.map(p => `<tr>
+        <td style="font-weight:500">${esc(p.title)}</td>
+        <td>${badge(p.property_type)}</td>
+        <td style="color:#94a3b8;font-size:.82rem">${esc(p.location)}</td>
+        <td>${badge(p.status)}</td>
+        <td style="color:#64748b;font-size:.82rem">${esc(p.construction_status||'—')}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="editProp(${p.id})" style="margin-right:.25rem"><i class="fa-solid fa-pen" style="font-size:.7rem"></i></button>
+          <button class="btn bd btn-sm" onclick="delProp(${p.id})"><i class="fa-solid fa-trash" style="font-size:.7rem"></i></button>
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No properties</td></tr>';
 }
-
-function openPropertyModal() {
-  document.getElementById('propertyModalTitle').textContent = 'Add Property';
-  document.getElementById('propertyId').value = '';
-  document.getElementById('propertyForm').reset();
-  document.getElementById('propertyFormMsg').classList.add('hidden');
-  document.getElementById('propertyModal').classList.add('open');
+function openPropertyModal(id) {
+  $('mPropTitle').textContent = id ? 'Edit Property' : 'Add Property';
+  $('pr_id').value = id||''; if (!id) $('fProp').reset();
+  $('mPropMsg').textContent = ''; $('mProp').classList.add('open');
 }
-function closePropertyModal() { document.getElementById('propertyModal').classList.remove('open'); }
-
-async function saveProperty() {
-  const body = {
-    title: document.getElementById('pr_title').value.trim(),
-    description: document.getElementById('pr_desc').value.trim(),
-    property_type: document.getElementById('pr_type').value,
-    location: document.getElementById('pr_loc').value.trim(),
-    price: parseFloat(document.getElementById('pr_price').value) || null,
-    price_type: document.getElementById('pr_pricetype').value || null,
-    construction_status: document.getElementById('pr_const').value || null,
-    status: document.getElementById('pr_status').value,
-    featured: document.getElementById('pr_featured').checked,
-  };
-  if (!body.title || !body.description || !body.location) { showFormMsg('propertyFormMsg', 'Title, description, and location are required.', 'error'); return; }
-  const btn = document.getElementById('savePropertyBtn');
-  btn.disabled = true;
-  try {
-    const res = await apiFetch('/management/api/properties', { method: 'POST', body: JSON.stringify(body) });
-    if (res.success) { closePropertyModal(); loadProperties(); }
-    else showFormMsg('propertyFormMsg', res.message || 'Error', 'error');
-  } catch { showFormMsg('propertyFormMsg', 'Network error', 'error'); }
+function editProp(id) {
+  const p = propsC.find(x=>x.id===id); if (!p) return;
+  openPropertyModal(id);
+  $('pr_title').value = p.title; $('pr_desc').value = p.description; $('pr_type').value = p.property_type;
+  $('pr_loc').value = p.location; $('pr_price').value = p.price||''; $('pr_pricetype').value = p.price_type||'';
+  $('pr_const').value = p.construction_status||''; $('pr_status').value = p.status||'active';
+  $('pr_featured').checked = !!p.featured;
+}
+async function saveProp() {
+  const id = $('pr_id').value;
+  const body = { title:$('pr_title').value.trim(), description:$('pr_desc').value.trim(),
+    property_type:$('pr_type').value, location:$('pr_loc').value.trim(),
+    price:parseFloat($('pr_price').value)||null, price_type:$('pr_pricetype').value||null,
+    construction_status:$('pr_const').value||null, status:$('pr_status').value, featured:$('pr_featured').checked };
+  if (!body.title||!body.description||!body.location) { showMsg('mPropMsg','Title, description, location required.'); return; }
+  const btn = $('btnSaveProp'); btn.disabled = true;
+  const r = await api(id?`/management/api/properties/${id}`:'/management/api/properties', { method:id?'PUT':'POST', body:JSON.stringify(body) });
   btn.disabled = false;
+  if (r && r.success) { cls('mProp'); loadProps(); }
+  else showMsg('mPropMsg', (r&&r.message)||'Error');
+}
+async function delProp(id) {
+  const p = propsC.find(x=>x.id===id);
+  if (!confirm(`Delete "${p?p.title:'this property'}"? Cannot be undone.`)) return;
+  await api(`/management/api/properties/${id}`, { method:'DELETE' });
+  loadProps();
 }
 
-async function deleteProperty(id) {
-  if (!confirm('Delete this property? This cannot be undone.')) return;
-  await apiFetch(`/management/api/properties/${id}`, { method: 'DELETE' });
-  loadProperties();
-}
-
-// ── Shared helpers ──
-function showFormMsg(elId, text, type) {
-  const el = document.getElementById(elId);
-  el.textContent = text;
-  el.className = `text-xs mt-2 ${type === 'error' ? 'text-red-400' : 'text-green-400'}`;
-  el.classList.remove('hidden');
-}
-
-// Close modals on backdrop click
-document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-  backdrop.addEventListener('click', e => {
-    if (e.target === backdrop) backdrop.classList.remove('open');
-  });
-});
-
-// ── Accounts ──
-let accountsCache = [];
-let currentUserRole = 'viewer';
-let currentUserId = null;
-
-function parseUA(ua) {
-  if (!ua) return '—';
-  if (/Mobile|Android|iPhone|iPad/.test(ua)) {
-    if (/Chrome/.test(ua)) return 'Chrome (Mobile)';
-    if (/Safari/.test(ua)) return 'Safari (Mobile)';
-    return 'Mobile browser';
-  }
-  if (/Chrome/.test(ua) && !/Edge|OPR/.test(ua)) return 'Chrome';
-  if (/Firefox/.test(ua)) return 'Firefox';
-  if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari';
-  if (/Edge/.test(ua)) return 'Edge';
-  return ua.substring(0, 40);
-}
-
+// ── Accounts ───────────────────────────────────────────────────────
 async function loadAccounts() {
-  try {
-    accountsCache = await apiFetch('/management/api/accounts') || [];
-    document.getElementById('accountsTable').querySelector('tbody').innerHTML =
-      accountsCache.length ? accountsCache.map(a => {
-        const isSelf = a.id === currentUserId;
-        return `<tr>
-          <td class="font-medium">${a.full_name || '<span class="text-slate-600">—</span>'}</td>
-          <td class="text-slate-300">${a.username}${isSelf ? ' <span class="badge badge-teal ml-1">you</span>' : ''}</td>
-          <td>${a.role === 'admin'
-            ? '<span class="badge badge-teal">Admin</span>'
-            : '<span class="badge badge-slate">Viewer</span>'}</td>
-          <td>${a.is_active
-            ? '<span class="badge badge-green">Active</span>'
-            : '<span class="badge badge-red">Disabled</span>'}</td>
-          <td class="text-slate-400 text-xs">${a.last_login ? fmtDate(a.last_login) + '<br><span class="text-slate-600">' + a.last_login.slice(11,16) + ' UTC</span>' : '<span class="text-slate-600">Never</span>'}</td>
-          <td class="text-slate-500 text-xs font-mono">${a.last_login_ip || '—'}</td>
-          <td class="whitespace-nowrap">
-            <button class="btn btn-ghost btn-sm mr-1" onclick="editAccount(${a.id})"><i class="fa-solid fa-pen text-xs"></i></button>
-            ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id})"><i class="fa-solid fa-trash text-xs"></i></button>` : ''}
-          </td>
-        </tr>`;
-      }).join('') :
-      '<tr><td colspan="7" class="text-slate-600 text-center py-6">No accounts found</td></tr>';
-  } catch(e) { console.error(e); }
+  accsC = await api('/management/api/accounts') || [];
+  $('accTable').querySelector('tbody').innerHTML = accsC.length
+    ? accsC.map(a => `<tr>
+        <td style="font-weight:500">${esc(a.full_name||'—')}</td>
+        <td style="color:#94a3b8">${esc(a.username)}${a.id===myId?' <span class="badge bg-t" style="margin-left:.3rem">you</span>':''}</td>
+        <td>${badge(a.role)}</td>
+        <td>${a.is_active?'<span class="badge bg-g">Active</span>':'<span class="badge bg-r">Disabled</span>'}</td>
+        <td style="color:#64748b;font-size:.78rem">${a.last_login?fmtD(a.last_login):'<span style="color:#334155">Never</span>'}</td>
+        <td style="font-size:.78rem;color:#475569;font-family:monospace">${a.last_login_ip||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg btn-sm" onclick="editAccount(${a.id})" style="margin-right:.25rem"><i class="fa-solid fa-pen" style="font-size:.7rem"></i></button>
+          ${a.id!==myId?`<button class="btn bd btn-sm" onclick="delAccount(${a.id})"><i class="fa-solid fa-trash" style="font-size:.7rem"></i></button>`:''}
+        </td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="7">No accounts</td></tr>';
 }
-
-async function loadLoginLogs() {
-  try {
-    const logs = await apiFetch('/management/api/login-logs?limit=50') || [];
-    document.getElementById('loginLogsTable').querySelector('tbody').innerHTML =
-      logs.length ? logs.map(l => `
-        <tr>
-          <td class="text-slate-300 text-xs whitespace-nowrap">${fmtDate(l.created_at)} ${l.created_at.slice(11,16)} UTC</td>
-          <td class="font-medium">${l.username}</td>
-          <td class="text-slate-400">${l.full_name || '—'}</td>
-          <td class="font-mono text-xs text-slate-400">${l.ip_address || '—'}</td>
-          <td class="text-slate-500 text-xs">${parseUA(l.user_agent)}</td>
-        </tr>`).join('') :
-      '<tr><td colspan="5" class="text-slate-600 text-center py-6">No login history yet</td></tr>';
-  } catch(e) { console.error(e); }
+async function loadLogs() {
+  const logs = await api('/management/api/login-logs?limit=50') || [];
+  $('logTable').querySelector('tbody').innerHTML = logs.length
+    ? logs.map(l => `<tr>
+        <td style="color:#64748b;font-size:.78rem;white-space:nowrap">${fmtDT(l.created_at)}</td>
+        <td style="font-weight:500">${esc(l.username)}</td>
+        <td style="color:#94a3b8">${esc(l.full_name||'—')}</td>
+        <td style="font-family:monospace;font-size:.78rem;color:#64748b">${esc(l.ip_address||'—')}</td>
+        <td style="color:#64748b;font-size:.8rem">${esc(ua(l.user_agent))}</td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="5">No login history yet</td></tr>';
 }
-
 function openAccountModal(id) {
-  const isEdit = !!id;
-  document.getElementById('accountModalTitle').textContent = isEdit ? 'Edit Account' : 'Add Account';
-  document.getElementById('saveAccountBtn').textContent = isEdit ? 'Save Changes' : 'Create Account';
-  document.getElementById('accountId').value = id || '';
-  document.getElementById('ac_pw_hint').textContent = isEdit ? '(leave blank to keep current)' : '(required)';
-  document.getElementById('ac_active_row').style.display = isEdit ? 'flex' : 'none';
-  if (!isEdit) document.getElementById('accountForm').reset();
-  document.getElementById('accountFormMsg').classList.add('hidden');
-  document.getElementById('accountModal').classList.add('open');
+  $('mAccTitle').textContent = id ? 'Edit Account' : 'Add Account';
+  $('ac_id').value = id||'';
+  $('ac_pwHint').textContent = id ? '(leave blank to keep)' : '(required)';
+  $('ac_activeRow').style.display = id ? 'flex' : 'none';
+  if (!id) $('fAcc').reset();
+  $('mAccMsg').textContent = ''; $('mAcc').classList.add('open');
 }
-function closeAccountModal() { document.getElementById('accountModal').classList.remove('open'); }
-
 function editAccount(id) {
-  const a = accountsCache.find(x => x.id === id);
-  if (!a) return;
+  const a = accsC.find(x=>x.id===id); if (!a) return;
   openAccountModal(id);
-  document.getElementById('ac_name').value = a.full_name || '';
-  document.getElementById('ac_username').value = a.username;
-  document.getElementById('ac_email').value = a.email;
-  document.getElementById('ac_password').value = '';
-  document.getElementById('ac_role').value = a.role;
-  document.getElementById('ac_active').checked = a.is_active;
+  $('ac_name').value = a.full_name||''; $('ac_user').value = a.username;
+  $('ac_email').value = a.email; $('ac_pw').value = ''; $('ac_role').value = a.role;
+  $('ac_active').checked = a.is_active;
 }
-
 async function saveAccount() {
-  const id = document.getElementById('accountId').value;
-  const password = document.getElementById('ac_password').value;
-  const body = {
-    full_name: document.getElementById('ac_name').value.trim(),
-    username: document.getElementById('ac_username').value.trim(),
-    email: document.getElementById('ac_email').value.trim(),
-    role: document.getElementById('ac_role').value,
-    is_active: document.getElementById('ac_active').checked,
-  };
-  if (password) body.new_password = password;
-  if (!id) body.password = password;
-
-  if (!body.username || !body.email) { showFormMsg('accountFormMsg', 'Username and email are required.', 'error'); return; }
-  if (!id && !password) { showFormMsg('accountFormMsg', 'Password is required for new accounts.', 'error'); return; }
-  if (password && password.length < 8) { showFormMsg('accountFormMsg', 'Password must be at least 8 characters.', 'error'); return; }
-
-  const btn = document.getElementById('saveAccountBtn');
-  btn.disabled = true;
-  try {
-    const url = id ? `/management/api/accounts/${id}` : '/management/api/accounts';
-    const method = id ? 'PUT' : 'POST';
-    const res = await apiFetch(url, { method, body: JSON.stringify(body) });
-    if (res && res.success) { closeAccountModal(); loadAccounts(); }
-    else showFormMsg('accountFormMsg', (res && res.message) || 'Error saving account', 'error');
-  } catch { showFormMsg('accountFormMsg', 'Network error', 'error'); }
+  const id = $('ac_id').value;
+  const pw = $('ac_pw').value;
+  const body = { full_name:$('ac_name').value.trim(), username:$('ac_user').value.trim(),
+    email:$('ac_email').value.trim(), role:$('ac_role').value, is_active:$('ac_active').checked };
+  if (pw) body[id ? 'new_password' : 'password'] = pw;
+  if (!id) body.password = pw;
+  if (!body.username||!body.email) { showMsg('mAccMsg','Username and email required.'); return; }
+  if (!id && !pw) { showMsg('mAccMsg','Password required for new account.'); return; }
+  if (pw && pw.length < 8) { showMsg('mAccMsg','Password must be 8+ characters.'); return; }
+  const btn = $('btnSaveAcc'); btn.disabled = true;
+  const r = await api(id?`/management/api/accounts/${id}`:'/management/api/accounts', { method:id?'PUT':'POST', body:JSON.stringify(body) });
   btn.disabled = false;
+  if (r && r.success) { cls('mAcc'); loadAccounts(); }
+  else showMsg('mAccMsg', (r&&r.message)||'Error');
+}
+async function delAccount(id) {
+  const a = accsC.find(x=>x.id===id);
+  if (!confirm(`Delete account "${a?a.username:id}"?`)) return;
+  const r = await api(`/management/api/accounts/${id}`, { method:'DELETE' });
+  if (r && r.success) loadAccounts();
+  else alert((r&&r.message)||'Error');
 }
 
-async function deleteAccount(id) {
-  const a = accountsCache.find(x => x.id === id);
-  if (!confirm(`Delete account "${a ? a.username : id}"? This cannot be undone.`)) return;
-  const res = await apiFetch(`/management/api/accounts/${id}`, { method: 'DELETE' });
-  if (res && res.success) loadAccounts();
-  else alert((res && res.message) || 'Error deleting account');
-}
-
-// Update loadTab to handle accounts
-const _origLoadTab = loadTab;
-// Override to add accounts
-function loadTab(tab) {
-  if (tab === 'accounts') { loadAccounts(); loadLoginLogs(); return; }
-  _origLoadTab(tab);
-}
-
-// ── Init ──
+// ── Init ───────────────────────────────────────────────────────────
 (async () => {
-  const me = await apiFetch('/management/api/me');
+  const me = await api('/management/api/me');
   if (!me) return;
-  csrfToken = me.csrf_token || '';
-  currentUserRole = me.role || 'viewer';
-  currentUserId = me.id || null;
-  document.getElementById('headerUsername').textContent = me.full_name || me.username || '';
-
-  // Show Accounts tab only for admins
-  if (currentUserRole === 'admin') {
-    document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
-  }
-
-  // Pre-load tenants so payment modal can populate dropdown immediately
-  tenantsCache = await apiFetch('/management/api/tenants') || [];
+  csrf = me.csrf_token||''; myId = me.id; myRole = me.role||'viewer';
+  $('hdrUser').textContent = me.full_name || me.username || '';
+  if (myRole === 'admin') document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+  tenantsC = await api('/management/api/tenants') || [];
   loadOverview();
 })();
 </script>
