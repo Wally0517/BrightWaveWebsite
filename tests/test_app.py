@@ -12,7 +12,10 @@ os.environ.setdefault('DATABASE_URL', 'sqlite:///:memory:')
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app import app as flask_app, db
+from werkzeug.security import generate_password_hash
+
+import app as app_module
+from app import app as flask_app, db, Admin
 
 
 @pytest.fixture()
@@ -23,9 +26,40 @@ def client():
     flask_app.config['RATELIMIT_ENABLED'] = False
     with flask_app.test_client() as client:
         with flask_app.app_context():
+            app_module.runtime_state_initialized = False
             db.create_all()
             yield client
             db.drop_all()
+            app_module.runtime_state_initialized = False
+
+
+def create_admin(username, role='CEO', email=None, password='testpass123', secondary_roles=None):
+    admin = Admin(
+        username=username,
+        email=email or f'{username}@example.com',
+        password_hash=generate_password_hash(password),
+        role=role,
+        secondary_roles=secondary_roles or [],
+        is_active=True,
+    )
+    db.session.add(admin)
+    db.session.commit()
+    return admin
+
+
+def login(client, username, password='testpass123'):
+    remote_addr = f'10.0.0.{abs(hash(username)) % 200 + 1}'
+    return client.post(
+        '/admin/login',
+        json={'username': username, 'password': password},
+        environ_overrides={'REMOTE_ADDR': remote_addr},
+    )
+
+
+def admin_headers(client):
+    with client.session_transaction() as sess:
+        token = sess.get('csrf_token', '')
+    return {'X-CSRF-Token': token} if token else {}
 
 
 # ── Page routes ──────────────────────────────────────────────────────────────
@@ -210,6 +244,110 @@ def test_admin_bad_credentials_rejected(client):
     assert r.status_code == 401
     data = json.loads(r.data)
     assert data.get('success') is False
+
+
+def test_apple_touch_icon_route_returns_png(client):
+    r = client.get('/apple-touch-icon.png')
+    assert r.status_code == 200
+    assert r.mimetype == 'image/png'
+
+
+def test_manager_can_create_tenant_and_units_seeded(client):
+    with flask_app.app_context():
+        create_admin('manager1', role='MANAGER')
+    login_resp = login(client, 'manager1')
+    assert login_resp.status_code == 200
+
+    units_resp = client.get('/admin/api/units')
+    assert units_resp.status_code == 200
+    units = json.loads(units_resp.data)
+    phase1_units = [u for u in units if u.get('property_title') == 'BrightWave Phase 1 Hostel']
+    assert len(phase1_units) == 10
+
+    tenant_resp = client.post('/admin/api/tenants', headers=admin_headers(client), json={
+        'name': 'Tenant One',
+        'property_name': 'BrightWave Phase 1 Hostel',
+        'unit_number': '1A',
+        'monthly_rent': 120000,
+        'status': 'active'
+    })
+    assert tenant_resp.status_code == 200
+    payload = json.loads(tenant_resp.data)
+    assert payload.get('success') is True
+
+
+def test_ceo_can_create_construction_update(client):
+    with flask_app.app_context():
+        create_admin('ceo1', role='CEO')
+    login_resp = login(client, 'ceo1')
+    assert login_resp.status_code == 200
+
+    properties_resp = client.get('/admin/api/properties')
+    properties = json.loads(properties_resp.data)
+    project = next(p for p in properties if p.get('title') == 'BrightWave Hostel Phase 2')
+
+    create_resp = client.post('/admin/api/construction-updates', headers=admin_headers(client), json={
+        'property_id': project['id'],
+        'title': 'Foundation complete',
+        'progress_percentage': 35,
+        'notes': 'Concrete works completed.',
+        'is_public': True
+    })
+    assert create_resp.status_code == 200
+    data = json.loads(create_resp.data)
+    assert data.get('success') is True
+
+
+def test_secondary_manager_role_can_create_tenant(client):
+    with flask_app.app_context():
+        create_admin('ops1', role='ACCOUNTANT', secondary_roles=['MANAGER'])
+    login_resp = login(client, 'ops1')
+    assert login_resp.status_code == 200
+
+    tenant_resp = client.post('/admin/api/tenants', headers=admin_headers(client), json={
+        'name': 'Tenant Two',
+        'property_name': 'BrightWave Phase 1 Hostel',
+        'unit_number': '2A',
+        'monthly_rent': 130000,
+        'status': 'active'
+    })
+    assert tenant_resp.status_code == 200
+    payload = json.loads(tenant_resp.data)
+    assert payload.get('success') is True
+
+
+def test_investor_permissions_are_restricted(client):
+    with flask_app.app_context():
+        create_admin('investor1', role='INVESTOR')
+    login_resp = login(client, 'investor1')
+    assert login_resp.status_code == 200
+
+    assert client.get('/admin/api/tenants').status_code == 403
+    assert client.get('/admin/api/payments').status_code == 403
+    assert client.get('/admin/api/inquiries').status_code == 403
+
+
+def test_realtor_can_read_units_but_not_payments(client):
+    with flask_app.app_context():
+        create_admin('realtor1', role='REALTOR')
+    login_resp = login(client, 'realtor1')
+    assert login_resp.status_code == 200
+
+    assert client.get('/admin/api/units').status_code == 200
+    assert client.get('/admin/api/payments').status_code == 403
+
+
+def test_secondary_role_contract_lookup_uses_requested_role(client):
+    with flask_app.app_context():
+        create_admin('hybrid1', role='MANAGER', secondary_roles=['REALTOR'])
+    login_resp = login(client, 'hybrid1')
+    assert login_resp.status_code == 200
+
+    contract_resp = client.get('/admin/api/my-contract?role=REALTOR')
+    assert contract_resp.status_code == 200
+    payload = json.loads(contract_resp.data)
+    assert payload.get('success') is True
+    assert payload.get('role') == 'REALTOR'
 
 
 # ── Static assets ─────────────────────────────────────────────────────────────

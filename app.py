@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, render_template_string, session, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, render_template_string, session, redirect, url_for, make_response
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
@@ -11,7 +11,7 @@ import os
 import logging
 import re
 import secrets
-from datetime import datetime, date as date_type
+from datetime import datetime, date as date_type, timedelta
 from time import time
 from collections import defaultdict
 from functools import wraps
@@ -208,6 +208,38 @@ class InvestorProfile(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('Admin', backref='investor_profile_rel', foreign_keys=[user_id])
 
+class PropertyUnit(db.Model):
+    __tablename__ = 'property_unit'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
+    unit_code = db.Column(db.String(30), nullable=False)
+    status = db.Column(db.String(20), default='available')  # available, reserved, occupied, maintenance
+    monthly_rent = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='units')
+
+    __table_args__ = (
+        db.UniqueConstraint('property_id', 'unit_code', name='uq_property_unit_code'),
+    )
+
+class ConstructionUpdate(db.Model):
+    __tablename__ = 'construction_update'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
+    title = db.Column(db.String(160), nullable=False)
+    milestone_key = db.Column(db.String(50), nullable=True)
+    progress_percentage = db.Column(db.Integer, default=0)
+    notes = db.Column(db.Text, nullable=True)
+    happened_on = db.Column(db.Date, nullable=True)
+    is_public = db.Column(db.Boolean, default=True)
+    updated_by = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='construction_updates')
+
 class Tenant(db.Model):
     __tablename__ = 'tenant'
     id = db.Column(db.Integer, primary_key=True)
@@ -361,6 +393,38 @@ def serialize_team_member(member):
         'updated_at': member.updated_at.isoformat(),
     }
 
+
+def serialize_property_unit(unit):
+    return {
+        'id': unit.id,
+        'property_id': unit.property_id,
+        'property_title': unit.property.title if unit.property else '',
+        'unit_code': unit.unit_code,
+        'status': unit.status,
+        'monthly_rent': unit.monthly_rent,
+        'notes': unit.notes or '',
+        'sort_order': unit.sort_order,
+        'created_at': unit.created_at.isoformat() if unit.created_at else None,
+        'updated_at': unit.updated_at.isoformat() if unit.updated_at else None,
+    }
+
+
+def serialize_construction_update(update):
+    return {
+        'id': update.id,
+        'property_id': update.property_id,
+        'property_title': update.property.title if update.property else '',
+        'title': update.title,
+        'milestone_key': update.milestone_key,
+        'progress_percentage': update.progress_percentage,
+        'notes': update.notes or '',
+        'happened_on': update.happened_on.isoformat() if update.happened_on else None,
+        'is_public': update.is_public,
+        'updated_by': update.updated_by,
+        'created_at': update.created_at.isoformat() if update.created_at else None,
+        'updated_at': update.updated_at.isoformat() if update.updated_at else None,
+    }
+
 def create_admin_user():
     """Create an admin user only when bootstrap credentials are supplied."""
     username = os.environ.get('ADMIN_BOOTSTRAP_USERNAME')
@@ -480,6 +544,117 @@ def init_sample_data():
     db.session.commit()
 
 
+def seed_default_units():
+    phase1 = Property.query.filter_by(title='BrightWave Phase 1 Hostel').first()
+    if not phase1:
+        return
+
+    if PropertyUnit.query.filter_by(property_id=phase1.id).first():
+        return
+
+    default_codes = ['1A', '2A', '3A', '4A', '5A', '1B', '2B', '3B', '4B', '5B']
+    for idx, code in enumerate(default_codes):
+        db.session.add(PropertyUnit(
+            property_id=phase1.id,
+            unit_code=code,
+            status='available',
+            sort_order=idx,
+        ))
+    db.session.commit()
+
+
+def sync_property_units_from_tenants():
+    units = PropertyUnit.query.order_by(PropertyUnit.property_id.asc(), PropertyUnit.sort_order.asc()).all()
+    if not units:
+        return
+
+    active_statuses = {'active', 'reserved'}
+    active_tenants = Tenant.query.filter(Tenant.status.in_(active_statuses)).all()
+    occupancy_map = {}
+    for tenant in active_tenants:
+        key = (
+            (tenant.property_name or '').strip().lower(),
+            (tenant.unit_number or '').strip().upper(),
+        )
+        if key[0] and key[1]:
+            occupancy_map[key] = tenant
+
+    changed = False
+    for unit in units:
+        prop_name = (unit.property.title or '').strip().lower() if unit.property else ''
+        unit_key = (prop_name, (unit.unit_code or '').strip().upper())
+        occupied = unit_key in occupancy_map
+        desired_status = 'occupied' if occupied else ('available' if unit.status != 'maintenance' else 'maintenance')
+        if unit.status != desired_status:
+            unit.status = desired_status
+            changed = True
+
+    properties = Property.query.all()
+    for prop in properties:
+        prop_units = [u for u in units if u.property_id == prop.id]
+        if prop_units:
+            available_count = sum(1 for u in prop_units if u.status == 'available')
+            if prop.total_rooms != len(prop_units):
+                prop.total_rooms = len(prop_units)
+                changed = True
+            if prop.available_rooms != available_count:
+                prop.available_rooms = available_count
+                changed = True
+
+    if changed:
+        db.session.commit()
+
+
+def seed_default_construction_updates():
+    existing = ConstructionUpdate.query.first()
+    if existing:
+        return
+
+    candidate = Property.query.filter(
+        Property.property_type == 'hostel',
+        Property.construction_status != 'completed'
+    ).order_by(Property.created_at.asc()).first()
+    if not candidate:
+        return
+
+    defaults = [
+        ('Land secured', 'land-secured', 0, 'Project land has been secured and documented.'),
+        ('Construction begins', 'construction-begins', 15, 'Mobilisation and site setup are underway.'),
+        ('Foundation complete', 'foundation-complete', 35, 'Foundation works are complete.'),
+        ('Structure complete', 'structure-complete', 60, 'Core structural works are complete.'),
+        ('Finishing stage', 'finishing-stage', 85, 'Internal finishing and utilities are being completed.'),
+        ('Project complete', 'project-complete', 100, 'Construction is complete and ready for operations.'),
+    ]
+    for idx, (title, key, pct, notes) in enumerate(defaults):
+        db.session.add(ConstructionUpdate(
+            property_id=candidate.id,
+            title=title,
+            milestone_key=key,
+            progress_percentage=pct,
+            notes=notes,
+            happened_on=None,
+            is_public=True,
+            updated_by='system',
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        ))
+    db.session.commit()
+
+
+def get_investor_project_property():
+    latest_public = ConstructionUpdate.query.filter_by(is_public=True).order_by(
+        ConstructionUpdate.progress_percentage.desc(),
+        ConstructionUpdate.updated_at.desc()
+    ).first()
+    if latest_public and latest_public.property:
+        return latest_public.property
+
+    return Property.query.filter(
+        Property.property_type == 'hostel',
+        Property.construction_status != 'completed'
+    ).order_by(Property.created_at.asc()).first()
+
+
 def reconcile_property_catalog():
     """Keep live catalog visibility aligned with the current market-facing site."""
     hidden_titles = {
@@ -530,7 +705,10 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     seed_contract_templates()
     if include_sample_data:
         init_sample_data()
+    seed_default_units()
+    seed_default_construction_updates()
     reconcile_property_catalog()
+    sync_property_units_from_tenants()
     if bootstrap_admin:
         create_admin_user()
 
@@ -582,6 +760,35 @@ def login_required(f):
 
 def get_current_admin():
     return Admin.query.get(session.get('admin_id'))
+
+def get_admin_roles(admin):
+    if not admin:
+        return []
+    roles = [admin.role] + (admin.secondary_roles or [])
+    deduped = []
+    for role in roles:
+        if role and role not in deduped:
+            deduped.append(role)
+    return deduped
+
+def admin_has_any_role(admin, *allowed_roles):
+    return bool(set(get_admin_roles(admin)).intersection(set(allowed_roles)))
+
+def get_or_create_contract_for_role(admin, role):
+    contract = UserContract.query.filter_by(
+        user_id=admin.id,
+        contract_type=role,
+    ).order_by(UserContract.created_at.desc()).first()
+    if contract:
+        return contract
+    contract = UserContract(
+        user_id=admin.id,
+        contract_type=role,
+        status='pending_user_signature',
+    )
+    db.session.add(contract)
+    db.session.commit()
+    return contract
 
 def ceo_required(f):
     @wraps(f)
@@ -987,7 +1194,13 @@ def management_redirect():
 @app.route('/apple-touch-icon.png')
 @app.route('/apple-touch-icon-precomposed.png')
 def apple_touch_icon():
-    resp = make_response(send_from_directory('assets/images', 'apple-touch-icon.png', mimetype='image/png'))
+    icon_name = 'apple-touch-icon.png'
+    if not os.path.exists(os.path.join('assets', 'images', icon_name)):
+        if os.path.exists(os.path.join('assets', 'images', 'icon-192.png')):
+            icon_name = 'icon-192.png'
+        else:
+            icon_name = 'brightwave-logo.png'
+    resp = make_response(send_from_directory('assets/images', icon_name, mimetype='image/png'))
     resp.headers['Cache-Control'] = 'public, max-age=86400'
     return resp
 
@@ -1362,6 +1575,9 @@ def handle_property_inquiry():
 def admin_stats():
     """Get enhanced dashboard statistics"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to management roles"}), 403
         from sqlalchemy import func as sqlfunc
         ensure_cms_baseline()
         total_properties = Property.query.count()
@@ -1379,6 +1595,9 @@ def admin_stats():
         # Tenant stats
         active_tenants = Tenant.query.filter_by(status='active').count()
         total_tenants = Tenant.query.count()
+        total_units = PropertyUnit.query.count()
+        available_units = PropertyUnit.query.filter_by(status='available').count()
+        occupied_units = PropertyUnit.query.filter_by(status='occupied').count()
 
         # Revenue stats
         now = datetime.utcnow()
@@ -1409,6 +1628,9 @@ def admin_stats():
             'active_team_members': active_team_members,
             'active_tenants': active_tenants,
             'total_tenants': total_tenants,
+            'total_units': total_units,
+            'available_units': available_units,
+            'occupied_units': occupied_units,
             'monthly_revenue': monthly_revenue,
             'total_revenue': total_revenue,
             'recent_activity': {
@@ -1789,6 +2011,9 @@ def admin_properties():
     """Handle property CRUD operations"""
     if request.method == 'GET':
         try:
+            admin = get_current_admin()
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
             properties = Property.query.order_by(Property.created_at.desc()).all()
             return jsonify([{
                 'id': prop.id,
@@ -1902,11 +2127,144 @@ def admin_property_detail(property_id):
         logger.error(f"Error handling property {property_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
+
+@app.route('/admin/api/units', methods=['GET'])
+@login_required
+def admin_units():
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Accountant, or Realtor"}), 403
+        sync_property_units_from_tenants()
+        property_id = request.args.get('property_id', type=int)
+        query = PropertyUnit.query
+        if property_id:
+            query = query.filter_by(property_id=property_id)
+        units = query.order_by(PropertyUnit.property_id.asc(), PropertyUnit.sort_order.asc(), PropertyUnit.unit_code.asc()).all()
+        return jsonify([serialize_property_unit(unit) for unit in units])
+    except Exception as e:
+        logger.error(f"Error fetching units: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/units/<int:unit_id>', methods=['PUT'])
+@login_required
+def admin_unit_detail(unit_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
+        unit = PropertyUnit.query.get_or_404(unit_id)
+        data = request.get_json() or {}
+        if 'status' in data and data['status'] in ('available', 'reserved', 'occupied', 'maintenance'):
+            unit.status = data['status']
+        if 'monthly_rent' in data:
+            unit.monthly_rent = float(data['monthly_rent']) if data['monthly_rent'] not in (None, '') else None
+        if 'notes' in data:
+            unit.notes = (data['notes'] or '').strip() or None
+        unit.updated_at = datetime.utcnow()
+        db.session.commit()
+        sync_property_units_from_tenants()
+        return jsonify({"success": True, "message": "Unit updated", "unit": serialize_property_unit(unit)})
+    except Exception as e:
+        logger.error(f"Error updating unit {unit_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/construction-updates', methods=['GET', 'POST'])
+@login_required
+def admin_construction_updates():
+    try:
+        if request.method == 'GET':
+            admin = get_current_admin()
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR'):
+                return jsonify({"success": False, "message": "Access restricted to authorized roles"}), 403
+            property_id = request.args.get('property_id', type=int)
+            public_only = request.args.get('public_only', 'false').lower() == 'true'
+            query = ConstructionUpdate.query
+            if property_id:
+                query = query.filter_by(property_id=property_id)
+            if public_only:
+                query = query.filter_by(is_public=True)
+            updates = query.order_by(ConstructionUpdate.progress_percentage.asc(), ConstructionUpdate.created_at.asc()).all()
+            return jsonify([serialize_construction_update(update) for update in updates])
+
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
+
+        data = request.get_json() or {}
+        property_id = data.get('property_id')
+        title = (data.get('title') or '').strip()
+        if not property_id or not title:
+            return jsonify({"success": False, "message": "property_id and title are required"}), 400
+
+        prop = Property.query.get_or_404(int(property_id))
+        progress = max(0, min(100, int(data.get('progress_percentage') or 0)))
+        happened_on = date_type.fromisoformat(data['happened_on']) if data.get('happened_on') else None
+        update = ConstructionUpdate(
+            property_id=prop.id,
+            title=title,
+            milestone_key=(data.get('milestone_key') or '').strip() or None,
+            progress_percentage=progress,
+            notes=(data.get('notes') or '').strip() or None,
+            happened_on=happened_on,
+            is_public=bool(data.get('is_public', True)),
+            updated_by=admin.username,
+        )
+        db.session.add(update)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Construction update added", "update": serialize_construction_update(update)})
+    except Exception as e:
+        logger.error(f"Error managing construction updates: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/construction-updates/<int:update_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_construction_update_detail(update_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
+
+        update = ConstructionUpdate.query.get_or_404(update_id)
+        if request.method == 'DELETE':
+            db.session.delete(update)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Construction update deleted"})
+
+        data = request.get_json() or {}
+        if 'property_id' in data and data['property_id']:
+            update.property_id = int(data['property_id'])
+        if 'title' in data and (data['title'] or '').strip():
+            update.title = data['title'].strip()
+        if 'milestone_key' in data:
+            update.milestone_key = (data['milestone_key'] or '').strip() or None
+        if 'progress_percentage' in data:
+            update.progress_percentage = max(0, min(100, int(data['progress_percentage'] or 0)))
+        if 'notes' in data:
+            update.notes = (data['notes'] or '').strip() or None
+        if 'happened_on' in data:
+            update.happened_on = date_type.fromisoformat(data['happened_on']) if data['happened_on'] else None
+        if 'is_public' in data:
+            update.is_public = bool(data['is_public'])
+        update.updated_by = admin.username
+        update.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True, "message": "Construction update saved", "update": serialize_construction_update(update)})
+    except Exception as e:
+        logger.error(f"Error updating construction update {update_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
 @app.route('/admin/api/inquiries', methods=['GET'])
 @login_required
 def admin_get_inquiries():
     """Get all property inquiries"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
         inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).all()
         return jsonify([{
             'id': inquiry.id,
@@ -1933,6 +2291,9 @@ def admin_get_inquiries():
 def admin_update_inquiry(inquiry_id):
     """Update inquiry status and priority"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
         data = request.get_json()
         
@@ -1951,6 +2312,9 @@ def admin_update_inquiry(inquiry_id):
 def admin_get_contact_messages():
     """Get all contact messages with form origin tracking"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
         messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).all()
         return jsonify([{
             'id': msg.id,
@@ -1972,6 +2336,9 @@ def admin_get_contact_messages():
 def admin_update_contact_message(message_id):
     """Update contact message status"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
         message = ContactMessage.query.get_or_404(message_id)
         data = request.get_json()
         
@@ -2013,14 +2380,16 @@ def get_my_contract():
     admin = get_current_admin()
     if not admin or admin.role == 'CEO':
         return jsonify({"success": False, "message": "Not available"}), 403
-    contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
-    if not contract:
-        return jsonify({"success": False, "message": "No contract found"}), 404
-    ct = ContractTemplate.query.filter_by(role=admin.role).first()
-    body = ct.body if ct else CONTRACT_TEXTS.get(admin.role, {}).get("body", "")
-    title = ct.title if ct else CONTRACT_TEXTS.get(admin.role, {}).get("title", "Agreement")
+    requested_role = (request.args.get('role') or admin.role).upper()
+    if requested_role == 'CEO' or requested_role not in get_admin_roles(admin):
+        return jsonify({"success": False, "message": "Requested role is not assigned to this account"}), 403
+    contract = get_or_create_contract_for_role(admin, requested_role)
+    ct = ContractTemplate.query.filter_by(role=requested_role).first()
+    body = ct.body if ct else CONTRACT_TEXTS.get(requested_role, {}).get("body", "")
+    title = ct.title if ct else CONTRACT_TEXTS.get(requested_role, {}).get("title", "Agreement")
     return jsonify({
         "success": True, "id": contract.id, "title": title, "body": body,
+        "role": contract.contract_type,
         "status": contract.status,
         "user_name": admin.display_name or admin.username,
         "user_signature": contract.user_signature,
@@ -2247,6 +2616,9 @@ def admin_account_detail(account_id):
 def admin_tenants():
     try:
         if request.method == 'GET':
+            admin = get_current_admin()
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
             status_filter = request.args.get('status')
             q = Tenant.query
             if status_filter:
@@ -2268,7 +2640,7 @@ def admin_tenants():
             } for t in tenants])
 
         _tenant_admin = get_current_admin()
-        if not _tenant_admin or _tenant_admin.role not in ('CEO', 'MANAGER'):
+        if not _tenant_admin or not admin_has_any_role(_tenant_admin, 'CEO', 'MANAGER'):
             return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
         data = request.get_json() or {}
         if not data.get('name'):
@@ -2287,6 +2659,7 @@ def admin_tenants():
         )
         db.session.add(tenant)
         db.session.commit()
+        sync_property_units_from_tenants()
         return jsonify({"success": True, "message": "Tenant added", "id": tenant.id})
     except Exception as e:
         logger.error(f"Error managing tenants: {str(e)}")
@@ -2297,12 +2670,13 @@ def admin_tenants():
 def admin_tenant_detail(tenant_id):
     try:
         _tenant_admin = get_current_admin()
-        if not _tenant_admin or _tenant_admin.role not in ('CEO', 'MANAGER'):
+        if not _tenant_admin or not admin_has_any_role(_tenant_admin, 'CEO', 'MANAGER'):
             return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
         tenant = Tenant.query.get_or_404(tenant_id)
         if request.method == 'DELETE':
             tenant.status = 'vacated'
             db.session.commit()
+            sync_property_units_from_tenants()
             return jsonify({"success": True, "message": "Tenant marked as vacated"})
         data = request.get_json() or {}
         for field in ['name', 'email', 'phone', 'property_name', 'unit_number', 'status', 'notes']:
@@ -2315,6 +2689,7 @@ def admin_tenant_detail(tenant_id):
         if data.get('lease_end'):
             tenant.lease_end = date_type.fromisoformat(data['lease_end'])
         db.session.commit()
+        sync_property_units_from_tenants()
         return jsonify({"success": True, "message": "Tenant updated"})
     except Exception as e:
         logger.error(f"Error on tenant {tenant_id}: {str(e)}")
@@ -2326,6 +2701,9 @@ def admin_tenant_detail(tenant_id):
 def admin_payments():
     try:
         if request.method == 'GET':
+            admin = get_current_admin()
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
             payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
             return jsonify([{
                 'id': p.id,
@@ -2340,7 +2718,7 @@ def admin_payments():
             } for p in payments])
 
         _pay_admin = get_current_admin()
-        if not _pay_admin or _pay_admin.role not in ('CEO', 'MANAGER', 'ACCOUNTANT'):
+        if not _pay_admin or not admin_has_any_role(_pay_admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
         data = request.get_json() or {}
         if not data.get('amount'):
@@ -2478,6 +2856,13 @@ def my_investment():
         profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
         if not profile:
             return jsonify(None)
+        project_property = get_investor_project_property()
+        updates = []
+        if project_property:
+            updates = ConstructionUpdate.query.filter_by(
+                property_id=project_property.id,
+                is_public=True
+            ).order_by(ConstructionUpdate.progress_percentage.asc(), ConstructionUpdate.created_at.asc()).all()
         return jsonify({
             'investment_type': profile.investment_type,
             'investment_amount': profile.investment_amount,
@@ -2489,6 +2874,9 @@ def my_investment():
             'total_distributed': profile.total_distributed,
             'investment_term_years': profile.investment_term_years,
             'notes': profile.notes or '',
+            'project_property_id': project_property.id if project_property else None,
+            'project_property_title': project_property.title if project_property else '',
+            'construction_updates': [serialize_construction_update(update) for update in updates],
         })
     except Exception as e:
         logger.error(f"Error fetching investment: {str(e)}")
@@ -2765,6 +3153,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </button>
             <button onclick="showSection('propertiesSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-building w-5 text-center flex-shrink-0"></i><span class="sb-label">Properties</span>
+            </button>
+            <button onclick="showSection('constructionSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-hard-hat w-5 text-center flex-shrink-0"></i><span class="sb-label">Construction</span>
             </button>
             <button onclick="showSection('contentSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-globe w-5 text-center flex-shrink-0"></i><span class="sb-label">Website</span>
@@ -3249,6 +3640,45 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Add Property</button>
                     </div>
                 </form>
+            </div>
+        </section>
+
+        <section id="constructionSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Construction Updates</h2>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <form id="ceoConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Project</label>
+                        <select id="ceoConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Milestone Title</label>
+                        <input type="text" id="ceoConstructionTitle" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Progress Percentage</label>
+                        <input type="number" min="0" max="100" id="ceoConstructionPercent" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Update Date</label>
+                        <input type="date" id="ceoConstructionDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-2">Notes</label>
+                        <textarea id="ceoConstructionNotes" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                    </div>
+                    <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
+                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2 px-4 rounded-lg">Post Construction Update</button>
+                        <span id="ceoConstructionMsg" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h3 class="font-semibold text-slate-300">Project Timeline Feed</h3>
+                    <span id="ceoConstructionHeadline" class="text-sm text-emerald-400 font-medium">0%</span>
+                </div>
+                <div id="ceoConstructionList" class="space-y-3"></div>
             </div>
         </section>
 
@@ -3987,7 +4417,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
-            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -4002,10 +4432,60 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
             if (sectionId === 'tenantsSection') loadTenants();
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
+            if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
             if (sectionId === 'contractsSection') loadContracts();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
+            }
+        }
+
+        async function loadConstructionPropertyOptions() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const ceoSel = document.getElementById('ceoConstructionProperty');
+                const mgrSel = document.getElementById('mgrConstructionProperty');
+                if (ceoSel) ceoSel.innerHTML = options;
+                if (mgrSel) mgrSel.innerHTML = options;
+            } catch (e) {}
+        }
+
+        function renderConstructionUpdates(items, listId, headlineId) {
+            const listEl = document.getElementById(listId);
+            const headlineEl = document.getElementById(headlineId);
+            if (!listEl) return;
+            const latest = items.length ? items[items.length - 1] : null;
+            if (headlineEl) headlineEl.textContent = latest ? `${latest.progress_percentage}%` : '0%';
+            if (!items.length) {
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No construction updates yet.</p>';
+                return;
+            }
+            listEl.innerHTML = items.slice().reverse().map(item => `
+                <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                            <p class="font-semibold text-white text-sm">${item.title}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${item.property_title}${item.happened_on ? ' • ' + item.happened_on : ''}</p>
+                        </div>
+                        <span class="text-sm font-semibold text-emerald-400">${item.progress_percentage}%</span>
+                    </div>
+                    ${item.notes ? `<p class="text-sm text-gray-300 leading-6">${item.notes}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function loadConstructionUpdates(propertyId) {
+            try {
+                const query = propertyId ? ('?property_id=' + propertyId) : '';
+                const updates = await fetchData('/admin/api/construction-updates' + query);
+                renderConstructionUpdates(updates, 'ceoConstructionList', 'ceoConstructionHeadline');
+                renderConstructionUpdates(updates, 'mgrConstructionList', 'mgrConstructionProgress');
+            } catch (e) {
+                const ceoList = document.getElementById('ceoConstructionList');
+                const mgrList = document.getElementById('mgrConstructionList');
+                if (ceoList) ceoList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
+                if (mgrList) mgrList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
             }
         }
 
@@ -4604,15 +5084,66 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        async function submitConstructionUpdate(source) {
+            const ids = source === 'ceo'
+                ? {
+                    property: 'ceoConstructionProperty',
+                    title: 'ceoConstructionTitle',
+                    percent: 'ceoConstructionPercent',
+                    date: 'ceoConstructionDate',
+                    notes: 'ceoConstructionNotes',
+                    msg: 'ceoConstructionMsg',
+                    form: 'ceoConstructionForm',
+                  }
+                : {
+                    property: 'mgrConstructionProperty',
+                    title: 'mgrConstructionTitle',
+                    percent: 'mgrConstructionPercent',
+                    date: 'mgrConstructionDate',
+                    notes: 'mgrConstructionNotes',
+                    msg: 'mgrConstructionMsg',
+                    form: 'managerConstructionForm',
+                  };
+            const msgEl = document.getElementById(ids.msg);
+            try {
+                const res = await fetchData('/admin/api/construction-updates', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        property_id: document.getElementById(ids.property).value,
+                        title: document.getElementById(ids.title).value,
+                        progress_percentage: document.getElementById(ids.percent).value,
+                        happened_on: document.getElementById(ids.date).value || null,
+                        notes: document.getElementById(ids.notes).value,
+                        is_public: true,
+                    })
+                });
+                msgEl.textContent = res.message || 'Update posted';
+                msgEl.className = 'text-sm text-emerald-400';
+                document.getElementById(ids.form).reset();
+                loadConstructionPropertyOptions();
+                loadConstructionUpdates(document.getElementById(ids.property).value || null);
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error posting update';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
         // Initialize dashboard - show overview by default
         document.addEventListener('DOMContentLoaded', () => {
             showSection('overviewSection');
             loadStats();
             loadProperties();
+            loadConstructionPropertyOptions();
+            loadConstructionUpdates();
             loadInquiries();
             loadMessages();
             loadSiteContent();
             loadTeamMembers();
+            document.getElementById('ceoConstructionForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitConstructionUpdate('ceo');
+            });
         });
 
         if ('serviceWorker' in navigator) {
@@ -4783,13 +5314,15 @@ ROLE_DASHBOARD_TEMPLATE = """
             </div>
             <div class="flex items-center gap-3 flex-wrap">
                 {% if all_roles | length > 1 %}
-                <div id="roleSwitcher" class="flex gap-1 bg-gray-700 p-1 rounded-lg">
+                <div class="w-full sm:w-auto overflow-x-auto">
+                <div id="roleSwitcher" class="flex gap-1 bg-gray-700 p-1 rounded-lg min-w-max">
                     {% for r in all_roles %}
                     <button onclick="switchRole('{{ r }}')" id="roleBtn_{{ r }}"
-                        class="role-switch-btn text-xs font-medium px-3 py-1.5 rounded-md transition-colors {% if r == user_role %}bg-slate-600 text-white{% else %}text-gray-400 hover:text-white{% endif %}">
+                        class="role-switch-btn flex-none text-xs font-medium px-3 py-1.5 rounded-md transition-colors {% if r == user_role %}bg-slate-600 text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                         {{ r }}
                     </button>
                     {% endfor %}
+                </div>
                 </div>
                 {% endif %}
                 <div class="text-right hidden sm:block">
@@ -4830,6 +5363,13 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Project Timeline</h3>
                     <div id="projectTimeline"></div>
                 </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-lg text-slate-300">Construction Progress Graph</h3>
+                        <span id="invProgressHeadline" class="text-sm text-emerald-400 font-medium">0%</span>
+                    </div>
+                    <div id="investorProgressGraph"></div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Amount Invested</p><p id="invAmountDisplay" class="text-2xl font-bold text-white">-</p></div>
                     <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Expected Total Return</p><p id="invExpectedReturn" class="text-2xl font-bold text-emerald-400">-</p><p id="invReturnNote" class="text-xs text-gray-500 mt-1"></p></div>
@@ -4857,18 +5397,66 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'MANAGER' %}
             <!-- MANAGER DASHBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                 <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-3xl font-bold">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-3xl font-bold">-</p></div>
                 <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-3xl font-bold">-</p></div>
-                <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Team Members</p><p id="mgr_team" class="text-3xl font-bold">-</p></div>
+                <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-3xl font-bold">-</p></div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6 mb-6">
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-lg text-slate-300">Phase 1 Leasing Units</h3>
+                        <span class="text-xs text-gray-500">Default units: 1A-5A, 1B-5B</span>
+                    </div>
+                    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Add or Update Tenant</h3>
+                    <form id="managerTenantForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input id="mgrTenantEditId" type="hidden">
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Hostel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input id="mgrTenantLeaseEnd" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrTenantNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button id="mgrTenantSubmit" type="submit" class="bg-teal-700 hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Tenant</button><button id="mgrTenantCancelEdit" type="button" class="hidden bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="mgrTenantMsg" class="text-sm"></span></div>
+                    </form>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Active Tenants</h3>
+                    <span class="text-xs text-gray-500">Manager can add and vacate tenants</span>
+                </div>
+                <div id="mgr_tenantsList" class="space-y-3"></div>
             </div>
             <div class="bg-gray-800 rounded-xl p-6 mb-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Inquiries</h3>
                 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="mgr_inquiriesTable"></tbody></table></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6">
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
                 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Construction Updates</h3>
+                    <span id="mgrConstructionProgress" class="text-sm text-emerald-400 font-medium">0%</span>
+                </div>
+                <form id="managerConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Project</label><select id="mgrConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title</label><input id="mgrConstructionTitle" type="text" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Progress %</label><input id="mgrConstructionPercent" type="number" min="0" max="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Date</label><input id="mgrConstructionDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrConstructionNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                    <div class="md:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Post Update</button><span id="mgrConstructionMsg" class="text-sm"></span></div>
+                </form>
+                <div id="mgrConstructionList" class="space-y-3"></div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
@@ -4888,9 +5476,27 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="bg-teal-900 rounded-xl p-5"><p class="text-xs text-teal-300 uppercase tracking-wide mb-1">Revenue This Month</p><p id="acc_monthly_revenue" class="text-3xl font-bold text-white">-</p></div>
                 <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-3xl font-bold text-white">-</p></div>
             </div>
+            <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Record Payment</h3>
+                    <form id="accountantPaymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Tenant</label><select id="accPaymentTenant" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Fallback Tenant Name</label><input id="accPaymentTenantName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount *</label><input id="accPaymentAmount" type="number" step="100" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input id="accPaymentDate" type="date" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input id="accPaymentDesc" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><span id="accPaymentMsg" class="text-sm"></span></div>
+                    </form>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
+                    <div id="acc_paymentsContainer" class="space-y-3"></div>
+                </div>
+            </div>
             <div class="bg-gray-800 rounded-xl p-6">
-                <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
-                <div id="acc_paymentsContainer" class="space-y-3"></div>
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Occupancy Snapshot</h3>
+                <div id="accUnitsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
@@ -4905,10 +5511,18 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'REALTOR' %}
             <!-- REALTOR DASHBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                 <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Active Properties</p><p id="rel_properties" class="text-3xl font-bold">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="rel_available_units" class="text-3xl font-bold">-</p></div>
                 <div class="bg-amber-900 rounded-xl p-5"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Open Leads</p><p id="rel_inquiries" class="text-3xl font-bold">-</p></div>
                 <div class="bg-green-900 rounded-xl p-5"><p class="text-xs text-green-300 uppercase tracking-wide mb-1">New Today</p><p id="rel_new" class="text-3xl font-bold">-</p></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Units Ready To Lease</h3>
+                    <span class="text-xs text-gray-500">Live availability for leasing conversations</span>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="rel_unitsTable"></tbody></table></div>
             </div>
             <div class="bg-gray-800 rounded-xl p-6 mb-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Available Properties</h3>
@@ -5213,9 +5827,307 @@ ROLE_DASHBOARD_TEMPLATE = """
             loadRoleDashboard(USER_ROLE);
         });
 
+        function renderInvestorProgressGraph(updates) {
+            const graphEl = document.getElementById('investorProgressGraph');
+            const headlineEl = document.getElementById('invProgressHeadline');
+            if (!graphEl) return;
+            if (!updates.length) {
+                if (headlineEl) headlineEl.textContent = '0%';
+                graphEl.innerHTML = '<p class="text-sm text-gray-500">Construction updates will appear here once management posts them.</p>';
+                return;
+            }
+            const latest = updates[updates.length - 1];
+            if (headlineEl) headlineEl.textContent = `${latest.progress_percentage}%`;
+            if (updates.length === 1) {
+                graphEl.innerHTML = `<div class="space-y-3"><div class="w-full bg-gray-700 rounded-full h-3"><div class="bg-emerald-500 h-3 rounded-full" style="width:${latest.progress_percentage}%"></div></div><div class="flex justify-between text-xs text-gray-400"><span>${latest.title}</span><span>${latest.progress_percentage}%</span></div></div>`;
+                return;
+            }
+            const width = 640;
+            const height = 180;
+            const points = updates.map((item, idx) => {
+                const x = 24 + (idx * ((width - 48) / Math.max(updates.length - 1, 1)));
+                const y = height - 24 - ((item.progress_percentage / 100) * (height - 48));
+                return { x, y };
+            });
+            graphEl.innerHTML = `<div class="overflow-x-auto"><svg viewBox="0 0 ${width} ${height}" class="w-full min-w-[560px]"><line x1="24" y1="${height - 24}" x2="${width - 24}" y2="${height - 24}" stroke="#4b5563" stroke-width="1"></line><line x1="24" y1="24" x2="24" y2="${height - 24}" stroke="#4b5563" stroke-width="1"></line><polyline fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${points.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#111827" stroke="#10b981" stroke-width="3"></circle>`).join('')}</svg></div><div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">${updates.slice().reverse().map(item => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3"><div class="flex justify-between gap-3"><p class="font-medium text-white text-sm">${item.title}</p><span class="text-xs text-emerald-400 font-semibold">${item.progress_percentage}%</span></div><p class="text-xs text-gray-400 mt-1">${item.happened_on || 'Date pending'}</p>${item.notes ? `<p class="text-sm text-gray-300 mt-2">${item.notes}</p>` : ''}</div>`).join('')}</div>`;
+        }
 
-        async function viewMyContract() {
-            try { const data = await fetchData('/admin/api/my-contract'); showContractModal(data); }
+        function renderUnitsTable(targetId, units, showProperty = false) {
+            const el = document.getElementById(targetId);
+            if (!el) return;
+            const statusClasses = { available: 'bg-emerald-900/50 text-emerald-300', reserved: 'bg-amber-900/50 text-amber-300', occupied: 'bg-blue-900/50 text-blue-300', maintenance: 'bg-red-900/50 text-red-300' };
+            if (!units.length) {
+                el.innerHTML = `<tr><td colspan="${showProperty ? 5 : 4}" class="text-gray-400 py-3 text-center">No units found</td></tr>`;
+                return;
+            }
+            el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${unit.property_title}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${unit.unit_code}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${unit.notes || '—'}</td></tr>`).join('');
+        }
+
+        function populateManagerUnitSelect(units) {
+            const select = document.getElementById('mgrTenantUnit');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select unit</option>' + units.filter(unit => unit.status === 'available' || unit.status === 'reserved').map(unit => `<option value="${unit.unit_code}">${unit.unit_code} • ${unit.status}</option>`).join('');
+        }
+
+        let roleTenantMap = {};
+
+        function renderTenantCards(targetId, tenants) {
+            const el = document.getElementById(targetId);
+            if (!el) return;
+            roleTenantMap = Object.fromEntries(tenants.map(t => [String(t.id), t]));
+            if (!tenants.length) {
+                el.innerHTML = '<p class="text-gray-400 py-4 text-center text-sm">No tenants yet</p>';
+                return;
+            }
+            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-3 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-3 py-1 rounded-lg">Mark Vacated</button></div></div></div>`).join('');
+        }
+
+        function editRoleTenant(id) {
+            const tenant = roleTenantMap[String(id)];
+            if (!tenant) return;
+            document.getElementById('mgrTenantEditId').value = tenant.id;
+            document.getElementById('mgrTenantName').value = tenant.name || '';
+            document.getElementById('mgrTenantEmail').value = tenant.email || '';
+            document.getElementById('mgrTenantPhone').value = tenant.phone || '';
+            document.getElementById('mgrTenantProperty').value = tenant.property_name || 'BrightWave Phase 1 Hostel';
+            const unitSelect = document.getElementById('mgrTenantUnit');
+            if (tenant.unit_number && unitSelect && !Array.from(unitSelect.options).some(opt => opt.value === tenant.unit_number)) {
+                const option = document.createElement('option');
+                option.value = tenant.unit_number;
+                option.textContent = `${tenant.unit_number} • occupied`;
+                unitSelect.appendChild(option);
+            }
+            if (unitSelect) unitSelect.value = tenant.unit_number || '';
+            document.getElementById('mgrTenantRent').value = tenant.monthly_rent || '';
+            document.getElementById('mgrTenantLeaseStart').value = tenant.lease_start || '';
+            document.getElementById('mgrTenantLeaseEnd').value = tenant.lease_end || '';
+            document.getElementById('mgrTenantNotes').value = tenant.notes || '';
+            document.getElementById('mgrTenantSubmit').textContent = 'Update Tenant';
+            document.getElementById('mgrTenantCancelEdit').classList.remove('hidden');
+        }
+
+        async function loadRoleDocument(role) {
+            const statusEl = document.getElementById('roleDocStatus_' + role);
+            const btnEl = document.getElementById('viewRoleDocBtn_' + role);
+            if (!statusEl) return;
+            const statusMap = { completed: 'Both parties signed — Agreement on file', pending_ceo_signature: 'Awaiting CEO co-signature', pending_user_signature: 'Awaiting your signature' };
+            statusEl.textContent = statusMap[CONTRACT_STATUS] || 'Status unknown';
+            if (CONTRACT_STATUS === 'completed' && btnEl) btnEl.classList.remove('hidden');
+        }
+
+        async function loadInvestorDashboard() {
+            try {
+                const profile = await fetchData('/admin/api/my-investment');
+                document.getElementById('investorLoading').classList.add('hidden');
+                document.getElementById('investorDashboard').classList.add('hidden');
+                document.getElementById('investorNoProfile').classList.add('hidden');
+                if (!profile) {
+                    document.getElementById('investorNoProfile').classList.remove('hidden');
+                    return;
+                }
+                document.getElementById('investorDashboard').classList.remove('hidden');
+                const amount = profile.investment_amount;
+                const type = profile.investment_type;
+                const roi = profile.roi_rate;
+                const equity = profile.equity_percentage;
+                const distributed = profile.total_distributed || 0;
+                const updates = (profile.construction_updates || []).sort((a, b) => (a.progress_percentage || 0) - (b.progress_percentage || 0));
+                const latestProgress = updates.length ? updates[updates.length - 1].progress_percentage : 0;
+                document.getElementById('invAmountDisplay').textContent = formatNGN(amount);
+                document.getElementById('invDistributed').textContent = formatNGN(distributed);
+                renderInvestorProgressGraph(updates);
+                const badgeColor = type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700';
+                const summaryLabel = type === 'DEBT' ? `${roi}% Annual Return` : `${equity}% Project Equity`;
+                document.getElementById('investmentSummaryCard').innerHTML = `<div class="flex justify-between items-start mb-4"><div><p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Your Investment</p><p class="text-4xl font-bold text-white">${formatNGN(amount)}</p></div><span class="text-sm font-semibold px-3 py-1 rounded-full text-white ${badgeColor}">${type}</span></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm"><div><p class="text-gray-400 text-xs">Return Structure</p><p class="text-white font-medium mt-0.5">${summaryLabel}</p></div><div><p class="text-gray-400 text-xs">Investment Date</p><p class="text-white font-medium mt-0.5">${profile.investment_date || 'Pending'}</p></div><div><p class="text-gray-400 text-xs">Project</p><p class="text-white font-medium mt-0.5">${profile.project_property_title || 'BrightWave Project'}</p></div><div><p class="text-gray-400 text-xs">Current Progress</p><p class="text-white font-medium mt-0.5">${latestProgress}%</p></div></div>`;
+                const termYears = profile.investment_term_years || 4;
+                if (type === 'DEBT') {
+                    const annualReturn = amount * roi / 100;
+                    const totalInterest = annualReturn * termYears;
+                    document.getElementById('invExpectedReturn').textContent = formatNGN(amount + totalInterest);
+                    document.getElementById('invReturnNote').textContent = `Principal ${formatNGN(amount)} + ${formatNGN(totalInterest)} interest over ${termYears} year${termYears !== 1 ? 's' : ''}`;
+                } else {
+                    document.getElementById('invExpectedReturn').textContent = `${equity}% ownership`;
+                    document.getElementById('invReturnNote').textContent = 'Returns proportional to project revenue';
+                }
+                document.getElementById('projectTimeline').innerHTML = updates.length ? `<div class="mb-3"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>Management-posted progress</span><span>${latestProgress}%</span></div><div class="w-full bg-gray-700 rounded-full h-3"><div class="timeline-bar bg-emerald-500 h-3 rounded-full" style="width: ${latestProgress}%"></div></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">${updates.slice().reverse().slice(0, 3).map(update => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500">${update.happened_on || 'Pending date'}</p><p class="text-sm font-semibold text-white mt-1">${update.title}</p>${update.notes ? `<p class="text-sm text-gray-300 mt-2">${update.notes}</p>` : ''}</div>`).join('')}</div><div class="mt-3 text-xs text-gray-500 text-center">Progress is driven by updates posted from the CEO or Manager portal.</div>` : '<p class="text-gray-400 text-sm">Construction updates will appear once management starts posting milestones.</p>';
+                const completion = profile.expected_completion_date ? new Date(profile.expected_completion_date) : null;
+                const now = new Date();
+                if (type === 'DEBT' && completion) {
+                    const annualReturn = amount * roi / 100;
+                    document.getElementById('distributionSchedule').innerHTML = Array.from({length: termYears}, (_, idx) => idx + 1).map(yr => { const paymentDate = new Date(completion); paymentDate.setFullYear(paymentDate.getFullYear() + yr); const isFinal = yr === termYears; const isPast = now > paymentDate; return `<div class="flex justify-between items-center py-3 border-b border-gray-700 last:border-0 text-sm"><div><span class="text-white">Year ${yr} Distribution</span>${isFinal ? `<span class="text-xs text-emerald-400 ml-2">+ principal</span>` : ''}</div><div class="text-right"><p class="font-medium text-white">${formatNGN(isFinal ? annualReturn + amount : annualReturn)}</p><p class="text-xs text-gray-400">${paymentDate.toLocaleDateString('en-GB', {month:'short',year:'numeric'})}</p></div><span class="text-xs ${isPast ? 'text-emerald-400' : 'text-yellow-400'} font-medium">${isPast ? 'Due' : 'Scheduled'}</span></div>`; }).join('');
+                } else if (type === 'EQUITY') {
+                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Equity distributions are paid from project performance after completion. Management will keep the construction graph and milestone feed current here.</p>`;
+                } else {
+                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Distribution schedule will be available once the expected completion date is set by the CEO.</p>`;
+                }
+                const docStatusMap = { completed: 'Both parties signed — Agreement on file', pending_ceo_signature: 'Awaiting CEO co-signature', pending_user_signature: 'Awaiting your signature' };
+                document.getElementById('docStatus').textContent = docStatusMap[CONTRACT_STATUS] || 'Status unknown';
+                if (CONTRACT_STATUS === 'completed') document.getElementById('viewAgreementBtn')?.classList.remove('hidden');
+            } catch (e) {
+                document.getElementById('investorLoading').textContent = 'Error loading investment data. Please refresh.';
+            }
+        }
+
+        async function loadManagerDashboard() {
+            try {
+                const [stats, inquiries, props, units, tenants] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/properties'), fetchData('/admin/api/units'), fetchData('/admin/api/tenants')]);
+                document.getElementById('mgr_properties').textContent = stats.active_properties || 0;
+                document.getElementById('mgr_available_units').textContent = stats.available_units || 0;
+                document.getElementById('mgr_inquiries').textContent = stats.new_inquiries || stats.total_inquiries || 0;
+                document.getElementById('mgr_active_tenants').textContent = stats.active_tenants || 0;
+                document.getElementById('mgr_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `<tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries</td></tr>';
+                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Hostel');
+                renderUnitsTable('mgr_unitsTable', phase1Units);
+                populateManagerUnitSelect(phase1Units);
+                renderTenantCards('mgr_tenantsList', tenants.filter(t => t.status === 'active'));
+                loadConstructionPropertyOptions();
+                loadConstructionUpdates();
+            } catch (e) {}
+        }
+
+        async function loadAccountantDashboard() {
+            try {
+                const [stats, payments, tenants] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active')]);
+                document.getElementById('acc_total_revenue').textContent = formatNGN(stats.total_revenue || 0);
+                document.getElementById('acc_monthly_revenue').textContent = formatNGN(stats.monthly_revenue || 0);
+                document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
+                const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
+                document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center gap-3 flex-wrap text-xs"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
+                document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Available Units</p><p class="text-2xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Occupied Units</p><p class="text-2xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Active Tenants</p><p class="text-2xl font-bold text-white mt-1">${tenants.length}</p></div>`;
+                const tenantSelect = document.getElementById('accPaymentTenant');
+                if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
+            } catch (e) {
+                document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
+            }
+        }
+
+        async function loadRealtorDashboard() {
+            try {
+                const [stats, props, inquiries, units] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/properties'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/units')]);
+                document.getElementById('rel_properties').textContent = stats.active_properties || 0;
+                document.getElementById('rel_available_units').textContent = stats.available_units || 0;
+                document.getElementById('rel_inquiries').textContent = stats.total_inquiries || 0;
+                document.getElementById('rel_new').textContent = stats.new_inquiries || 0;
+                renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
+                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `<tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
+            } catch (e) {}
+        }
+
+        async function vacateRoleTenant(id) {
+            if (!confirm('Mark this tenant as vacated?')) return;
+            await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
+            await loadManagerDashboard();
+            if (ALL_ROLES.includes('ACCOUNTANT')) await loadAccountantDashboard();
+            if (ALL_ROLES.includes('REALTOR')) await loadRealtorDashboard();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('managerTenantForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('mgrTenantMsg');
+                const editId = document.getElementById('mgrTenantEditId').value;
+                const payload = {
+                    name: document.getElementById('mgrTenantName').value,
+                    email: document.getElementById('mgrTenantEmail').value,
+                    phone: document.getElementById('mgrTenantPhone').value,
+                    property_name: document.getElementById('mgrTenantProperty').value,
+                    unit_number: document.getElementById('mgrTenantUnit').value,
+                    monthly_rent: document.getElementById('mgrTenantRent').value,
+                    lease_start: document.getElementById('mgrTenantLeaseStart').value,
+                    lease_end: document.getElementById('mgrTenantLeaseEnd').value,
+                    status: 'active',
+                    notes: document.getElementById('mgrTenantNotes').value
+                };
+                try {
+                    const res = await fetchData(editId ? ('/admin/api/tenants/' + editId) : '/admin/api/tenants', { method: editId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    msgEl.textContent = res.message || 'Tenant saved';
+                    msgEl.className = 'text-sm text-emerald-400';
+                    document.getElementById('managerTenantForm').reset();
+                    document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Hostel';
+                    document.getElementById('mgrTenantEditId').value = '';
+                    document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
+                    document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
+                    await loadManagerDashboard();
+                } catch (err) {
+                    msgEl.textContent = err.message || 'Error saving tenant';
+                    msgEl.className = 'text-sm text-red-400';
+                }
+            });
+            document.getElementById('mgrTenantCancelEdit')?.addEventListener('click', () => {
+                document.getElementById('managerTenantForm').reset();
+                document.getElementById('mgrTenantEditId').value = '';
+                document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Hostel';
+                document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
+                document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
+            });
+            document.getElementById('accountantPaymentForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('accPaymentMsg');
+                try {
+                    const res = await fetchData('/admin/api/payments', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tenant_id: document.getElementById('accPaymentTenant').value || null, tenant_name: document.getElementById('accPaymentTenantName').value, amount: document.getElementById('accPaymentAmount').value, payment_date: document.getElementById('accPaymentDate').value, payment_type: document.getElementById('accPaymentType').value, description: document.getElementById('accPaymentDesc').value }) });
+                    msgEl.textContent = res.message || 'Payment recorded';
+                    msgEl.className = 'text-sm text-emerald-400';
+                    document.getElementById('accountantPaymentForm').reset();
+                    await loadAccountantDashboard();
+                } catch (err) {
+                    msgEl.textContent = err.message || 'Error recording payment';
+                    msgEl.className = 'text-sm text-red-400';
+                }
+            });
+            document.getElementById('managerConstructionForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitConstructionUpdate('manager');
+            });
+        });
+
+        async function fetchContractForRole(role) {
+            return fetchData('/admin/api/my-contract?role=' + encodeURIComponent(role));
+        }
+
+        loadRoleDocument = async function(role) {
+            const statusEl = document.getElementById('roleDocStatus_' + role);
+            const btnEl = document.getElementById('viewRoleDocBtn_' + role);
+            if (!statusEl) return;
+            const statusMap = {
+                completed: 'Both parties signed - Agreement on file',
+                pending_ceo_signature: 'Awaiting CEO co-signature',
+                pending_user_signature: 'Awaiting your signature'
+            };
+            try {
+                const data = await fetchContractForRole(role);
+                statusEl.textContent = statusMap[data.status] || 'Status unknown';
+                if (btnEl) btnEl.classList.toggle('hidden', data.status !== 'completed');
+            } catch (e) {
+                statusEl.textContent = 'Agreement unavailable';
+                if (btnEl) btnEl.classList.add('hidden');
+            }
+        };
+
+        const baseLoadInvestorDashboard = loadInvestorDashboard;
+        loadInvestorDashboard = async function() {
+            await baseLoadInvestorDashboard();
+            const docStatusEl = document.getElementById('docStatus');
+            const viewBtn = document.getElementById('viewAgreementBtn');
+            if (!docStatusEl) return;
+            const statusMap = {
+                completed: 'Both parties signed - Agreement on file',
+                pending_ceo_signature: 'Awaiting CEO co-signature',
+                pending_user_signature: 'Awaiting your signature'
+            };
+            try {
+                const data = await fetchContractForRole('INVESTOR');
+                docStatusEl.textContent = statusMap[data.status] || 'Status unknown';
+                if (viewBtn) viewBtn.classList.toggle('hidden', data.status !== 'completed');
+            } catch (e) {
+                docStatusEl.textContent = 'Agreement unavailable';
+                if (viewBtn) viewBtn.classList.add('hidden');
+            }
+        };
+
+        async function viewMyContract(role = activeRole) {
+            try { const data = await fetchContractForRole(role || activeRole); showContractModal(data); }
             catch (e) { alert('Could not load agreement. Please try again.'); }
         }
 
