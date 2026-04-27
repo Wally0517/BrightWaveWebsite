@@ -4618,7 +4618,62 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
+
+        async function viewMyContract() {
+            try { const data = await fetchData('/admin/api/my-contract'); showContractModal(data); }
+            catch (e) { alert('Could not load agreement. Please try again.'); }
+        }
+
+        function showContractModal(data) {
+            document.getElementById('cvModalTitle').textContent = data.title || 'Agreement';
+            document.getElementById('cvModalBody').textContent = data.body || '';
+            document.getElementById('cvUserSig').textContent = data.user_signature || 'Not yet signed';
+            document.getElementById('cvUserDate').textContent = data.user_signed_at ? 'Signed ' + data.user_signed_at : '';
+            document.getElementById('cvCeoSig').textContent = data.ceo_signature || 'Awaiting CEO';
+            document.getElementById('cvCeoDate').textContent = data.ceo_signed_at ? 'Signed ' + data.ceo_signed_at : '';
+            const statusMap = {completed:'Both parties have signed — legally binding agreement on file',pending_ceo_signature:'Awaiting CEO co-signature',pending_user_signature:'Awaiting your signature'};
+            document.getElementById('cvStatus').textContent = statusMap[data.status] || data.status || '';
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+
+        function closeContractModal() {
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
     </script>
+
+    <!-- CONTRACT VIEW MODAL -->
+    <div id="contractViewModal" class="fixed inset-0 bg-black bg-opacity-80 z-[100] hidden items-center justify-center p-4" onclick="if(event.target===this)closeContractModal()">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-start flex-shrink-0">
+                <div>
+                    <p class="text-xs text-emerald-400 uppercase tracking-wide font-medium">Signed Agreement</p>
+                    <h3 id="cvModalTitle" class="text-lg font-bold text-white mt-0.5"></h3>
+                </div>
+                <button onclick="closeContractModal()" class="text-gray-400 hover:text-white p-1 ml-4 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="cvModalBody" class="p-6 overflow-y-auto text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="flex:1;max-height:45vh;overflow-y:auto;"></div>
+            <div class="p-5 border-t border-gray-700 flex-shrink-0 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <p class="text-xs text-gray-400 mb-1">Employee / Investor Signature</p>
+                        <p id="cvUserSig" class="font-semibold text-white text-sm font-mono"></p>
+                        <p id="cvUserDate" class="text-xs text-gray-500 mt-0.5"></p>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <p class="text-xs text-gray-400 mb-1">CEO Signature &#183; BrightWave</p>
+                        <p id="cvCeoSig" class="font-semibold text-emerald-400 text-sm font-mono"></p>
+                        <p id="cvCeoDate" class="text-xs text-gray-500 mt-0.5"></p>
+                    </div>
+                </div>
+                <p id="cvStatus" class="text-xs text-center text-gray-500 pt-1"></p>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
 """
