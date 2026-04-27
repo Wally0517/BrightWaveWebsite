@@ -1906,6 +1906,68 @@ def sign_my_contract():
         logger.error(f"Error signing contract: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
+
+@app.route('/admin/api/my-contract', methods=['GET'])
+@login_required
+def get_my_contract():
+    admin = get_current_admin()
+    if not admin or admin.role == 'CEO':
+        return jsonify({"success": False, "message": "Not available"}), 403
+    contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
+    if not contract:
+        return jsonify({"success": False, "message": "No contract found"}), 404
+    ct = ContractTemplate.query.filter_by(role=admin.role).first()
+    body = ct.body if ct else CONTRACT_TEXTS.get(admin.role, {}).get("body", "")
+    title = ct.title if ct else CONTRACT_TEXTS.get(admin.role, {}).get("title", "Agreement")
+    return jsonify({
+        "success": True, "id": contract.id, "title": title, "body": body,
+        "status": contract.status,
+        "user_name": admin.display_name or admin.username,
+        "user_signature": contract.user_signature,
+        "user_signed_at": contract.user_signed_at.strftime("%d %b %Y, %H:%M UTC") if contract.user_signed_at else None,
+        "ceo_signature": contract.ceo_signature,
+        "ceo_signed_at": contract.ceo_signed_at.strftime("%d %b %Y, %H:%M UTC") if contract.ceo_signed_at else None,
+    })
+
+@app.route("/admin/api/contracts/<int:contract_id>", methods=["GET"])
+@login_required
+def get_contract_detail(contract_id):
+    admin = get_current_admin()
+    if not admin or admin.role != "CEO":
+        return jsonify({"success": False, "message": "CEO access required"}), 403
+    contract = UserContract.query.get_or_404(contract_id)
+    user = Admin.query.get(contract.user_id)
+    ct = ContractTemplate.query.filter_by(role=contract.contract_type).first()
+    body = ct.body if ct else CONTRACT_TEXTS.get(contract.contract_type, {}).get("body", "")
+    title = ct.title if ct else CONTRACT_TEXTS.get(contract.contract_type, {}).get("title", "Agreement")
+    return jsonify({
+        "success": True, "id": contract.id, "title": title, "body": body,
+        "status": contract.status, "role": contract.contract_type,
+        "user_name": user.display_name if user else "Unknown",
+        "user_signature": contract.user_signature,
+        "user_signed_at": contract.user_signed_at.strftime("%d %b %Y, %H:%M UTC") if contract.user_signed_at else None,
+        "ceo_signature": contract.ceo_signature,
+        "ceo_signed_at": contract.ceo_signed_at.strftime("%d %b %Y, %H:%M UTC") if contract.ceo_signed_at else None,
+    })
+
+@app.route("/admin/api/completed-contracts", methods=["GET"])
+@login_required
+def get_completed_contracts():
+    admin = get_current_admin()
+    if not admin or admin.role != "CEO":
+        return jsonify({"success": False, "message": "CEO access required"}), 403
+    contracts = UserContract.query.filter_by(status="completed").order_by(UserContract.ceo_signed_at.desc()).all()
+    result = []
+    for c in contracts:
+        user = Admin.query.get(c.user_id)
+        result.append({
+            "id": c.id, "role": c.contract_type,
+            "user_name": user.display_name if user else "Unknown",
+            "user_signed_at": c.user_signed_at.strftime("%d %b %Y") if c.user_signed_at else None,
+            "ceo_signed_at": c.ceo_signed_at.strftime("%d %b %Y") if c.ceo_signed_at else None,
+        })
+    return jsonify(result)
+
 @app.route('/admin/api/pending-contracts', methods=['GET'])
 @login_required
 @ceo_required
@@ -2058,6 +2120,8 @@ def admin_account_detail(account_id):
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
         if account.role == 'CEO':
             return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+        UserContract.query.filter_by(user_id=account.id).delete()
+        InvestorProfile.query.filter_by(user_id=account.id).delete()
         db.session.delete(account)
         db.session.commit()
         return jsonify({"success": True, "message": "Account deleted"})
@@ -2586,9 +2650,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         <!-- PENDING SIGNATURES SECTION -->
         <section id="signaturesSection" class="mb-8 hidden">
-            <h2 class="text-xl font-semibold mb-4">Pending Signatures</h2>
-            <div id="signaturesContent" class="space-y-4">
-                <!-- Populated by JS -->
+            <h2 class="text-xl font-semibold mb-6">Agreements</h2>
+            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Pending Signatures</h3>
+                <div id="signaturesContent" class="space-y-4"><!-- Populated by JS --></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Completed Agreements</h3>
+                <div id="completedContractsContent" class="divide-y divide-gray-700"><p class="text-gray-500 text-sm text-center py-4">Loading...</p></div>
             </div>
         </section>
 
@@ -3710,7 +3779,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
             if (window.innerWidth < 768) closeSidebar();
-            if (sectionId === 'signaturesSection') loadPendingContracts();
+            if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
             if (sectionId === 'tenantsSection') loadTenants();
@@ -3732,7 +3801,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     return;
                 }
                 el.innerHTML = contracts.map(c => `
-                    <div class="bg-gray-800 p-5 rounded-lg border border-yellow-600">
+                    <div id="pendingCard_${c.id}" class="bg-gray-800 p-5 rounded-lg border border-yellow-600">
                         <div class="flex justify-between items-start mb-3">
                             <div>
                                 <p class="font-semibold text-lg">${c.user_name}</p>
@@ -3761,18 +3830,59 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const msgEl = document.getElementById('ceoSigMsg_' + contractId);
             if (!sig) { msgEl.textContent = 'Please type your full name to sign'; msgEl.className = 'text-sm mt-2 text-red-400'; msgEl.classList.remove('hidden'); return; }
             try {
-                const res = await fetchData('/admin/api/contracts/' + contractId + '/ceo-sign', {
+                await fetchData('/admin/api/contracts/' + contractId + '/ceo-sign', {
                     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({signature: sig})
                 });
-                msgEl.textContent = res.message;
-                msgEl.className = 'text-sm mt-2 text-green-400';
-                msgEl.classList.remove('hidden');
-                setTimeout(() => loadPendingContracts(), 1500);
+                const card = document.getElementById('pendingCard_' + contractId);
+                if (card) {
+                    card.innerHTML = '<div class="flex items-center gap-3"><svg class=\"w-8 h-8 text-emerald-400 flex-shrink-0\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"/></svg><div><p class=\"font-semibold text-white\">Contract Signed</p><p class=\"text-sm text-emerald-400\">Both parties have signed. Agreement is now on file.</p></div></div>';
+                    card.className = 'bg-gray-800 p-5 rounded-lg border border-emerald-600';
+                }
+                setTimeout(() => { loadPendingContracts(); loadCompletedContracts(); }, 2000);
             } catch (e) {
                 msgEl.textContent = 'Error signing contract';
                 msgEl.className = 'text-sm mt-2 text-red-400';
                 msgEl.classList.remove('hidden');
             }
+        }
+
+        async function loadCompletedContracts() {
+            try {
+                const contracts = await fetchData('/admin/api/completed-contracts');
+                const el = document.getElementById('completedContractsContent');
+                if (!el) return;
+                const roleColors = {CEO:'bg-purple-700',MANAGER:'bg-blue-700',ACCOUNTANT:'bg-green-700',REALTOR:'bg-amber-700',INVESTOR:'bg-emerald-700'};
+                if (!contracts.length) { el.innerHTML = '<p class=\"text-gray-500 text-sm text-center py-4\">No completed agreements yet.</p>'; return; }
+                el.innerHTML = contracts.map(c => '<div class=\"flex items-center justify-between py-3 border-b border-gray-700 last:border-0\"><div class=\"flex items-center gap-3\"><span class=\"text-xs px-2 py-0.5 rounded-full text-white ' + (roleColors[c.role] || 'bg-gray-600') + '\">' + c.role + '</span><div><p class=\"text-sm font-medium text-white\">' + c.user_name + '</p><p class=\"text-xs text-gray-500\">CEO signed ' + (c.ceo_signed_at || '-') + '</p></div></div><button onclick=\"viewContractById(' + c.id + ')\" class=\"text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5\">View Agreement</button></div>').join('');
+            } catch(e) { /* silent */ }
+        }
+
+        async function viewContractById(id) {
+            try { const data = await fetchData('/admin/api/contracts/' + id); showContractModal(data); }
+            catch (e) { alert('Could not load agreement'); }
+        }
+
+        async function viewMyContract() {
+            try { const data = await fetchData('/admin/api/my-contract'); showContractModal(data); }
+            catch (e) { alert('Could not load agreement'); }
+        }
+
+        function showContractModal(data) {
+            document.getElementById('cvModalTitle').textContent = data.title || 'Agreement';
+            document.getElementById('cvModalBody').textContent = data.body || '';
+            document.getElementById('cvUserSig').textContent = data.user_signature || 'Not yet signed';
+            document.getElementById('cvUserDate').textContent = data.user_signed_at ? 'Signed ' + data.user_signed_at : '';
+            document.getElementById('cvCeoSig').textContent = data.ceo_signature || 'Awaiting CEO';
+            document.getElementById('cvCeoDate').textContent = data.ceo_signed_at ? 'Signed ' + data.ceo_signed_at : '';
+            const statusMap = {completed:'Both parties have signed — legally binding agreement on file',pending_ceo_signature:'Awaiting CEO co-signature',pending_user_signature:'Awaiting your signature'};
+            document.getElementById('cvStatus').textContent = statusMap[data.status] || data.status || '';
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+
+        function closeContractModal() {
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
         }
 
         // ===== TEAM ACCOUNTS =====
@@ -4413,9 +4523,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
                 <div class="bg-gray-800 rounded-xl p-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
-                    <div class="flex items-center gap-3 p-4 bg-gray-700 rounded-lg">
-                        <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <div><p class="font-medium text-white">Investment Agreement</p><p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Investment Agreement</p><p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewAgreementBtn" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
                     </div>
                 </div>
             </div>
@@ -4439,6 +4552,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
                 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
             </div>
+                <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Employment Agreement</p><p id="roleDocStatus_MANAGER" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewRoleDocBtn_MANAGER" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
+                    </div>
+                </div>
 
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
@@ -4451,6 +4574,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
                 <div id="acc_paymentsContainer" class="space-y-3"></div>
             </div>
+                <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Employment Agreement</p><p id="roleDocStatus_ACCOUNTANT" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewRoleDocBtn_ACCOUNTANT" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
+                    </div>
+                </div>
 
             {% elif r == 'REALTOR' %}
             <!-- REALTOR DASHBOARD -->
@@ -4467,6 +4600,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Leads / Inquiries</h3>
                 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="rel_inquiriesTable"></tbody></table></div>
             </div>
+                <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Employment Agreement</p><p id="roleDocStatus_REALTOR" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewRoleDocBtn_REALTOR" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
+                    </div>
+                </div>
             {% endif %}
 
         </div>
@@ -4510,9 +4653,9 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         function loadRoleDashboard(role) {
             if (role === 'INVESTOR') loadInvestorDashboard();
-            else if (role === 'MANAGER') loadManagerDashboard();
-            else if (role === 'ACCOUNTANT') loadAccountantDashboard();
-            else if (role === 'REALTOR') loadRealtorDashboard();
+            else if (role === 'MANAGER') { loadManagerDashboard(); loadRoleDocument('MANAGER'); }
+            else if (role === 'ACCOUNTANT') { loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
+            else if (role === 'REALTOR') { loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
         }
 
         // Contract overlay is always shown with signature section visible (scroll gate removed — server validates signature)
@@ -4660,6 +4803,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                     'pending_user_signature': 'Awaiting your signature',
                 };
                 document.getElementById('docStatus').textContent = docStatusMap[CONTRACT_STATUS] || 'Status unknown';
+                if (CONTRACT_STATUS === 'completed') {
+                    const btn = document.getElementById('viewAgreementBtn');
+                    if (btn) btn.classList.remove('hidden');
+                }
 
             } catch (e) {
                 document.getElementById('investorLoading').textContent = 'Error loading investment data. Please refresh.';
@@ -4667,6 +4814,19 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         // ===== MANAGER DASHBOARD =====
+        async function loadRoleDocument(role) {
+            const statusEl = document.getElementById('roleDocStatus_' + role);
+            const btnEl = document.getElementById('viewRoleDocBtn_' + role);
+            if (!statusEl) return;
+            const statusMap = {
+                completed: 'Both parties signed — Agreement on file',
+                pending_ceo_signature: 'Awaiting CEO co-signature',
+                pending_user_signature: 'Awaiting your signature',
+            };
+            statusEl.textContent = statusMap[CONTRACT_STATUS] || 'Status unknown';
+            if (CONTRACT_STATUS === 'completed' && btnEl) btnEl.classList.remove('hidden');
+        }
+
         async function loadManagerDashboard() {
             try {
                 const stats = await fetchData('/admin/api/stats');
@@ -4739,6 +4899,38 @@ ROLE_DASHBOARD_TEMPLATE = """
             navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
     </script>
+
+    <!-- CONTRACT VIEW MODAL -->
+    <div id="contractViewModal" class="fixed inset-0 bg-black bg-opacity-80 z-[100] hidden items-center justify-center p-4" onclick="if(event.target===this)closeContractModal()">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-start flex-shrink-0">
+                <div>
+                    <p class="text-xs text-emerald-400 uppercase tracking-wide font-medium">Signed Agreement</p>
+                    <h3 id="cvModalTitle" class="text-lg font-bold text-white mt-0.5"></h3>
+                </div>
+                <button onclick="closeContractModal()" class="text-gray-400 hover:text-white p-1 ml-4 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="cvModalBody" class="contract-scroll p-6 overflow-y-auto text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="flex:1;max-height:45vh;"></div>
+            <div class="p-5 border-t border-gray-700 flex-shrink-0 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <p class="text-xs text-gray-400 mb-1">Employee / Investor Signature</p>
+                        <p id="cvUserSig" class="font-semibold text-white text-sm font-mono"></p>
+                        <p id="cvUserDate" class="text-xs text-gray-500 mt-0.5"></p>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-3">
+                        <p class="text-xs text-gray-400 mb-1">CEO Signature &#183; BrightWave</p>
+                        <p id="cvCeoSig" class="font-semibold text-emerald-400 text-sm font-mono"></p>
+                        <p id="cvCeoDate" class="text-xs text-gray-500 mt-0.5"></p>
+                    </div>
+                </div>
+                <p id="cvStatus" class="text-xs text-center text-gray-500 pt-1"></p>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
 """
