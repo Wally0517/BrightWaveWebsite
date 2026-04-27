@@ -203,6 +203,7 @@ class InvestorProfile(db.Model):
     expected_completion_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     total_distributed = db.Column(db.Float, default=0.0)
+    investment_term_years = db.Column(db.Integer, nullable=True)  # e.g. 3, 5, 10
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('Admin', backref='investor_profile_rel', foreign_keys=[user_id])
@@ -233,6 +234,15 @@ class PaymentRecord(db.Model):
     description = db.Column(db.Text, nullable=True)
     recorded_by = db.Column(db.String(80), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ContractTemplate(db.Model):
+    __tablename__ = 'contract_template'
+    id = db.Column(db.Integer, primary_key=True)
+    role = db.Column(db.String(30), unique=True, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.String(80), nullable=True)
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
@@ -495,10 +505,18 @@ def reconcile_property_catalog():
         db.session.commit()
 
 
+def seed_contract_templates():
+    for role, data in CONTRACT_TEXTS.items():
+        if not ContractTemplate.query.filter_by(role=role).first():
+            ct = ContractTemplate(role=role, title=data['title'], body=data['body'])
+            db.session.add(ct)
+    db.session.commit()
+
 def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     """Run one-time database initialization outside the web worker startup path."""
     db.create_all()
     ensure_cms_baseline()
+    seed_contract_templates()
     if include_sample_data:
         init_sample_data()
     reconcile_property_catalog()
@@ -570,156 +588,278 @@ CONTRACT_TEXTS = {
         'title': 'Property & Operations Manager Agreement',
         'body': """PROPERTY & OPERATIONS MANAGER AGREEMENT
 
-This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Manager access to this portal ("the Manager").
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the individual granted Manager access to this portal ("the Manager").
 
 1. ROLE AND RESPONSIBILITIES
-The Manager is responsible for overseeing property readiness, daily operations, tenant relations, and site standards across all active BrightWave properties. The Manager reports directly to the CEO and is accountable for the operational performance of all assigned properties.
+The Manager is responsible for overseeing property readiness, daily operations, tenant relations, and site standards across all active BrightWave properties. The Manager reports directly to the CEO and is accountable for the operational performance of all assigned properties. This engagement is on a contractor basis and does not constitute an employment relationship unless separately confirmed in writing.
 
 2. SYSTEM ACCESS
-The Manager is granted access to property management, inquiry handling, team oversight, and operational data within the BrightWave management portal. Access to full financial records and investor data is restricted to authorised personnel only.
+The Manager is granted access to property management, inquiry handling, team oversight, and operational data within the BrightWave management portal. Access to full financial records and investor data is restricted to authorised personnel only. Access may be revoked at any time at the discretion of the CEO.
 
 3. CONFIDENTIALITY
-All property data, client information, tenant details, team data, and operational information accessed through this portal are strictly confidential. The Manager agrees not to disclose any such information to third parties without written CEO approval. This obligation survives the termination of this agreement.
+All property data, client information, tenant details, team data, and operational information accessed through this portal are strictly confidential. The Manager agrees not to disclose, share, or make available any such information to third parties without prior written CEO approval. This obligation is perpetual and survives the termination or expiry of this agreement.
 
 4. CODE OF CONDUCT
-The Manager agrees to maintain the highest professional standards in all interactions with tenants, clients, contractors, and team members. Any conduct that damages the reputation of BrightWave Habitat Enterprise may result in immediate access revocation and legal action.
+The Manager agrees to maintain the highest professional standards in all interactions with tenants, clients, contractors, and team members. Any conduct that damages the reputation of BrightWave Habitat Enterprise, involves misuse of Company resources, or constitutes a conflict of interest, may result in immediate access revocation and legal action under applicable Nigerian law.
 
 5. COMMISSION STRUCTURE
-The Manager is entitled to a commission of 10% of the gross rent value per unit successfully leased or let on behalf of BrightWave Habitat Enterprise during their term of engagement. Commission is payable upon confirmed tenant occupancy and receipt of the first payment. The CEO reserves the right to adjust commission terms with 14 days written notice.
+The Manager is entitled to a commission of 10% of the gross rent value per unit successfully leased or let on behalf of BrightWave Habitat Enterprise during their term of engagement. Commission is payable upon confirmed tenant occupancy and verified receipt of the tenant's first full payment. The CEO reserves the right to adjust commission terms with 14 days written notice. No commission is payable on transactions not confirmed in writing by the CEO.
 
 6. DATA SECURITY
-The Manager is solely responsible for keeping their login credentials secure and must not share access with any other person. Any breach of system security must be reported to the CEO immediately.
+The Manager is solely responsible for keeping their login credentials secure and must not share access with any other person under any circumstances. Any suspected breach of system security must be reported to the CEO immediately. Unauthorised sharing of access credentials constitutes a material breach of this agreement.
 
 7. INTELLECTUAL PROPERTY
-All work produced, materials created, and processes developed during the term of this agreement remain the intellectual property of BrightWave Habitat Enterprise.
+All work produced, materials created, processes developed, client lists compiled, and operational knowledge gained during the term of this engagement remain the sole intellectual property of BrightWave Habitat Enterprise Ltd. The Manager shall not reproduce, use, or distribute any such materials outside this engagement without prior written CEO approval.
 
-8. AGREEMENT TERM
-This agreement is effective from the date both parties sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct or breach of any term of this agreement.
+8. AGREEMENT TERM AND TERMINATION
+This agreement is effective from the date both parties digitally sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, breach of confidentiality, fraud, or any material breach of this agreement. Upon termination, the Manager must immediately cease use of all Company systems and must not retain, copy, or share any Company data.
 
-By signing below, the Manager confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+9. BREACH AND REMEDIES
+In the event of a material breach by the Manager — including but not limited to unauthorised disclosure of confidential information, misuse of Company systems, acceptance of undisclosed payments, or misconduct — the Company reserves the right to:
+   (a) Immediately revoke all portal and system access without prior notice;
+   (b) Withhold any unpaid commission pending the outcome of investigation;
+   (c) Pursue civil remedies including injunctive relief, recovery of financial losses, and damages;
+   (d) Report the breach to relevant law enforcement agencies or professional bodies where warranted.
+
+In the event of a material breach by the Company — including unjustified withholding of earned commission — the Manager may serve written notice of the breach and, if unresolved within 14 days, pursue civil recovery through the appropriate Nigerian court.
+
+10. NON-SOLICITATION
+During the term of this agreement and for a period of 12 months following termination, the Manager agrees not to directly solicit, approach, or transact with any tenant, client, or prospect introduced by or through BrightWave Habitat Enterprise for personal commercial benefit or on behalf of a competing property business.
+
+11. FORCE MAJEURE
+Neither party shall be in breach of this agreement for any failure or delay caused by circumstances beyond their reasonable control, including natural disasters, government actions, civil unrest, power failure, or disruptions to essential infrastructure. The affected party must give prompt written notice and take all reasonable steps to minimise the impact.
+
+12. AMENDMENTS
+No variation, addition, or amendment to this agreement shall be valid or binding unless made in writing and confirmed by both parties through the Company's authorised digital portal or a separately executed written instrument.
+
+13. DISPUTE RESOLUTION
+Any dispute arising from or in connection with this agreement shall first be addressed through good-faith negotiation within 21 days of written notice of the dispute. If unresolved, the matter shall be referred to mediation. Failing mediation, disputes shall be submitted to and resolved by the Kwara State High Court, Ilorin Division, to whose exclusive jurisdiction both parties irrevocably submit.
+
+14. GOVERNING LAW
+This agreement is governed by and shall be construed in accordance with the laws of the Federal Republic of Nigeria, including the Companies and Allied Matters Act (CAMA) 2020 and the Labour Act Cap L1 LFN 2004 (where applicable by context).
+
+15. SEVERABILITY
+If any provision of this agreement is found by a court of competent jurisdiction to be invalid, illegal, or unenforceable, that provision shall be modified to the minimum extent necessary to make it enforceable, and the remaining provisions shall continue in full force and effect.
+
+16. ENTIRE AGREEMENT
+This agreement, together with any written amendments duly executed by both parties, constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions, representations, understandings, and agreements, whether oral or written.
+
+By signing below, the Manager confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
     },
     'ACCOUNTANT': {
         'title': 'Financial Controller Agreement',
         'body': """FINANCIAL CONTROLLER AGREEMENT
 
-This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Accountant access to this portal ("the Accountant").
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the individual granted Accountant access to this portal ("the Accountant").
 
 1. ROLE AND RESPONSIBILITIES
-The Accountant is responsible for tracking all financial transactions, managing rent collection records, overseeing investor distributions, preparing financial reports, and maintaining accurate financial data within the BrightWave management system.
+The Accountant is responsible for tracking all financial transactions, managing rent collection records, overseeing investor distributions, preparing financial reports, and maintaining accurate and complete financial data within the BrightWave management system. The Accountant reports directly to the CEO and is accountable for the integrity of all financial records. This engagement is on a contractor basis and does not constitute an employment relationship unless separately confirmed in writing.
 
 2. SYSTEM ACCESS
-The Accountant is granted access to financial dashboards, investor distribution records, payment tracking, and all financial data within the portal. Access to operational management functions beyond financial oversight is restricted.
+The Accountant is granted access to financial dashboards, investor distribution records, payment tracking, and all financial data within the portal. Access to operational management functions, administrative settings, and property management features beyond financial oversight is restricted to authorised personnel only. Access may be revoked at any time at the discretion of the CEO.
 
 3. STRICT FINANCIAL CONFIDENTIALITY
-The Accountant acknowledges that all financial information, investor data, payment records, profit figures, and any financial details accessed through this system are strictly confidential. Disclosure of any financial information to unauthorised parties constitutes a serious breach of this agreement and may result in legal proceedings.
+The Accountant acknowledges that all financial information, investor data, payment records, profit figures, company accounts, and any financial details accessed through this system are strictly confidential. Disclosure of any such information to unauthorised parties — whether individuals, organisations, or media — constitutes a serious breach of this agreement, may attract civil liability, and may result in criminal proceedings under applicable Nigerian law. This obligation is perpetual and survives the termination of this agreement.
 
 4. ACCURACY AND INTEGRITY
-The Accountant agrees to maintain the highest standard of accuracy in all financial records. Any discrepancies discovered must be reported to the CEO immediately. Deliberate falsification of financial records will result in immediate termination and potential criminal proceedings.
+The Accountant agrees to maintain the highest standard of accuracy, transparency, and completeness in all financial records. Any discrepancies, errors, or irregularities discovered must be reported to the CEO immediately and in writing. Deliberate falsification, manipulation, concealment, or misrepresentation of financial records constitutes gross misconduct and will result in immediate termination, civil liability for any resulting financial loss, and referral to the Economic and Financial Crimes Commission (EFCC) and/or law enforcement authorities.
 
 5. INVESTOR DATA PROTECTION
-Investor names, investment amounts, and personal financial details are subject to the highest level of protection. The Accountant must not discuss, share, or reference investor information outside of official company communications.
+Investor identities, investment amounts, return structures, and all associated personal and financial details are subject to the highest level of confidentiality. The Accountant must not discuss, share, reference, or disclose investor information outside of official Company communications under any circumstances. Any breach of investor data protection may attract personal civil liability under applicable Nigerian data protection principles.
 
 6. COMPLIANCE
-The Accountant agrees to operate in accordance with applicable Nigerian financial regulations and accounting standards throughout the term of this agreement.
+The Accountant agrees to operate in strict accordance with applicable Nigerian financial regulations, ICAN accounting standards, the Financial Reporting Council of Nigeria (FRCN) framework, and any internal financial controls and policies established by the CEO. The Accountant must disclose any known conflict of interest to the CEO immediately.
 
 7. DATA SECURITY
-The Accountant is responsible for keeping login credentials secure at all times and must report any suspected unauthorised access immediately.
+The Accountant is solely responsible for keeping login credentials secure at all times and must not share access with any other person. Any suspected unauthorised access to Company systems must be reported to the CEO immediately. Sharing credentials constitutes a material breach of this agreement.
 
-8. AGREEMENT TERM
-This agreement is effective from the date both parties sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, financial fraud, or breach of confidentiality.
+8. AGREEMENT TERM AND TERMINATION
+This agreement is effective from the date both parties digitally sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, financial fraud, breach of confidentiality, or any material breach. Upon termination, the Accountant must immediately cease all system access and must not retain, copy, or disclose any Company financial data.
 
-By signing below, the Accountant confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+9. BREACH AND REMEDIES
+In the event of a material breach by the Accountant — including but not limited to falsification of records, unauthorised disclosure of investor data, fraud, or misappropriation — the Company reserves the right to:
+   (a) Immediately revoke all system access without prior notice;
+   (b) Withhold any outstanding payments pending investigation;
+   (c) Pursue civil and criminal remedies under Nigerian law, including referral to the EFCC and relevant law enforcement authorities;
+   (d) Report the breach to ICAN or equivalent professional body where applicable.
+
+In the event of a material breach by the Company — including unjustified withholding of agreed compensation — the Accountant may serve written notice and, if unresolved within 14 days, pursue civil recovery through the appropriate Nigerian court.
+
+10. FORCE MAJEURE
+Neither party shall be in breach for failure or delay caused by circumstances beyond their reasonable control. The affected party must give prompt written notice and take all reasonable steps to minimise the impact.
+
+11. AMENDMENTS
+No variation or amendment to this agreement shall be valid unless made in writing and confirmed by both parties through the Company's authorised digital portal or a separately executed written instrument.
+
+12. DISPUTE RESOLUTION
+Disputes shall first be addressed through good-faith negotiation within 21 days of written notice. If unresolved, the matter proceeds to mediation. Failing mediation, disputes shall be submitted to the Kwara State High Court, Ilorin Division, to whose exclusive jurisdiction both parties irrevocably submit.
+
+13. GOVERNING LAW
+This agreement is governed by the laws of the Federal Republic of Nigeria, including the Companies and Allied Matters Act (CAMA) 2020, the Financial Reporting Council Act 2011, and the Labour Act Cap L1 LFN 2004 where applicable.
+
+14. SEVERABILITY
+If any provision is found invalid or unenforceable, it shall be modified to the minimum extent necessary and the remaining provisions continue in full force.
+
+15. ENTIRE AGREEMENT
+This agreement constitutes the entire understanding between the parties regarding its subject matter and supersedes all prior discussions, representations, and agreements, whether oral or written.
+
+By signing below, the Accountant confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
     },
     'REALTOR': {
         'title': 'Real Estate Agent Agreement',
         'body': """REAL ESTATE AGENT AGREEMENT
 
-This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the individual granted Realtor access to this portal ("the Realtor").
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the individual granted Realtor access to this portal ("the Realtor").
 
 1. ROLE AND RESPONSIBILITIES
-The Realtor is responsible for managing client inquiries, conducting property showings, handling lead pipelines, and facilitating the sales or letting process for all BrightWave properties. The Realtor operates as an authorised representative of BrightWave Habitat Enterprise.
+The Realtor is responsible for managing client inquiries, conducting property showings, handling lead pipelines, and facilitating the letting, sale, and service apartment arrangement process for all BrightWave properties. The Realtor operates as an authorised representative of BrightWave Habitat Enterprise and must represent the Company's interests with professionalism and honesty at all times. This engagement is on a contractor basis and does not constitute an employment relationship unless separately confirmed in writing.
 
 2. SYSTEM ACCESS
-The Realtor is granted access to property listings, client inquiries, and lead management features within the portal. Access to financial records, investor data, and administrative functions is restricted.
+The Realtor is granted access to property listings, client inquiries, and lead management features within the portal. Access to financial records, investor data, team management, and administrative functions is restricted to authorised personnel only.
 
 3. CLIENT REPRESENTATION
-The Realtor agrees to represent BrightWave Habitat Enterprise and its clients with professionalism and integrity at all times. All client interactions must be conducted in accordance with the company's standards and values.
+The Realtor agrees to represent BrightWave Habitat Enterprise and its clients with integrity, honesty, and professionalism. All client interactions must comply with the Company's standards and applicable Nigerian real estate practice guidelines.
 
 4. EXCLUSIVITY FOR LISTED PROPERTIES
-For properties actively listed under BrightWave Habitat Enterprise, the Realtor agrees to represent only BrightWave's interests and must not simultaneously represent competing parties on the same transaction without prior written CEO approval.
+For properties actively listed under BrightWave Habitat Enterprise, the Realtor agrees to represent only the Company's interests. The Realtor must not simultaneously represent competing parties on the same transaction, or accept undisclosed payments or commissions from any third party in relation to a BrightWave transaction, without prior written CEO approval. Such conduct constitutes a material breach of this agreement.
 
 5. COMMISSION STRUCTURE
-The Realtor is entitled to the following commission rates on transactions successfully completed on behalf of BrightWave Habitat Enterprise:
+The Realtor is entitled to the following commission rates on transactions successfully completed and confirmed in writing by the CEO on behalf of BrightWave Habitat Enterprise:
    — 10% of the gross rent value per residential or hostel unit successfully leased or let.
    — 10% of the agreed sale price per land plot sold.
    — 10% of the gross contract value per service apartment successfully arranged or let.
-Commission is earned upon completion of the transaction, confirmed in writing by the CEO, and is subject to the company's standard payment schedule. The CEO reserves the right to adjust commission terms with 14 days written notice.
+Commission is earned upon full completion of the transaction confirmed in writing by the CEO, and is payable in accordance with the Company's standard payment schedule. No commission is payable on incomplete, uncertified, or disputed transactions. The CEO reserves the right to adjust commission terms for future engagements with 14 days written notice.
 
 6. CONFIDENTIALITY
-All client details, property pricing information, negotiation discussions, and internal company information are strictly confidential. The Realtor agrees not to disclose such information to competitors or unauthorised parties.
+All client details, property pricing information, negotiation discussions, internal company strategy, and all other non-public Company information are strictly confidential. The Realtor agrees not to disclose such information to competitors, third parties, or the public without prior written CEO approval. This obligation survives the termination of this agreement.
 
 7. CODE OF CONDUCT
-The Realtor agrees to maintain honest, transparent, and professional conduct at all times. Misrepresentation of any property or company information to clients is strictly prohibited and will result in immediate termination.
+The Realtor agrees to maintain honest, transparent, and fully professional conduct at all times. Misrepresentation of any property specification, pricing, or Company information to clients is strictly prohibited. Violations may result in immediate termination and personal civil liability for any resulting losses to the Company or clients.
 
 8. DATA SECURITY
-The Realtor is responsible for keeping their login credentials secure and must report any suspected breach immediately.
+The Realtor is solely responsible for keeping login credentials secure and must not share access with any other person. Any suspected security breach must be reported to the CEO immediately. Sharing credentials constitutes a material breach.
 
-9. AGREEMENT TERM
-This agreement is effective from the date both parties sign and remains in force until terminated by either party with 7 days written notice, or immediately by the Company in the event of serious misconduct or breach of any term herein.
+9. AGREEMENT TERM AND TERMINATION
+This agreement is effective from the date both parties digitally sign and remains in force until terminated by either party with 7 days written notice, or immediately by the Company in the event of serious misconduct, misrepresentation, breach of confidentiality, or any material breach. Upon termination, all access is revoked immediately.
 
-By signing below, the Realtor confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a binding agreement between both parties once countersigned by the CEO of BrightWave Habitat Enterprise."""
+10. BREACH AND REMEDIES
+In the event of a material breach by the Realtor — including but not limited to misrepresentation to clients, acceptance of undisclosed commissions, breach of exclusivity, or disclosure of confidential information — the Company reserves the right to:
+   (a) Immediately revoke all portal and system access without prior notice;
+   (b) Withhold any outstanding commission pending investigation and potential offset against Company losses;
+   (c) Pursue civil remedies including recovery of losses, damages, and injunctive relief under Nigerian law;
+   (d) Report the breach to relevant authorities or professional bodies.
+
+In the event of a material breach by the Company — including unjustified withholding of earned commission — the Realtor may serve written notice and, if unresolved within 14 days, pursue civil recovery through the appropriate Nigerian court.
+
+11. NON-SOLICITATION
+During the term of this agreement and for 12 months following termination, the Realtor must not directly solicit, approach, or transact with any BrightWave client, lead, or prospect introduced through this engagement for personal commercial benefit or on behalf of a competing property business.
+
+12. FORCE MAJEURE
+Neither party shall be in breach for delays or failures caused by circumstances beyond their reasonable control. The affected party must give prompt written notice and take all reasonable steps to minimise the impact.
+
+13. AMENDMENTS
+Any variation to this agreement must be made in writing and confirmed by both parties through the Company's authorised digital portal or a separately executed instrument.
+
+14. DISPUTE RESOLUTION
+Disputes shall first be addressed through good-faith negotiation within 21 days of written notice. If unresolved, the matter proceeds to mediation. Failing mediation, disputes shall be submitted to the Kwara State High Court, Ilorin Division, to whose exclusive jurisdiction both parties irrevocably submit.
+
+15. GOVERNING LAW
+This agreement is governed by the laws of the Federal Republic of Nigeria, including the Companies and Allied Matters Act (CAMA) 2020 and applicable Nigerian real estate and commercial practice frameworks.
+
+16. SEVERABILITY
+If any provision is found invalid or unenforceable, it shall be modified to the minimum extent necessary and the remaining provisions continue in full force.
+
+17. ENTIRE AGREEMENT
+This agreement constitutes the entire understanding between the parties and supersedes all prior discussions, representations, and agreements, whether oral or written.
+
+By signing below, the Realtor confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
     },
     'INVESTOR': {
         'title': 'Investment Agreement — BrightWave Habitat Enterprise',
         'body': """INVESTMENT AGREEMENT
 
-This agreement is entered into between BrightWave Habitat Enterprise ("the Company"), represented by its Chief Executive Officer, and the investor granted access to this portal ("the Investor").
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the investor granted access to this portal ("the Investor").
 
 IMPORTANT NOTICE — PLEASE READ CAREFULLY
 
 ---
 
 1. COMPANY OVERVIEW
-BrightWave Habitat Enterprise is a Nigerian real estate development company focused on student accommodation, residential housing, and estate development. The Company is currently in its early growth phase, with Phase 1 (BrightWave Hostel, Malete, Kwara State) as the first completed project.
+BrightWave Habitat Enterprise is a Nigerian real estate development company, incorporated and registered under the Corporate Affairs Commission (CAC) of Nigeria as BrightWave Habitat Enterprise Ltd, focused on student accommodation, residential housing, and estate development. The Company is currently in its early growth phase, with Phase 1 (BrightWave Hostel, Malete, Kwara State) as the first completed project.
 
 2. PRE-REVENUE PHASE DISCLOSURE
 The Investor acknowledges and accepts that the current investment coincides with an active construction and development phase. No distributions or returns will be made during the construction period, which is estimated at 12 to 18 months from the investment date. Returns commence upon project completion and first revenue generation. The exact timeline may vary due to construction, regulatory, or market factors beyond the Company's control.
 
 3. INVESTMENT TERMS
-The specific investment amount, type (Debt or Equity), return rate, and distribution schedule applicable to this Investor are as specified in the Investor's profile within this portal and as separately confirmed in writing by the CEO. These terms are personalised and confidential.
+The specific investment amount, type (Debt or Equity), return rate, investment term, and distribution schedule applicable to this Investor are as specified in the Investor's profile within this portal and as separately confirmed in writing by the CEO. These terms are personalised and confidential.
 
-   DEBT INVESTMENT TERMS:
-   — The Investor lends capital to the Company at the agreed annual interest rate.
-   — Interest distributions are paid annually, commencing after project completion.
-   — Principal is returned at the end of the agreed investment term.
-   — The annual return rate recommended by the Company for founding investors is 10% per annum.
+DEBT INVESTMENT TERMS:
+— The Investor lends capital to the Company at the agreed annual interest rate for the agreed investment term (typically 3, 5, or 10 years as confirmed in the Investor's profile).
+— Interest distributions are paid annually, commencing after project completion and first revenue generation.
+— Principal is returned in full at the end of the agreed investment term.
+— The annual return rate recommended by the Company for founding investors is 10% per annum.
+— The Investor may not demand early repayment of principal except by separate written agreement with the CEO.
 
-   EQUITY INVESTMENT TERMS:
-   — The Investor acquires an ownership stake in a specific BrightWave development project (not the entire company).
-   — Distributions are made from project revenues on an annual basis, proportional to the equity stake.
-   — The equity stake may appreciate or depreciate based on project performance.
-   — There is no guaranteed fixed return for equity investors.
+EQUITY INVESTMENT TERMS:
+— The Investor acquires an ownership stake in a specific BrightWave development project (not the entire company or its other projects).
+— Distributions are made from project revenues on an annual basis, proportional to the Investor's confirmed equity stake.
+— The equity stake may appreciate or depreciate based on project performance. There is no guaranteed fixed return.
+— The Investor's equity interest is non-transferable without prior written CEO approval.
 
-4. RISK DISCLOSURE
-The Investor acknowledges that real estate investment carries inherent risks, including but not limited to: construction delays, cost overruns, changes in market conditions, regulatory changes, and force majeure events. The Company will communicate all material developments in a timely manner, but cannot guarantee specific outcomes.
+4. REPRESENTATIONS AND WARRANTIES
+The Investor confirms that:
+   (a) They are of legal age and are legally capable of entering into this agreement under the laws of Nigeria;
+   (b) The funds invested originate from legitimate sources and comply with applicable Nigerian anti-money laundering regulations;
+   (c) They have conducted their own independent due diligence and are investing on the basis of their own assessment of the risks involved.
 
-5. USE OF FUNDS
-All investment funds will be used exclusively for property development, construction costs, professional services, regulatory compliance, and operational setup directly related to BrightWave projects. A detailed fund utilisation breakdown is available upon request from the CEO.
+5. RISK DISCLOSURE
+The Investor acknowledges that real estate investment carries inherent risks, including but not limited to: construction delays, cost overruns, changes in market conditions, regulatory changes, adverse economic conditions, and force majeure events. The Company will communicate all material developments in a timely manner but cannot guarantee specific financial outcomes. Past performance does not guarantee future results. Investment in pre-completion or early-stage projects carries heightened risk, and the Investor accepts this risk fully.
 
-6. TRANSPARENCY AND REPORTING
-The Company commits to providing the Investor with regular updates through this portal, including construction progress milestones, financial performance reports, and distribution schedules. The Investor's dashboard will reflect current project status at all times.
+6. USE OF FUNDS
+All investment funds will be used exclusively for property development, construction costs, professional services, regulatory compliance, and operational setup directly related to BrightWave projects. Funds will not be used for the personal benefit of any individual. A detailed fund utilisation breakdown is available upon request from the CEO.
 
-7. CONFIDENTIALITY
-The Investor agrees to keep the terms of this agreement, their investment amount, and all non-public company information strictly confidential. Disclosure of such information to competitors or the public without written CEO approval is a breach of this agreement.
+7. TRANSPARENCY AND REPORTING
+The Company commits to providing the Investor with regular updates through this portal, including construction progress milestones, financial performance reports, and distribution schedules. The Company will notify the Investor in writing of any material development that may materially affect their investment within 14 days of becoming aware of such development.
 
-8. PORTAL ACCESS
-Access to the Investor Portal is granted solely to the named Investor for the purpose of monitoring their investment. Access credentials must not be shared. The Company reserves the right to revoke portal access at any time.
+8. CONFIDENTIALITY
+The Investor agrees to keep the terms of this agreement, their investment amount, and all non-public Company information strictly confidential. Disclosure of such information to competitors, media, or the public without prior written CEO approval constitutes a breach of this agreement and may attract civil liability for any resulting damages.
 
-9. GOVERNING LAW
-This agreement is governed by the laws of the Federal Republic of Nigeria. Any dispute arising from this agreement shall be resolved through good-faith negotiation, and if unresolved, through the applicable Nigerian legal framework.
+9. PORTAL ACCESS
+Access to the Investor Portal is granted solely to the named Investor for the purpose of monitoring their investment. Access credentials must not be shared. The Company reserves the right to revoke portal access at any time, including in the event of a breach, without prejudice to the Investor's underlying financial rights.
 
-10. BINDING AGREEMENT
-This agreement becomes binding upon the digital signatures of both the Investor and the CEO of BrightWave Habitat Enterprise. Both parties will retain a signed copy accessible through the portal.
+10. FORCE MAJEURE
+Neither party shall be liable for failure or delay caused by circumstances beyond their reasonable control, including natural disasters, government actions, civil unrest, pandemic, or disruptions to essential services. In such events, the Company shall notify the Investor promptly and provide a revised timeline where applicable.
+
+11. BREACH AND REMEDIES
+In the event of a material breach by the Investor — including misrepresentation, breach of confidentiality, or demand for unauthorised early repayment — the Company reserves the right to:
+   (a) Suspend portal access pending resolution;
+   (b) Seek legal remedies including injunctive relief and damages under Nigerian law.
+
+In the event of a material breach by the Company — including failure to make confirmed distributions or misuse of investment funds — the Investor may:
+   (a) Serve formal written notice of the breach;
+   (b) Pursue civil recovery proceedings before the Kwara State High Court or the Federal High Court, as applicable;
+   (c) File a complaint with the Securities and Exchange Commission (SEC) of Nigeria where appropriate.
+
+12. TRANSFER AND ASSIGNMENT
+Neither party may assign, transfer, or delegate their rights or obligations under this agreement without the prior written consent of the other party.
+
+13. AMENDMENTS
+Any variation to the terms of this agreement — including investment amount, return rate, equity percentage, or investment term — must be confirmed in writing and countersigned by both parties through the Company's authorised portal or a separately executed instrument.
+
+14. DISPUTE RESOLUTION
+Disputes shall first be addressed through good-faith negotiation within 21 days of written notice. If unresolved, the matter shall be referred to mediation or arbitration under the Arbitration and Conciliation Act Cap A18 LFN 2004. If still unresolved, disputes shall be submitted to the Kwara State High Court, Ilorin Division, or the Federal High Court, and both parties irrevocably submit to the jurisdiction of those courts.
+
+15. GOVERNING LAW
+This agreement is governed by the laws of the Federal Republic of Nigeria, including the Companies and Allied Matters Act (CAMA) 2020, the Investment and Securities Act (ISA) 2007, and the Arbitration and Conciliation Act where applicable.
+
+16. SEVERABILITY
+If any provision is found invalid or unenforceable, it shall be modified to the minimum extent necessary and the remaining provisions continue in full force.
+
+17. ENTIRE AGREEMENT
+This agreement, together with the Investor's confirmed profile details and any written amendments duly executed by both parties, constitutes the entire agreement between the parties and supersedes all prior discussions, representations, and agreements.
+
+18. BINDING AGREEMENT
+This agreement becomes binding upon the digital signatures of both the Investor and the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Both parties will retain a signed copy accessible through the portal. Digital signatures are valid and legally binding in accordance with the Evidence Act 2011 of Nigeria.
 
 By signing below, the Investor confirms they have read, understood, accepted all risk disclosures, and fully agree to all terms outlined in this agreement."""
     }
@@ -833,6 +973,13 @@ def health():
 def management_redirect():
     return redirect(url_for('admin_login'), code=301)
 
+@app.route('/apple-touch-icon.png')
+@app.route('/apple-touch-icon-precomposed.png')
+def apple_touch_icon():
+    resp = make_response(send_from_directory('assets/images', 'apple-touch-icon.png', mimetype='image/png'))
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
 @app.route('/manifest.json')
 def pwa_manifest():
     manifest = {
@@ -856,12 +1003,18 @@ def pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v3';
-const STATIC_ASSETS = ['/admin/login'];
+const CACHE_NAME = 'brightwave-portal-v5';
+const PRECACHE_ASSETS = [
+    '/admin/login',
+    '/assets/images/brightwave-logo.png',
+    '/apple-touch-icon.png',
+    '/assets/images/icon-192.png',
+    '/assets/images/icon-512.png',
+];
 
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+        caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_ASSETS))
     );
     self.skipWaiting();
 });
@@ -875,11 +1028,11 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Network-first for static assets only; never cache admin pages or API calls
+// Network-first for static assets; never cache admin pages or API calls
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
     const url = event.request.url;
-    if (url.includes('/admin/')) return; // never cache admin pages or API
+    if (url.includes('/admin/')) return;
     if (url.includes('/sw.js')) return;
 
     event.respondWith(
@@ -891,7 +1044,7 @@ self.addEventListener('fetch', event => {
                 }
                 return response;
             })
-            .catch(() => caches.match(event.request))
+            .catch(() => caches.match(event.request).then(cached => cached || Response.error()))
     );
 });
 """
@@ -1288,6 +1441,9 @@ def admin_site_content():
         if request.method == 'GET':
             return jsonify(get_site_content())
 
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
         data = request.get_json() or {}
         for slug in DEFAULT_SITE_CONTENT.keys():
             if slug in data:
@@ -1311,6 +1467,9 @@ def admin_team_members():
             members = TeamMember.query.order_by(TeamMember.sort_order.asc(), TeamMember.created_at.asc()).all()
             return jsonify([serialize_team_member(member) for member in members])
 
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
         data = request.get_json() or {}
         if not all([data.get('name'), data.get('role'), data.get('bio')]):
             return jsonify({"success": False, "message": "Name, role, and bio are required"}), 400
@@ -1335,6 +1494,9 @@ def admin_team_members():
 def admin_team_member_detail(member_id):
     try:
         ensure_cms_baseline()
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
         member = TeamMember.query.get_or_404(member_id)
 
         if request.method == 'DELETE':
@@ -1424,16 +1586,21 @@ def update_admin_password():
     """Update admin password"""
     try:
         data = request.get_json()
-        new_password = data.get('newPassword')
+        current_password = data.get('currentPassword', '')
+        new_password = data.get('newPassword', '')
+        if not current_password:
+            return jsonify({"success": False, "message": "Current password is required"}), 400
         if not new_password or len(new_password) < 8:
-            return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
-        
+            return jsonify({"success": False, "message": "New password must be at least 8 characters"}), 400
+
         admin = Admin.query.get(session['admin_id'])
-        if admin:
-            admin.password_hash = generate_password_hash(new_password)
-            db.session.commit()
-            return jsonify({"success": True, "message": "Password updated successfully"})
-        return jsonify({"success": False, "message": "Admin not found"}), 404
+        if not admin:
+            return jsonify({"success": False, "message": "Admin not found"}), 404
+        if not check_password_hash(admin.password_hash, current_password):
+            return jsonify({"success": False, "message": "Current password is incorrect"}), 403
+        admin.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Password updated successfully"})
     except Exception as e:
         logger.error(f"Error updating password: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -1485,10 +1652,15 @@ def admin_dashboard():
         db.session.commit()
 
     investor_profile = None
-    if admin.role == 'INVESTOR':
-        investor_profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
-
     all_roles = [admin.role] + (admin.secondary_roles or [])
+    if 'INVESTOR' in all_roles:
+        investor_profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
+    else:
+        investor_profile = None
+
+    ct = ContractTemplate.query.filter_by(role=admin.role).first()
+    contract_title = ct.title if ct else CONTRACT_TEXTS.get(admin.role, {}).get('title', 'Agreement')
+    contract_body = ct.body if ct else CONTRACT_TEXTS.get(admin.role, {}).get('body', '')
 
     from flask import make_response
     resp = make_response(render_template_string(
@@ -1502,8 +1674,9 @@ def admin_dashboard():
         awaiting_ceo_signature=awaiting_ceo_signature,
         show_agreement_popup=show_agreement_popup,
         contract_id=contract.id,
-        contract_title=CONTRACT_TEXTS.get(admin.role, {}).get('title', 'Agreement'),
-        contract_body=CONTRACT_TEXTS.get(admin.role, {}).get('body', ''),
+        contract_status=contract.status,
+        contract_title=contract_title,
+        contract_body=contract_body,
         investor_profile=investor_profile,
     ))
     for k, v in no_cache_headers.items():
@@ -1541,6 +1714,9 @@ def admin_properties():
 
     elif request.method == 'POST':
         try:
+            _prop_admin = get_current_admin()
+            if not _prop_admin or _prop_admin.role != 'CEO':
+                return jsonify({"success": False, "message": "CEO access required"}), 403
             data = request.get_json()
             if not all([data.get('title'), data.get('description'), data.get('property_type'), data.get('location')]):
                 return jsonify({"success": False, "message": "Required fields missing"}), 400
@@ -1581,8 +1757,11 @@ def admin_properties():
 def admin_property_detail(property_id):
     """Update or delete property"""
     try:
+        _prop_admin = get_current_admin()
+        if not _prop_admin or _prop_admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
         property = Property.query.get_or_404(property_id)
-        
+
         if request.method == 'PUT':
             data = request.get_json()
             if not all([data.get('title'), data.get('description'), data.get('property_type'), data.get('location')]):
@@ -1877,9 +2056,11 @@ def admin_account_detail(account_id):
 
         if account.id == ceo.id:
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
-        account.is_active = False
+        if account.role == 'CEO':
+            return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+        db.session.delete(account)
         db.session.commit()
-        return jsonify({"success": True, "message": "Account deactivated"})
+        return jsonify({"success": True, "message": "Account deleted"})
     except Exception as e:
         logger.error(f"Error on account {account_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -1910,6 +2091,9 @@ def admin_tenants():
                 'created_at': t.created_at.strftime('%Y-%m-%d'),
             } for t in tenants])
 
+        _tenant_admin = get_current_admin()
+        if not _tenant_admin or _tenant_admin.role not in ('CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
         data = request.get_json() or {}
         if not data.get('name'):
             return jsonify({"success": False, "message": "Tenant name is required"}), 400
@@ -1936,6 +2120,9 @@ def admin_tenants():
 @login_required
 def admin_tenant_detail(tenant_id):
     try:
+        _tenant_admin = get_current_admin()
+        if not _tenant_admin or _tenant_admin.role not in ('CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
         tenant = Tenant.query.get_or_404(tenant_id)
         if request.method == 'DELETE':
             tenant.status = 'vacated'
@@ -1976,6 +2163,9 @@ def admin_payments():
                 'created_at': p.created_at.strftime('%Y-%m-%d %H:%M'),
             } for p in payments])
 
+        _pay_admin = get_current_admin()
+        if not _pay_admin or _pay_admin.role not in ('CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
         data = request.get_json() or {}
         if not data.get('amount'):
             return jsonify({"success": False, "message": "Amount is required"}), 400
@@ -2026,6 +2216,7 @@ def admin_investors():
                     'construction_start_date': p.construction_start_date.isoformat() if p.construction_start_date else None,
                     'expected_completion_date': p.expected_completion_date.isoformat() if p.expected_completion_date else None,
                     'total_distributed': p.total_distributed,
+                    'investment_term_years': p.investment_term_years,
                     'notes': p.notes or '',
                     'created_at': p.created_at.strftime('%Y-%m-%d'),
                 })
@@ -2060,12 +2251,16 @@ def admin_investors():
         logger.error(f"Error managing investors: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-@app.route('/admin/api/investors/<int:profile_id>', methods=['PUT'])
+@app.route('/admin/api/investors/<int:profile_id>', methods=['PUT', 'DELETE'])
 @login_required
 @ceo_required
 def admin_investor_detail(profile_id):
     try:
         profile = InvestorProfile.query.get_or_404(profile_id)
+        if request.method == 'DELETE':
+            db.session.delete(profile)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Investor profile removed"})
         data = request.get_json()
         def parse_date(d):
             return datetime.strptime(d, '%Y-%m-%d').date() if d else None
@@ -2087,6 +2282,8 @@ def admin_investor_detail(profile_id):
             profile.total_distributed = float(data['total_distributed'])
         if 'notes' in data:
             profile.notes = (data['notes'] or '').strip() or None
+        if 'investment_term_years' in data:
+            profile.investment_term_years = int(data['investment_term_years']) if data['investment_term_years'] else None
         profile.updated_at = datetime.utcnow()
         db.session.commit()
         return jsonify({"success": True, "message": "Investor profile updated"})
@@ -2099,7 +2296,8 @@ def admin_investor_detail(profile_id):
 def my_investment():
     try:
         admin = get_current_admin()
-        if admin.role != 'INVESTOR':
+        all_roles = [admin.role] + (admin.secondary_roles or [])
+        if 'INVESTOR' not in all_roles:
             return jsonify({"success": False, "message": "Not an investor account"}), 403
         profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
         if not profile:
@@ -2113,11 +2311,49 @@ def my_investment():
             'construction_start_date': profile.construction_start_date.isoformat() if profile.construction_start_date else None,
             'expected_completion_date': profile.expected_completion_date.isoformat() if profile.expected_completion_date else None,
             'total_distributed': profile.total_distributed,
+            'investment_term_years': profile.investment_term_years,
             'notes': profile.notes or '',
         })
     except Exception as e:
         logger.error(f"Error fetching investment: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
+
+# ========== CONTRACT TEMPLATE API ==========
+@app.route('/admin/api/contracts', methods=['GET'])
+@login_required
+def admin_contracts_get():
+    admin = get_current_admin()
+    if admin.role != 'CEO':
+        return jsonify({"success": False, "message": "CEO only"}), 403
+    templates = ContractTemplate.query.all()
+    return jsonify([{
+        'role': ct.role,
+        'title': ct.title,
+        'body': ct.body,
+        'updated_at': ct.updated_at.isoformat() if ct.updated_at else None,
+        'updated_by': ct.updated_by,
+    } for ct in templates])
+
+@app.route('/admin/api/contracts/<role>', methods=['PUT'])
+@login_required
+def admin_contract_update(role):
+    admin = get_current_admin()
+    if admin.role != 'CEO':
+        return jsonify({"success": False, "message": "CEO only"}), 403
+    if not validate_csrf_token():
+        return jsonify({"success": False, "message": "Invalid CSRF token"}), 403
+    data = request.get_json() or {}
+    ct = ContractTemplate.query.filter_by(role=role).first()
+    if not ct:
+        return jsonify({"success": False, "message": "Contract not found"}), 404
+    if 'title' in data:
+        ct.title = data['title'].strip()
+    if 'body' in data:
+        ct.body = data['body']
+    ct.updated_by = admin.username
+    ct.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Contract saved"})
 
 # ========== ADMIN TEMPLATES ==========
 LOGIN_TEMPLATE = """
@@ -2127,6 +2363,7 @@ LOGIN_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BrightWave Habitat Enterprise</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2137,8 +2374,9 @@ LOGIN_TEMPLATE = """
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-gray-800 p-8 rounded-lg shadow-lg">
         <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-slate-400">BrightWave Admin</h1>
-            <p class="text-gray-300 mt-2">Habitat Enterprise Management</p>
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-20 h-20 rounded-full object-cover mx-auto mb-4 ring-2 ring-slate-500/50 shadow-xl">
+            <h1 class="text-2xl font-bold text-slate-300">BrightWave Habitat Enterprise</h1>
+            <p class="text-gray-400 mt-1 text-sm">Management Portal</p>
         </div>
         <form id="loginForm" class="space-y-6">
             <div>
@@ -2162,7 +2400,7 @@ LOGIN_TEMPLATE = """
     </div>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -2201,6 +2439,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CEO Dashboard - BrightWave Habitat Enterprise</title>
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2209,137 +2448,129 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        .ceo-nav-btn { color: #94a3b8; }
+        .ceo-nav-btn { color: #94a3b8; transition: all 0.15s; }
         .ceo-nav-btn:hover { background: rgba(71,85,105,0.5); color: #e2e8f0; }
         .ceo-nav-btn.active { background: #475569; color: #ffffff; font-weight: 600; }
-        .scrollbar-none::-webkit-scrollbar { display: none; }
-        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+        #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 240px; transition: width 0.25s ease; overflow: hidden; z-index: 50; display: flex; flex-direction: column; background: #0f172a; border-right: 1px solid rgba(71,85,105,0.4); }
+        #sidebar.collapsed { width: 60px; }
+        #sidebar.collapsed .sb-label { display: none; }
+        #sidebar.collapsed .sb-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        #sidebar.collapsed #sidebarBrand { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+        #sidebarToggleBtn { flex-shrink: 0; transition: transform 0.25s ease; }
+        #sidebar.collapsed #sidebarToggleBtn { transform: rotate(180deg); }
+        #mainWrapper { margin-left: 240px; transition: margin-left 0.25s ease; min-height: 100vh; display: block; }
+        #mainWrapper.sidebar-collapsed { margin-left: 60px; }
+        @media (max-width: 767px) {
+            #sidebar { transform: translateX(-100%); width: 240px; }
+            #sidebar.mobile-open { transform: translateX(0); }
+            #mainWrapper { margin-left: 0 !important; }
+        }
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <script>
         const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
-        const USER_NAME = '{{ user_name }}';
+        const USER_NAME = {{ user_name | tojson }};
     </script>
 
-    <!-- HEADER -->
-    <header class="bg-slate-900 border-b border-slate-700/60 shadow-2xl sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center gap-3">
-                    <div class="relative flex-shrink-0">
-                        <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="h-10 w-10 rounded-full ring-2 ring-slate-400/40 shadow-lg object-cover">
-                        <div class="absolute -inset-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full blur opacity-20 pointer-events-none"></div>
-                    </div>
-                    <div>
-                        <span class="text-lg font-bold text-white leading-none block">BrightWave</span>
-                        <p class="text-xs text-slate-400 font-medium">CEO Portal &middot; {{ user_name }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    {% if pending_sigs_count > 0 %}
-                    <button onclick="showSection('signaturesSection')" class="relative bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium py-1.5 px-2 sm:px-3 rounded-lg transition-colors">
-                        <i class="fas fa-pen-nib mr-1"></i><span class="hidden sm:inline">Signatures</span>
-                        <span class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ pending_sigs_count }}</span>
-                    </button>
-                    {% endif %}
-                    <button id="changePasswordBtn" title="Change Password" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/60 transition-colors">
-                        <i class="fas fa-key text-sm"></i>
-                    </button>
-                    <a href="/admin/logout" class="bg-slate-700/70 hover:bg-slate-600 border border-slate-600/40 text-slate-300 hover:text-white text-sm px-3 py-1.5 rounded-lg transition-colors">
-                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
-                    </a>
-                </div>
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="fixed top-0 left-0 h-full bg-slate-900 border-r border-slate-700/60 z-50 flex flex-col">
+        <!-- Brand -->
+        <div id="sidebarBrand" class="h-16 flex items-center gap-3 px-3 border-b border-slate-700/60 flex-shrink-0">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="h-9 w-9 rounded-full object-cover flex-shrink-0 ring-2 ring-slate-400/40">
+            <div class="sb-label min-w-0 flex-1 overflow-hidden">
+                <p class="text-sm font-bold text-white leading-tight whitespace-nowrap">BrightWave</p>
+                <p class="text-xs text-slate-400 truncate">CEO &middot; {{ user_name }}</p>
             </div>
+            <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 flex-shrink-0" title="Toggle sidebar">
+                <i class="fas fa-chevron-left text-xs"></i>
+            </button>
         </div>
-    </header>
-
-    <!-- NAV TABS -->
-    <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700/50 sticky top-16 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Mobile: hamburger bar -->
-            <div class="flex items-center gap-3 md:hidden h-12">
-                <button id="hamburgerBtn" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors flex-shrink-0" aria-label="Menu">
-                    <i class="fas fa-bars text-base" id="hamburgerIcon"></i>
-                </button>
-                <span id="mobileNavLabel" class="text-sm font-medium text-white flex items-center gap-1.5 truncate">
-                    <i class="fas fa-chart-line text-slate-400"></i> Overview
-                </span>
-            </div>
-            <!-- Desktop: full tab row -->
-            <div id="navItemsContainer" class="hidden md:flex gap-1 overflow-x-auto scrollbar-none py-2">
-                <button onclick="showSection('overviewSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-chart-line mr-1.5"></i>Overview
-                </button>
-                <button onclick="showSection('tenantsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-home mr-1.5"></i>Tenants
-                </button>
-                <button onclick="showSection('paymentsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-money-bill-wave mr-1.5"></i>Payments
-                </button>
-                <button onclick="showSection('signaturesSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-signature mr-1.5"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-1.5 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
-                </button>
-                <button onclick="showSection('accountsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-users mr-1.5"></i>Accounts
-                </button>
-                <button onclick="showSection('investorsSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-chart-pie mr-1.5"></i>Investors
-                </button>
-                <button onclick="showSection('propertiesSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-building mr-1.5"></i>Properties
-                </button>
-                <button onclick="showSection('contentSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-globe mr-1.5"></i>Website
-                </button>
-                <button onclick="showSection('teamSection')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-id-card mr-1.5"></i>Our Team
-                </button>
-                <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn whitespace-nowrap text-sm px-3 sm:px-4 py-2 rounded-lg transition-all">
-                    <i class="fas fa-envelope mr-1.5"></i>Inquiries
-                </button>
-            </div>
-            <!-- Mobile: dropdown menu (hidden by default) -->
-            <div id="mobileNavMenu" class="md:hidden hidden pb-2 space-y-0.5">
-                <button onclick="showSection('overviewSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-chart-line w-4 text-center"></i>Overview
-                </button>
-                <button onclick="showSection('tenantsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-home w-4 text-center"></i>Tenants
-                </button>
-                <button onclick="showSection('paymentsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-money-bill-wave w-4 text-center"></i>Payments
-                </button>
-                <button onclick="showSection('signaturesSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-signature w-4 text-center"></i>Signatures{% if pending_sigs_count > 0 %}<span class="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{{ pending_sigs_count }}</span>{% endif %}
-                </button>
-                <button onclick="showSection('accountsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-users w-4 text-center"></i>Accounts
-                </button>
-                <button onclick="showSection('investorsSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-chart-pie w-4 text-center"></i>Investors
-                </button>
-                <button onclick="showSection('propertiesSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-building w-4 text-center"></i>Properties
-                </button>
-                <button onclick="showSection('contentSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-globe w-4 text-center"></i>Website
-                </button>
-                <button onclick="showSection('teamSection')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-id-card w-4 text-center"></i>Our Team
-                </button>
-                <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn mobile-nav-item w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-envelope w-4 text-center"></i>Inquiries
-                </button>
-            </div>
+        <!-- Nav items -->
+        <nav class="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
+            <button onclick="showSection('overviewSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-chart-line w-5 text-center flex-shrink-0"></i><span class="sb-label">Overview</span>
+            </button>
+            <button onclick="showSection('tenantsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-home w-5 text-center flex-shrink-0"></i><span class="sb-label">Tenants</span>
+            </button>
+            <button onclick="showSection('paymentsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-money-bill-wave w-5 text-center flex-shrink-0"></i><span class="sb-label">Payments</span>
+            </button>
+            <button onclick="showSection('signaturesSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-signature w-5 text-center flex-shrink-0"></i><span class="sb-label flex items-center gap-2">Signatures{% if pending_sigs_count > 0 %}<span class="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full leading-none">{{ pending_sigs_count }}</span>{% endif %}</span>
+            </button>
+            <button onclick="showSection('accountsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-users w-5 text-center flex-shrink-0"></i><span class="sb-label">Accounts</span>
+            </button>
+            <button onclick="showSection('investorsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-chart-pie w-5 text-center flex-shrink-0"></i><span class="sb-label">Investors</span>
+            </button>
+            <button onclick="showSection('propertiesSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-building w-5 text-center flex-shrink-0"></i><span class="sb-label">Properties</span>
+            </button>
+            <button onclick="showSection('contentSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-globe w-5 text-center flex-shrink-0"></i><span class="sb-label">Website</span>
+            </button>
+            <button onclick="showSection('teamSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-id-card w-5 text-center flex-shrink-0"></i><span class="sb-label">Our Team</span>
+            </button>
+            <button onclick="showSection('inquiriesSection2')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-envelope w-5 text-center flex-shrink-0"></i><span class="sb-label">Inquiries</span>
+            </button>
+            <button onclick="showSection('contractsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-file-contract w-5 text-center flex-shrink-0"></i><span class="sb-label">Contracts</span>
+            </button>
+        </nav>
+        <!-- Footer -->
+        <div class="flex-shrink-0 px-2 pb-3 pt-2 border-t border-slate-700/60 space-y-0.5">
+            <button id="changePasswordBtn" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-key w-5 text-center flex-shrink-0"></i><span class="sb-label">Change Password</span>
+            </button>
+            <a href="/admin/logout" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left block">
+                <i class="fas fa-sign-out-alt w-5 text-center flex-shrink-0"></i><span class="sb-label">Logout</span>
+            </a>
         </div>
-    </nav>
+    </aside>
 
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <!-- Mobile overlay -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 hidden" onclick="closeSidebar()"></div>
+
+    <!-- Main wrapper -->
+    <div id="mainWrapper">
+        <!-- Slim top bar with hamburger -->
+        <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-700/60 h-14 flex items-center px-4 gap-3">
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors flex-shrink-0">
+                <i class="fas fa-bars text-base"></i>
+            </button>
+            <!-- Mobile brand (hidden on desktop — sidebar handles it there) -->
+            <div class="flex items-center gap-2 flex-1 md:hidden min-w-0">
+                <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="h-8 w-8 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-500/50">
+                <div class="min-w-0">
+                    <p class="text-sm font-bold text-white leading-tight truncate">BrightWave</p>
+                    <p class="text-xs text-slate-400 truncate">CEO &middot; {{ user_name }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 justify-end md:flex-1">
+                {% if pending_sigs_count > 0 %}
+                <button onclick="showSection('signaturesSection')" class="relative bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors flex-shrink-0">
+                    <i class="fas fa-pen-nib mr-1"></i>Signatures
+                    <span class="absolute -top-1.5 -right-1.5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ pending_sigs_count }}</span>
+                </button>
+                {% endif %}
+            </div>
+        </header>
+        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <!-- Change Password Form -->
         <section id="passwordForm" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Change Password</h2>
             <form id="updatePasswordForm" class="bg-gray-800 p-4 rounded-lg space-y-4 max-w-md">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Current Password</label>
+                    <input type="password" id="currentPassword" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                </div>
                 <div>
                     <label class="block text-sm font-medium mb-2">New Password</label>
                     <input type="password" id="newPassword" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
@@ -2526,12 +2757,67 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <th class="py-2 text-left">Amount</th>
                                 <th class="py-2 text-left">ROI/Equity</th>
                                 <th class="py-2 text-left">Distributed</th>
-                                <th class="py-2 text-left">Completion</th>
+                                <th class="py-2 text-left">Term / Completion</th>
                                 <th class="py-2 text-left">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="investorsTable"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Investor Edit Modal -->
+            <div id="invEditModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 hidden">
+                <div class="bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6 max-h-screen overflow-y-auto">
+                    <h3 class="text-lg font-semibold text-white mb-4"><i class="fas fa-edit mr-2 text-blue-400"></i>Edit Investor Profile</h3>
+                    <form id="invEditForm" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Investment Amount (₦)</label>
+                                <input id="invEditAmount" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Type</label>
+                                <select id="invEditType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                                    <option value="DEBT">DEBT</option>
+                                    <option value="EQUITY">EQUITY</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">ROI Rate (% p.a.)</label>
+                                <input id="invEditRoi" type="number" step="0.1" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Equity % (EQUITY only)</label>
+                                <input id="invEditEquity" type="number" step="0.1" placeholder="Leave blank for DEBT" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Investment Term (years)</label>
+                                <input id="invEditTerm" type="number" min="1" max="30" placeholder="e.g. 5" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Total Distributed (₦)</label>
+                                <input id="invEditDist" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Investment Date</label>
+                                <input id="invEditDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Expected Completion</label>
+                                <input id="invEditCompletion" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Notes</label>
+                            <textarea id="invEditNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none"></textarea>
+                        </div>
+                        <p id="invEditMsg" class="text-xs hidden"></p>
+                        <div class="flex gap-3 pt-1">
+                            <button type="submit" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Changes</button>
+                            <button type="button" id="invEditCancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </section>
@@ -2569,20 +2855,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <option value="">All</option><option value="active">Active</option><option value="vacated">Vacated</option>
                     </select>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead><tr class="border-b border-gray-600">
-                            <th class="py-2 text-left text-gray-400">Name</th>
-                            <th class="py-2 text-left text-gray-400">Contact</th>
-                            <th class="py-2 text-left text-gray-400">Property / Unit</th>
-                            <th class="py-2 text-left text-gray-400">Rent</th>
-                            <th class="py-2 text-left text-gray-400">Lease</th>
-                            <th class="py-2 text-left text-gray-400">Status</th>
-                            <th class="py-2 text-left text-gray-400">Actions</th>
-                        </tr></thead>
-                        <tbody id="tenantsTable"></tbody>
-                    </table>
-                </div>
+                <div id="tenantsContainer" class="space-y-3"></div>
             </div>
         </section>
 
@@ -2615,19 +2888,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
             <div class="bg-gray-800 p-4 rounded-lg">
                 <h3 class="font-semibold mb-3 text-slate-300">Recent Payments (last 50)</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead><tr class="border-b border-gray-600">
-                            <th class="py-2 text-left text-gray-400">Tenant</th>
-                            <th class="py-2 text-left text-gray-400">Amount</th>
-                            <th class="py-2 text-left text-gray-400">Date</th>
-                            <th class="py-2 text-left text-gray-400">Type</th>
-                            <th class="py-2 text-left text-gray-400">Description</th>
-                            <th class="py-2 text-left text-gray-400">Recorded By</th>
-                        </tr></thead>
-                        <tbody id="paymentsTable"></tbody>
-                    </table>
-                </div>
+                <div id="paymentsContainer" class="space-y-3"></div>
             </div>
         </section>
 
@@ -2876,7 +3137,20 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 </div>
             </div>
         </section>
-    </main>
+
+        <!-- CONTRACTS EDITOR SECTION -->
+        <section id="contractsSection" class="hidden space-y-6">
+            <div class="flex items-center justify-between mb-2">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Contract Templates</h2>
+                    <p class="text-sm text-gray-400 mt-0.5">Edit the agreement text shown to each role when they first log in. Changes take effect immediately for unsigned accounts.</p>
+                </div>
+            </div>
+            <div id="contractsLoading" class="text-gray-400 text-sm">Loading contracts...</div>
+            <div id="contractsList" class="space-y-6 hidden"></div>
+        </section>
+        </main>
+    </div><!-- end mainWrapper -->
 
     <script>
         const adminCsrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -3275,31 +3549,34 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         document.getElementById('cancelPassword').addEventListener('click', () => {
             document.getElementById('passwordForm').classList.add('hidden');
+            document.getElementById('currentPassword').value = '';
             document.getElementById('newPassword').value = '';
             document.getElementById('passwordMessage').classList.add('hidden');
         });
 
         document.getElementById('updatePasswordForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const currentPassword = document.getElementById('currentPassword').value;
             const newPassword = document.getElementById('newPassword').value;
             const passwordMessage = document.getElementById('passwordMessage');
             try {
                 const response = await fetchData('/admin/api/update-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ newPassword })
+                    body: JSON.stringify({ currentPassword, newPassword })
                 });
                 passwordMessage.textContent = response.message;
                 passwordMessage.classList.remove('hidden', 'text-red-500');
                 passwordMessage.classList.add('text-green-500');
                 setTimeout(() => {
                     document.getElementById('passwordForm').classList.add('hidden');
+                    document.getElementById('currentPassword').value = '';
                     document.getElementById('newPassword').value = '';
                     passwordMessage.classList.add('hidden');
                 }, 2000);
             } catch (error) {
-                passwordMessage.textContent = 'Error updating password';
-                passwordMessage.classList.remove('hidden');
+                passwordMessage.textContent = error.message || 'Error updating password';
+                passwordMessage.classList.remove('hidden', 'text-green-500');
                 passwordMessage.classList.add('text-red-500');
             }
         });
@@ -3394,18 +3671,36 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         document.getElementById('resetTeamForm').addEventListener('click', resetTeamMemberForm);
 
-        // ===== HAMBURGER MENU =====
-        document.getElementById('hamburgerBtn')?.addEventListener('click', () => {
-            const menu = document.getElementById('mobileNavMenu');
-            const icon = document.getElementById('hamburgerIcon');
-            const isOpen = !menu.classList.contains('hidden');
-            menu.classList.toggle('hidden', isOpen);
-            icon.className = isOpen ? 'fas fa-bars text-base' : 'fas fa-times text-base';
-        });
+        // ===== SIDEBAR TOGGLE =====
+        let sidebarCollapsed = false;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainWrapper = document.getElementById('mainWrapper');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (window.innerWidth < 768) {
+                if (sidebar.classList.contains('mobile-open')) {
+                    sidebar.classList.remove('mobile-open');
+                    overlay.classList.add('hidden');
+                } else {
+                    sidebar.classList.add('mobile-open');
+                    overlay.classList.remove('hidden');
+                }
+            } else {
+                sidebarCollapsed = !sidebarCollapsed;
+                sidebar.classList.toggle('collapsed', sidebarCollapsed);
+                mainWrapper.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+            }
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('mobile-open');
+            document.getElementById('sidebarOverlay').classList.add('hidden');
+        }
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
-            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection'];
+            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -3414,18 +3709,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (target) target.classList.remove('hidden');
             document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
-            const mobileLabelBtn = document.querySelector(`.mobile-nav-item[onclick="showSection('${sectionId}')"]`);
-            const mobileLabel = document.getElementById('mobileNavLabel');
-            if (mobileLabelBtn && mobileLabel) mobileLabel.innerHTML = mobileLabelBtn.innerHTML.replace('w-full text-left', '').trim().split('</i>')[0] + '</i>' + mobileLabelBtn.textContent.trim();
-            const mobileMenu = document.getElementById('mobileNavMenu');
-            if (mobileMenu) mobileMenu.classList.add('hidden');
-            const hamburgerIcon = document.getElementById('hamburgerIcon');
-            if (hamburgerIcon) hamburgerIcon.className = 'fas fa-bars text-base';
+            if (window.innerWidth < 768) closeSidebar();
             if (sectionId === 'signaturesSection') loadPendingContracts();
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
             if (sectionId === 'tenantsSection') loadTenants();
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
+            if (sectionId === 'contractsSection') loadContracts();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
@@ -3506,6 +3796,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2 flex gap-2 flex-wrap">
                             <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username).replace(/"/g, '&quot;')}, '${a.role}', ${JSON.stringify(a.secondary_roles || []).replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                             <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}">${a.is_active ? 'Deactivate' : 'Activate'}</button>
+<button onclick="deleteAccount(${a.id})" class="text-xs text-red-500 hover:text-red-400 ml-1">Remove</button>
                         </td>
                     </tr>`;
                 }).join('');
@@ -3531,6 +3822,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 });
                 loadAccounts();
             } catch (e) { alert('Error updating account'); }
+        }
+
+        async function deleteAccount(id) {
+            if (!confirm('Delete this account permanently? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/accounts/' + id, { method: 'DELETE' });
+                loadAccounts();
+            } catch (e) { alert('Error deleting account'); }
         }
 
         function editAccount(id, name, currentRole, currentSecondary) {
@@ -3623,9 +3922,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <td class="py-2 pr-3 font-medium">${formatNGN(p.investment_amount)}</td>
                             <td class="py-2 pr-3 text-sm text-gray-300">${display}</td>
                             <td class="py-2 pr-3 text-emerald-400">${formatNGN(p.total_distributed)}</td>
-                            <td class="py-2 pr-3 text-xs text-gray-400">${p.expected_completion_date || 'TBD'}</td>
+                            <td class="py-2 pr-3 text-xs text-gray-400">${p.investment_term_years ? p.investment_term_years + ' yrs' : '—'} / ${p.expected_completion_date || 'TBD'}</td>
                             <td class="py-2">
-                                <button onclick="editInvestor(${p.id}, ${p.total_distributed})" class="text-xs text-blue-400 hover:text-blue-300">Update Dist.</button>
+                                <button onclick="editInvestor(${p.id}, ${JSON.stringify(p).replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300 mr-2">Edit</button>
+                                <button onclick="deleteInvestor(${p.id})" class="text-xs text-red-400 hover:text-red-300">Remove</button>
                             </td>
                         </tr>
                     `;
@@ -3635,15 +3935,64 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
-        async function editInvestor(profileId, currentDist) {
-            const newDist = prompt('Enter total amount distributed so far (₦):', currentDist);
-            if (newDist === null) return;
+        let editingInvestorId = null;
+
+        function editInvestor(id, data) {
+            editingInvestorId = id;
+            document.getElementById('invEditAmount').value = data.investment_amount || '';
+            document.getElementById('invEditType').value = data.investment_type || 'DEBT';
+            document.getElementById('invEditRoi').value = data.roi_rate || 10;
+            document.getElementById('invEditEquity').value = data.equity_percentage || '';
+            document.getElementById('invEditTerm').value = data.investment_term_years || '';
+            document.getElementById('invEditDist').value = data.total_distributed || 0;
+            document.getElementById('invEditDate').value = data.investment_date || '';
+            document.getElementById('invEditCompletion').value = data.expected_completion_date || '';
+            document.getElementById('invEditNotes').value = data.notes || '';
+            document.getElementById('invEditModal').classList.remove('hidden');
+        }
+
+        document.getElementById('invEditCancel')?.addEventListener('click', () => {
+            document.getElementById('invEditModal').classList.add('hidden');
+        });
+
+        document.getElementById('invEditForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('invEditMsg');
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-xs text-gray-400';
+            msgEl.classList.remove('hidden');
             try {
-                await fetchData('/admin/api/investors/' + profileId, {
-                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({total_distributed: parseFloat(newDist)})
+                const res = await fetchData('/admin/api/investors/' + editingInvestorId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        investment_amount: parseFloat(document.getElementById('invEditAmount').value),
+                        investment_type: document.getElementById('invEditType').value,
+                        roi_rate: parseFloat(document.getElementById('invEditRoi').value),
+                        equity_percentage: document.getElementById('invEditEquity').value ? parseFloat(document.getElementById('invEditEquity').value) : null,
+                        investment_term_years: document.getElementById('invEditTerm').value ? parseInt(document.getElementById('invEditTerm').value) : null,
+                        total_distributed: parseFloat(document.getElementById('invEditDist').value) || 0,
+                        investment_date: document.getElementById('invEditDate').value || null,
+                        expected_completion_date: document.getElementById('invEditCompletion').value || null,
+                        notes: document.getElementById('invEditNotes').value,
+                    })
                 });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-xs text-emerald-400';
                 loadInvestors();
-            } catch (e) { alert('Error updating distribution'); }
+                setTimeout(() => document.getElementById('invEditModal').classList.add('hidden'), 1200);
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving';
+                msgEl.className = 'text-xs text-red-400';
+            }
+        });
+
+        async function deleteInvestor(id) {
+            if (!confirm('Remove this investor profile? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/investors/' + id, { method: 'DELETE' });
+                loadInvestors();
+            } catch (e) { alert('Error removing investor'); }
         }
 
         document.getElementById('createInvestorForm').addEventListener('submit', async (e) => {
@@ -3680,21 +4029,41 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const url = statusFilter ? '/admin/api/tenants?status=' + statusFilter : '/admin/api/tenants';
                 const tenants = await fetchData(url);
-                const statusColors = {active:'bg-teal-800 text-teal-300', vacated:'bg-gray-700 text-gray-400'};
-                document.getElementById('tenantsTable').innerHTML = tenants.length ? tenants.map(t => `
-                    <tr class="border-b border-gray-700 hover:bg-gray-750">
-                        <td class="py-2 pr-3 font-medium text-white">${t.name}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400">${t.email || ''}${t.phone ? '<br>'+t.phone : ''}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-300">${t.property_name || '—'}${t.unit_number ? ' / '+t.unit_number : ''}</td>
-                        <td class="py-2 pr-3 text-emerald-400 font-medium text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400">${t.lease_start || ''}${t.lease_end ? ' → '+t.lease_end : ''}</td>
-                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
-                        <td class="py-2">
-                            <button onclick="vacateTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
-                        </td>
-                    </tr>`).join('') : '<tr><td colspan="7" class="text-gray-400 py-4 text-center">No tenants found</td></tr>';
+                const statusColors = {active:'bg-teal-800/60 text-teal-300 border border-teal-700/40', vacated:'bg-gray-700/60 text-gray-400 border border-gray-600/40'};
+                document.getElementById('tenantsContainer').innerHTML = tenants.length ? tenants.map(t => `
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-white text-sm">${t.name}</p>
+                                ${t.email ? `<p class="text-xs text-gray-400 mt-0.5">${t.email}</p>` : ''}
+                                ${t.phone ? `<p class="text-xs text-gray-400">${t.phone}</p>` : ''}
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                                <p class="text-gray-500 mb-1">Property</p>
+                                <p class="text-gray-300">${t.property_name || '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Unit / Room</p>
+                                <p class="text-gray-300">${t.unit_number || '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Monthly Rent</p>
+                                <p class="text-emerald-400 font-semibold text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Lease Period</p>
+                                <p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → '+t.lease_end : ''}</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-end pt-2 border-t border-gray-600/50">
+                            <button onclick="vacateTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
+                        </div>
+                    </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No tenants found</p>';
             } catch (e) {
-                document.getElementById('tenantsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading tenants</td></tr>';
+                document.getElementById('tenantsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading tenants</p>';
             }
         }
 
@@ -3751,17 +4120,24 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadPayments() {
             try {
                 const payments = await fetchData('/admin/api/payments');
-                document.getElementById('paymentsTable').innerHTML = payments.length ? payments.map(p => `
-                    <tr class="border-b border-gray-700">
-                        <td class="py-2 pr-3 text-white">${p.tenant_name || '—'}</td>
-                        <td class="py-2 pr-3 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400">${p.payment_date}</td>
-                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">${p.payment_type}</span></td>
-                        <td class="py-2 pr-3 text-xs text-gray-400">${p.description || '—'}</td>
-                        <td class="py-2 text-xs text-gray-500">${p.recorded_by || '—'}</td>
-                    </tr>`).join('') : '<tr><td colspan="6" class="text-gray-400 py-4 text-center">No payments recorded</td></tr>';
+                const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+                document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => `
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                                <p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>
+                                ${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}
+                            </div>
+                            <p class="text-emerald-400 font-bold text-base flex-shrink-0">${fmtNGN(p.amount)}</p>
+                        </div>
+                        <div class="flex items-center gap-3 flex-wrap text-xs">
+                            <span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span>
+                            <span class="text-gray-400">${p.payment_date}</span>
+                            ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                        </div>
+                    </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded</p>';
             } catch (e) {
-                document.getElementById('paymentsTable').innerHTML = '<tr><td colspan="6" class="text-red-400 py-2">Error loading payments</td></tr>';
+                document.getElementById('paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading payments</p>';
             }
         }
 
@@ -3793,6 +4169,68 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
+        // ===== CONTRACT TEMPLATES =====
+        const ROLE_LABELS = { MANAGER: 'Property Manager', ACCOUNTANT: 'Financial Controller', REALTOR: 'Real Estate Agent', INVESTOR: 'Investor' };
+        let contractsData = {};
+
+        async function loadContracts() {
+            const loadingEl = document.getElementById('contractsLoading');
+            const listEl = document.getElementById('contractsList');
+            try {
+                const data = await fetchData('/admin/api/contracts');
+                contractsData = {};
+                data.forEach(c => contractsData[c.role] = c);
+                listEl.innerHTML = data.map(c => `
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="font-semibold text-white text-lg">${ROLE_LABELS[c.role] || c.role} Agreement</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Role: ${c.role}${c.updated_by ? ' &middot; Last edited by ' + c.updated_by : ''}</p>
+                            </div>
+                            <button onclick="saveContract('${c.role}')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-save mr-1.5"></i>Save
+                            </button>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Title</label>
+                            <input id="ctTitle_${c.role}" type="text" value="${c.title.replace(/"/g, '&quot;')}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Body</label>
+                            <textarea id="ctBody_${c.role}" rows="20" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono leading-relaxed focus:outline-none focus:border-slate-400 resize-y">${c.body}</textarea>
+                        </div>
+                        <p id="ctMsg_${c.role}" class="text-xs mt-2 hidden"></p>
+                    </div>
+                `).join('');
+                loadingEl.classList.add('hidden');
+                listEl.classList.remove('hidden');
+            } catch (e) {
+                loadingEl.textContent = 'Error loading contracts.';
+            }
+        }
+
+        async function saveContract(role) {
+            const titleEl = document.getElementById('ctTitle_' + role);
+            const bodyEl = document.getElementById('ctBody_' + role);
+            const msgEl = document.getElementById('ctMsg_' + role);
+            if (!titleEl || !bodyEl) return;
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-xs mt-2 text-gray-400';
+            msgEl.classList.remove('hidden');
+            try {
+                const res = await fetchData('/admin/api/contracts/' + role, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: titleEl.value.trim(), body: bodyEl.value })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-xs mt-2 text-emerald-400';
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error saving';
+                msgEl.className = 'text-xs mt-2 text-red-400';
+            }
+        }
+
         // Initialize dashboard - show overview by default
         document.addEventListener('DOMContentLoaded', () => {
             showSection('overviewSection');
@@ -3805,7 +4243,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
     </script>
 </body>
@@ -3820,6 +4258,7 @@ ROLE_DASHBOARD_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ user_role }} Portal - BrightWave Habitat Enterprise</title>
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3835,13 +4274,14 @@ ROLE_DASHBOARD_TEMPLATE = """
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <script>
-        const USER_ROLE = '{{ user_role }}';
-        const ALL_ROLES = {{ all_roles_json }};
-        const USER_NAME = '{{ user_name }}';
+        const USER_ROLE = {{ user_role | tojson }};
+        const ALL_ROLES = {{ all_roles_json | safe }};
+        const USER_NAME = {{ user_name | tojson }};
         const NEEDS_CONTRACT = {{ 'true' if needs_contract_signing else 'false' }};
         const AWAITING_CEO = {{ 'true' if awaiting_ceo_signature else 'false' }};
         const SHOW_AGREEMENT_POPUP = {{ 'true' if show_agreement_popup else 'false' }};
-        const CONTRACT_ID = {{ contract_id or 'null' }};
+        const CONTRACT_ID = {{ contract_id | tojson if contract_id else 'null' }};
+        const CONTRACT_STATUS = {{ contract_status | tojson }};
         const adminCsrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         let activeRole = USER_ROLE;
     </script>
@@ -3861,8 +4301,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <p class="text-sm text-yellow-400 mt-2">Please read this agreement carefully before proceeding to your dashboard.</p>
             </div>
             <div id="contractText" class="contract-scroll p-6 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed whitespace-pre-line" style="max-height: calc(60vh - 120px); min-height: 180px;">{{ contract_body }}<div id="contractSentinel" style="height:1px;margin-top:4px;"></div></div>
-            <div id="scrollPrompt" class="text-center text-xs text-gray-500 py-2 flex-shrink-0">Scroll to the bottom to continue</div>
-            <div id="signatureSection" class="p-6 border-t border-gray-700 flex-shrink-0 hidden">
+            <div id="scrollPrompt" class="text-center text-xs text-gray-500 py-2 flex-shrink-0">Please read the full agreement carefully before signing.</div>
+            <div id="signatureSection" class="p-6 border-t border-gray-700 flex-shrink-0">
                 <div class="flex items-start gap-2 mb-4">
                     <input type="checkbox" id="agreeCheck" class="mt-1 w-4 h-4 accent-emerald-500">
                     <label for="agreeCheck" class="text-sm text-gray-300 cursor-pointer">I have read and fully understood this agreement. I agree to all terms and conditions.</label>
@@ -4003,17 +4443,13 @@ ROLE_DASHBOARD_TEMPLATE = """
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Inquiries</p><p id="acc_inquiries" class="text-3xl font-bold">-</p></div>
-                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">New Inquiries</p><p id="acc_new_inquiries" class="text-3xl font-bold">-</p></div>
-                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Contact Messages</p><p id="acc_messages" class="text-3xl font-bold">-</p></div>
-            </div>
-            <div class="bg-yellow-900 border border-yellow-700 rounded-xl p-5 mb-6">
-                <p class="text-yellow-300 font-medium">Financial modules are being set up</p>
-                <p class="text-yellow-400 text-sm mt-1">Full payment tracking, rent collection, and investor distribution modules are coming soon.</p>
+                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Total Revenue (All Time)</p><p id="acc_total_revenue" class="text-3xl font-bold text-white">-</p></div>
+                <div class="bg-teal-900 rounded-xl p-5"><p class="text-xs text-teal-300 uppercase tracking-wide mb-1">Revenue This Month</p><p id="acc_monthly_revenue" class="text-3xl font-bold text-white">-</p></div>
+                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-3xl font-bold text-white">-</p></div>
             </div>
             <div class="bg-gray-800 rounded-xl p-6">
-                <h3 class="font-semibold text-lg mb-4 text-slate-300">Inquiry Overview</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="acc_inquiriesTable"></tbody></table></div>
+                <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
+                <div id="acc_paymentsContainer" class="space-y-3"></div>
             </div>
 
             {% elif r == 'REALTOR' %}
@@ -4079,36 +4515,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             else if (role === 'REALTOR') loadRealtorDashboard();
         }
 
-        // ===== CONTRACT SIGNING =====
-        if (NEEDS_CONTRACT) {
-            const contractText = document.getElementById('contractText');
-            const scrollPrompt = document.getElementById('scrollPrompt');
-            const signatureSection = document.getElementById('signatureSection');
-            const sentinel = document.getElementById('contractSentinel');
-
-            function revealSignature() {
-                if (scrollPrompt) scrollPrompt.classList.add('hidden');
-                if (signatureSection) signatureSection.classList.remove('hidden');
-            }
-
-            if (contractText && sentinel) {
-                // IntersectionObserver fires as soon as the sentinel (last pixel of contract) enters view
-                const observer = new IntersectionObserver((entries) => {
-                    if (entries[0].isIntersecting) {
-                        revealSignature();
-                        observer.disconnect();
-                    }
-                }, { root: contractText, threshold: 0.1 });
-                observer.observe(sentinel);
-
-                // Fallback: if content is shorter than the container, reveal immediately
-                setTimeout(() => {
-                    if (contractText.scrollHeight <= contractText.clientHeight + 8) {
-                        revealSignature();
-                    }
-                }, 250);
-            }
-        }
+        // Contract overlay is always shown with signature section visible (scroll gate removed — server validates signature)
 
         async function submitSignature() {
             const sig = document.getElementById('userSignature').value.trim();
@@ -4178,12 +4585,13 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>`;
 
                 // Expected return
+                const termYears = profile.investment_term_years || 4;
                 if (type === 'DEBT') {
                     const annualReturn = amount * roi / 100;
-                    const totalInterest = annualReturn * 4;
+                    const totalInterest = annualReturn * termYears;
                     const grandTotal = amount + totalInterest;
                     document.getElementById('invExpectedReturn').textContent = formatNGN(grandTotal);
-                    document.getElementById('invReturnNote').textContent = `Principal ${formatNGN(amount)} + ${formatNGN(totalInterest)} interest over 4 years`;
+                    document.getElementById('invReturnNote').textContent = `Principal ${formatNGN(amount)} + ${formatNGN(totalInterest)} interest over ${termYears} year${termYears !== 1 ? 's' : ''}`;
                 } else {
                     document.getElementById('invExpectedReturn').textContent = `${equity}% ownership`;
                     document.getElementById('invReturnNote').textContent = 'Returns proportional to project revenue';
@@ -4220,19 +4628,21 @@ ROLE_DASHBOARD_TEMPLATE = """
                         ${!isComplete ? 'No distributions during construction phase. Returns begin upon project completion.' : 'Project complete. Annual distributions are active.'}
                     </div>`;
 
-                // Distribution schedule (for DEBT: show 4 annual payments)
+                // Distribution schedule (for DEBT: show annual payments per term)
                 if (type === 'DEBT' && completion) {
                     const annualReturn = amount * roi / 100;
-                    const scheduleRows = [1, 2, 3, 4].map(yr => {
+                    const years = Array.from({length: termYears}, (_, i) => i + 1);
+                    const scheduleRows = years.map(yr => {
                         const paymentDate = new Date(completion);
                         paymentDate.setFullYear(paymentDate.getFullYear() + yr);
                         const isPast = now > paymentDate;
                         const statusClass = isPast ? 'text-emerald-400' : 'text-yellow-400';
                         const status = isPast ? 'Due' : 'Scheduled';
-                        const finalPayment = yr === 4 ? ` + ${formatNGN(amount)} principal` : '';
+                        const isFinal = yr === termYears;
+                        const finalPayment = isFinal ? ` + ${formatNGN(amount)} principal` : '';
                         return `<div class="flex justify-between items-center py-3 border-b border-gray-700 last:border-0 text-sm">
                             <div><span class="text-white">Year ${yr} Distribution</span>${finalPayment ? `<span class="text-xs text-emerald-400 ml-2">${finalPayment}</span>` : ''}</div>
-                            <div class="text-right"><p class="font-medium text-white">${formatNGN(yr === 4 ? annualReturn + amount : annualReturn)}</p><p class="text-xs text-gray-400">${paymentDate.toLocaleDateString('en-GB', {month:'short',year:'numeric'})}</p></div>
+                            <div class="text-right"><p class="font-medium text-white">${formatNGN(isFinal ? annualReturn + amount : annualReturn)}</p><p class="text-xs text-gray-400">${paymentDate.toLocaleDateString('en-GB', {month:'short',year:'numeric'})}</p></div>
                             <span class="text-xs ${statusClass} font-medium">${status}</span>
                         </div>`;
                     });
@@ -4244,7 +4654,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                 }
 
                 // Contract status
-                document.getElementById('docStatus').textContent = CONTRACT_ID ? 'Both parties signed \u2014 Agreement on file' : 'Pending signatures';
+                const docStatusMap = {
+                    'completed': 'Both parties signed \u2014 Agreement on file',
+                    'pending_ceo_signature': 'Awaiting CEO co-signature',
+                    'pending_user_signature': 'Awaiting your signature',
+                };
+                document.getElementById('docStatus').textContent = docStatusMap[CONTRACT_STATUS] || 'Status unknown';
 
             } catch (e) {
                 document.getElementById('investorLoading').textContent = 'Error loading investment data. Please refresh.';
@@ -4273,14 +4688,29 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadAccountantDashboard() {
             try {
                 const stats = await fetchData('/admin/api/stats');
-                document.getElementById('acc_inquiries').textContent = stats.total_inquiries;
-                document.getElementById('acc_new_inquiries').textContent = stats.new_inquiries;
-                document.getElementById('acc_messages').textContent = stats.contact_messages;
-                const inquiries = await fetchData('/admin/api/inquiries');
-                document.getElementById('acc_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `
-                    <tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td></tr>
-                `).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center">No data</td></tr>';
-            } catch (e) {}
+                document.getElementById('acc_total_revenue').textContent = '₦' + Number(stats.total_revenue || 0).toLocaleString('en-NG');
+                document.getElementById('acc_monthly_revenue').textContent = '₦' + Number(stats.monthly_revenue || 0).toLocaleString('en-NG');
+                document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
+                const payments = await fetchData('/admin/api/payments');
+                const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+                document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
+                        <div class="flex items-start justify-between gap-3 mb-2">
+                            <div>
+                                <p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>
+                                ${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}
+                            </div>
+                            <p class="text-emerald-400 font-bold text-base flex-shrink-0">₦${Number(p.amount).toLocaleString('en-NG')}</p>
+                        </div>
+                        <div class="flex items-center gap-3 flex-wrap text-xs">
+                            <span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span>
+                            <span class="text-gray-400">${p.payment_date}</span>
+                            ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                        </div>
+                    </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
+            } catch (e) {
+                document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
+            }
         }
 
         // ===== REALTOR DASHBOARD =====
@@ -4306,7 +4736,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
+            navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
     </script>
 </body>
