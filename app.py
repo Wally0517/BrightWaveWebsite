@@ -235,6 +235,17 @@ class PaymentRecord(db.Model):
     recorded_by = db.Column(db.String(80), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_token'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    user = db.relationship('Admin', backref='reset_tokens')
+
 class ContractTemplate(db.Model):
     __tablename__ = 'contract_template'
     id = db.Column(db.Integer, primary_key=True)
@@ -1543,6 +1554,95 @@ def upload_image():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== ADMIN AUTHENTICATION ==========
+
+@app.route('/admin/api/request-password-reset', methods=['POST'])
+def request_password_reset():
+    data = request.get_json() or {}
+    identifier = (data.get('username') or data.get('email') or '').strip().lower()
+    if not identifier:
+        return jsonify({"success": False, "message": "Username or email required"}), 400
+    user = Admin.query.filter(
+        (Admin.username == identifier) | (Admin.email == identifier)
+    ).first()
+    # Always return same message to prevent user enumeration
+    if not user or user.role == 'CEO':
+        return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
+    # Expire any existing unused tokens
+    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+    token = secrets.token_urlsafe(32)
+    expires = datetime.utcnow() + timedelta(hours=24)
+    prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
+    db.session.add(prt)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+
+@app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    prt = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    if not prt or prt.expires_at < datetime.utcnow():
+        return render_template_string("""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invalid Link</title>
+        <script src="https://cdn.tailwindcss.com"></script></head>
+        <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
+        <div class="text-center"><h1 class="text-2xl font-bold text-red-400 mb-3">Link Expired or Invalid</h1>
+        <p class="text-gray-400 mb-6">This password reset link is no longer valid. Please request a new one.</p>
+        <a href="/admin/login" class="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg">Back to Login</a>
+        </div></body></html>""")
+    if request.method == 'POST':
+        new_pw = request.form.get('password', '').strip()
+        confirm_pw = request.form.get('confirm_password', '').strip()
+        error = None
+        if not new_pw or len(new_pw) < 8:
+            error = 'Password must be at least 8 characters.'
+        elif new_pw != confirm_pw:
+            error = 'Passwords do not match.'
+        if error:
+            return render_template_string(RESET_PASSWORD_TEMPLATE, error=error, token=token)
+        user = Admin.query.get(prt.user_id)
+        if user:
+            user.password_hash = generate_password_hash(new_pw)
+            prt.used = True
+            db.session.commit()
+            return render_template_string("""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Password Reset</title>
+            <script src="https://cdn.tailwindcss.com"></script></head>
+            <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
+            <div class="text-center"><div class="w-16 h-16 bg-emerald-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></div>
+            <h1 class="text-2xl font-bold text-white mb-3">Password Reset Successful</h1>
+            <p class="text-gray-400 mb-6">You can now log in with your new password.</p>
+            <a href="/admin/login" class="bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg">Go to Login</a>
+            </div></body></html>""")
+    return render_template_string(RESET_PASSWORD_TEMPLATE, error=None, token=token)
+
+@app.route('/admin/api/reset-requests', methods=['GET'])
+@login_required
+@ceo_required
+def get_reset_requests():
+    tokens = PasswordResetToken.query.filter_by(used=False).filter(
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).order_by(PasswordResetToken.created_at.desc()).all()
+    result = []
+    for t in tokens:
+        user = Admin.query.get(t.user_id)
+        result.append({
+            "id": t.id,
+            "user_name": user.display_name or user.username if user else "Unknown",
+            "username": user.username if user else "",
+            "role": user.role if user else "",
+            "reset_url": f"/admin/reset-password/{t.token}",
+            "expires_at": t.expires_at.strftime("%d %b %Y, %H:%M UTC"),
+            "created_at": t.created_at.strftime("%d %b %Y, %H:%M UTC"),
+        })
+    return jsonify(result)
+
+@app.route('/admin/api/reset-requests/<int:req_id>', methods=['DELETE'])
+@login_required
+@ceo_required
+def cancel_reset_request(req_id):
+    prt = PasswordResetToken.query.get_or_404(req_id)
+    prt.used = True
+    db.session.commit()
+    return jsonify({"success": True, "message": "Reset request cancelled"})
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def admin_login():
@@ -2099,6 +2199,18 @@ def admin_account_detail(account_id):
             data = request.get_json()
             if 'display_name' in data:
                 account.display_name = (data['display_name'] or '').strip() or None
+            if 'username' in data and account.id != ceo.id:
+                new_uname = (data['username'] or '').strip().lower()
+                if new_uname and new_uname != account.username:
+                    if Admin.query.filter(Admin.username == new_uname, Admin.id != account.id).first():
+                        return jsonify({"success": False, "message": "Username already taken"}), 400
+                    account.username = new_uname
+            if 'email' in data and account.id != ceo.id:
+                new_email = (data['email'] or '').strip().lower()
+                if new_email and new_email != account.email:
+                    if Admin.query.filter(Admin.email == new_email, Admin.id != account.id).first():
+                        return jsonify({"success": False, "message": "Email already in use"}), 400
+                    account.email = new_email
             if 'is_active' in data:
                 if account.id == ceo.id and not data['is_active']:
                     return jsonify({"success": False, "message": "Cannot deactivate your own account"}), 400
@@ -2420,6 +2532,46 @@ def admin_contract_update(role):
     return jsonify({"success": True, "message": "Contract saved"})
 
 # ========== ADMIN TEMPLATES ==========
+
+RESET_PASSWORD_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password - BrightWave</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-14 h-14 rounded-full object-cover mx-auto mb-3 ring-2 ring-slate-600">
+            <h1 class="text-xl font-bold text-white">Set New Password</h1>
+            <p class="text-gray-400 text-sm mt-1">BrightWave Habitat Enterprise</p>
+        </div>
+        <div class="bg-gray-800 rounded-2xl p-8 shadow-2xl border border-gray-700">
+            {% if error %}<div class="bg-red-900/60 border border-red-600 rounded-lg px-4 py-3 mb-5 text-sm text-red-300">{{ error }}</div>{% endif %}
+            <form method="POST" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-gray-300">New Password</label>
+                    <input type="password" name="password" required minlength="8" placeholder="At least 8 characters"
+                        class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-gray-300">Confirm Password</label>
+                    <input type="password" name="confirm_password" required minlength="8" placeholder="Repeat your new password"
+                        class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition-colors">
+                    Set New Password
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
 LOGIN_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -2460,11 +2612,50 @@ LOGIN_TEMPLATE = """
                 </button>
             </div>
             <p id="errorMessage" class="text-red-500 text-sm text-center hidden"></p>
+            <div class="text-center pt-1">
+                <button type="button" onclick="toggleForgotForm()" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Forgot password?</button>
+            </div>
         </form>
+        <!-- Forgot password panel -->
+        <div id="forgotPanel" class="hidden mt-4 border-t border-gray-700 pt-5">
+            <p class="text-xs text-gray-400 mb-3">Enter your username or email. Your administrator will share a reset link with you.</p>
+            <div class="flex gap-2">
+                <input type="text" id="forgotIdentifier" placeholder="Username or email" class="flex-1 px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                <button onclick="submitForgotPassword()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Send</button>
+            </div>
+            <p id="forgotMsg" class="text-xs mt-2 hidden"></p>
+        </div>
     </div>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
+        }
+
+        function toggleForgotForm() {
+            const p = document.getElementById('forgotPanel');
+            p.classList.toggle('hidden');
+            if (!p.classList.contains('hidden')) document.getElementById('forgotIdentifier').focus();
+        }
+
+        async function submitForgotPassword() {
+            const identifier = document.getElementById('forgotIdentifier').value.trim();
+            const msgEl = document.getElementById('forgotMsg');
+            if (!identifier) { msgEl.textContent = 'Please enter your username or email.'; msgEl.className = 'text-xs mt-2 text-red-400'; msgEl.classList.remove('hidden'); return; }
+            try {
+                const res = await fetch('/admin/api/request-password-reset', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({username: identifier})
+                });
+                const data = await res.json();
+                msgEl.textContent = data.message || 'Request submitted.';
+                msgEl.className = 'text-xs mt-2 text-emerald-400';
+                msgEl.classList.remove('hidden');
+                document.getElementById('forgotIdentifier').value = '';
+            } catch(e) {
+                msgEl.textContent = 'Error submitting request. Please try again.';
+                msgEl.className = 'text-xs mt-2 text-red-400';
+                msgEl.classList.remove('hidden');
+            }
         }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -2666,13 +2857,27 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <h2 class="text-xl font-semibold mb-4">Team Accounts</h2>
 
             <!-- Edit Account Panel (hidden until Edit clicked) -->
-            <div id="editAccountPanel" class="hidden bg-gray-700 border border-slate-500/50 p-4 rounded-xl mb-4">
-                <h4 class="font-semibold mb-3 text-slate-200 flex items-center gap-2"><i class="fas fa-user-edit text-blue-400"></i> Editing: <span id="editAccName" class="text-white"></span></h4>
+            <div id="editAccountPanel" class="hidden bg-gray-700 border border-slate-500/50 p-5 rounded-xl mb-4">
+                <h4 class="font-semibold mb-4 text-slate-200">Editing: <span id="editAccName" class="text-white"></span></h4>
                 <input type="hidden" id="editAccId">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Display Name</label>
+                        <input type="text" id="editAccDisplayName" placeholder="Full name" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Username</label>
+                        <input type="text" id="editAccUsername" placeholder="login username" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Email</label>
+                        <input type="email" id="editAccEmail" placeholder="email@example.com" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Primary Role</label>
-                        <select id="editAccRole" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm">
+                        <select id="editAccRole" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white">
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
@@ -2680,15 +2885,20 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium mb-1 text-gray-400">Additional Roles</label>
-                        <div class="flex gap-4 flex-wrap pt-1">
-                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-blue-500" value="MANAGER"> Manager</label>
-                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-green-500" value="ACCOUNTANT"> Accountant</label>
-                            <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-amber-500" value="REALTOR"> Realtor</label>
-                        </div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">New Password <span class="text-gray-500 font-normal">(blank = unchanged)</span></label>
+                        <input type="password" id="editAccPassword" placeholder="Min 8 characters" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="mb-4">
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Additional Roles</label>
+                    <div class="flex gap-4 flex-wrap pt-1">
+                        <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-blue-500" value="MANAGER"> Manager</label>
+                        <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-green-500" value="ACCOUNTANT"> Accountant</label>
+                        <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-amber-500" value="REALTOR"> Realtor</label>
+                        <label class="flex items-center gap-1.5 text-sm cursor-pointer text-gray-300"><input type="checkbox" class="edit-sec-role accent-emerald-500" value="INVESTOR"> Investor</label>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
                     <button onclick="saveAccountEdit()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors">Save Changes</button>
                     <button onclick="closeAccountEdit()" class="bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors">Cancel</button>
                     <span id="editAccMessage" class="text-sm ml-1"></span>
@@ -2758,6 +2968,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <tbody id="accountsTable"></tbody>
                     </table>
                 </div>
+            </div>
+            <!-- Password Reset Requests -->
+            <div class="bg-gray-800 p-5 rounded-xl mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-slate-300">Password Reset Requests</h3>
+                    <button onclick="loadResetRequests()" class="text-xs text-gray-400 hover:text-white">Refresh</button>
+                </div>
+                <div id="resetRequestsList"><p class="text-gray-500 text-sm text-center py-3">Loading...</p></div>
             </div>
         </section>
 
@@ -3780,7 +3998,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
             if (window.innerWidth < 768) closeSidebar();
             if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
-            if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); }
+            if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); loadResetRequests(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
             if (sectionId === 'tenantsSection') loadTenants();
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
@@ -3904,7 +4122,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2 pr-3 text-xs ${statusColors[a.contract_status] || 'text-gray-500'}">${statusLabels[a.contract_status] || a.contract_status}</td>
                         <td class="py-2 pr-3"><span class="text-xs ${a.is_active ? 'text-green-400' : 'text-red-400'}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
                         <td class="py-2 flex gap-2 flex-wrap">
-                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username).replace(/"/g, '&quot;')}, '${a.role}', ${JSON.stringify(a.secondary_roles || []).replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username).replace(/"/g, '&quot;')}, '${a.role}', ${JSON.stringify(a.secondary_roles || []).replace(/"/g, '&quot;')}, ${JSON.stringify(a.username).replace(/"/g, '&quot;')}, ${JSON.stringify(a.email||'').replace(/"/g, '&quot;')}, ${JSON.stringify(a.display_name||'').replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                             <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}">${a.is_active ? 'Deactivate' : 'Activate'}</button>
 <button onclick="deleteAccount(${a.id})" class="text-xs text-red-500 hover:text-red-400 ml-1">Remove</button>
                         </td>
@@ -3934,6 +4152,34 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) { alert('Error updating account'); }
         }
 
+        async function loadResetRequests() {
+            const el = document.getElementById('resetRequestsList');
+            if (!el) return;
+            try {
+                const reqs = await fetchData('/admin/api/reset-requests');
+                if (!reqs.length) { el.innerHTML = '<p class="text-gray-500 text-sm text-center py-3">No pending reset requests.</p>'; return; }
+                el.innerHTML = reqs.map(r => `
+                    <div class="flex items-start justify-between gap-3 py-3 border-b border-gray-700 last:border-0">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-white">${r.user_name} <span class="text-xs text-gray-400 ml-1">(${r.username})</span></p>
+                            <p class="text-xs text-gray-500 mt-0.5">Requested ${r.created_at} &middot; Expires ${r.expires_at}</p>
+                            <div class="flex items-center gap-2 mt-2">
+                                <code class="text-xs text-emerald-400 bg-gray-700 px-2 py-1 rounded break-all">${window.location.origin}${r.reset_url}</code>
+                                <button onclick="navigator.clipboard.writeText('${window.location.origin}${r.reset_url}').then(()=>alert('Link copied!'))" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">Copy</button>
+                            </div>
+                        </div>
+                        <button onclick="cancelResetRequest(${r.id})" class="text-xs text-red-400 hover:text-red-300 flex-shrink-0 mt-1">Cancel</button>
+                    </div>`).join('');
+            } catch(e) { el.innerHTML = '<p class="text-red-400 text-sm">Error loading requests</p>'; }
+        }
+
+        async function cancelResetRequest(id) {
+            try {
+                await fetchData('/admin/api/reset-requests/' + id, { method: 'DELETE' });
+                loadResetRequests();
+            } catch(e) { alert('Error cancelling request'); }
+        }
+
         async function deleteAccount(id) {
             if (!confirm('Delete this account permanently? This cannot be undone.')) return;
             try {
@@ -3942,10 +4188,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) { alert('Error deleting account'); }
         }
 
-        function editAccount(id, name, currentRole, currentSecondary) {
+        function editAccount(id, name, currentRole, currentSecondary, username, email, displayName) {
             document.getElementById('editAccId').value = id;
             document.getElementById('editAccName').textContent = name;
             document.getElementById('editAccRole').value = currentRole;
+            document.getElementById('editAccUsername').value = username || '';
+            document.getElementById('editAccEmail').value = email || '';
+            document.getElementById('editAccDisplayName').value = displayName || '';
+            document.getElementById('editAccPassword').value = '';
             document.querySelectorAll('.edit-sec-role').forEach(cb => {
                 cb.checked = currentSecondary.includes(cb.value);
             });
@@ -3963,12 +4213,25 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const id = document.getElementById('editAccId').value;
             const role = document.getElementById('editAccRole').value;
             const secondaryRoles = Array.from(document.querySelectorAll('.edit-sec-role:checked')).map(cb => cb.value);
+            const displayName = document.getElementById('editAccDisplayName').value.trim();
+            const username = document.getElementById('editAccUsername').value.trim();
+            const email = document.getElementById('editAccEmail').value.trim();
+            const newPassword = document.getElementById('editAccPassword').value;
             const msgEl = document.getElementById('editAccMessage');
+            if (newPassword && newPassword.length < 8) {
+                msgEl.textContent = 'Password must be at least 8 characters';
+                msgEl.className = 'text-sm ml-1 text-red-400';
+                return;
+            }
+            const payload = { role, secondary_roles: secondaryRoles };
+            if (displayName) payload.display_name = displayName;
+            if (username) payload.username = username;
+            if (email) payload.email = email;
+            if (newPassword) payload.new_password = newPassword;
             try {
                 const res = await fetchData('/admin/api/accounts/' + id, {
-                    method: 'PUT',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ role, secondary_roles: secondaryRoles })
+                    method: 'PUT', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
                 });
                 msgEl.textContent = '✓ ' + (res.message || 'Saved');
                 msgEl.className = 'text-sm ml-1 text-green-400';
