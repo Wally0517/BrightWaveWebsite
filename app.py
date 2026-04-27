@@ -5213,6 +5213,35 @@ ROLE_DASHBOARD_TEMPLATE = """
             loadRoleDashboard(USER_ROLE);
         });
 
+
+        async function viewMyContract() {
+            try { const data = await fetchData('/admin/api/my-contract'); showContractModal(data); }
+            catch (e) { alert('Could not load agreement. Please try again.'); }
+        }
+
+        function showContractModal(data) {
+            document.getElementById('cvModalTitle').textContent = data.title || 'Agreement';
+            document.getElementById('cvModalBody').textContent = data.body || '';
+            document.getElementById('cvUserSig').textContent = data.user_signature || 'Not yet signed';
+            document.getElementById('cvUserDate').textContent = data.user_signed_at ? 'Signed ' + data.user_signed_at : '';
+            document.getElementById('cvCeoSig').textContent = data.ceo_signature || 'Awaiting CEO';
+            document.getElementById('cvCeoDate').textContent = data.ceo_signed_at ? 'Signed ' + data.ceo_signed_at : '';
+            const statusMap = {
+                completed: 'Both parties have signed — legally binding agreement on file',
+                pending_ceo_signature: 'Awaiting CEO co-signature',
+                pending_user_signature: 'Awaiting your signature'
+            };
+            document.getElementById('cvStatus').textContent = statusMap[data.status] || data.status || '';
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeContractModal() {
+            const modal = document.getElementById('contractViewModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
