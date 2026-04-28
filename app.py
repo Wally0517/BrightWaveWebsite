@@ -3116,6 +3116,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 <body class="bg-gray-900 text-white min-h-screen">
     <script>
         const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
+        const USER_ROLE = 'CEO';
+        const ALL_ROLES = ['CEO'];
         const USER_NAME = {{ user_name | tojson }};
     </script>
 
@@ -3649,37 +3651,47 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         <section id="constructionSection" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Construction Updates</h2>
-            <div class="bg-gray-800 p-4 rounded-lg mb-4">
-                <form id="ceoConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Project selector + form -->
+            <div class="bg-gray-800 rounded-xl p-5 mb-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">Project</label>
-                        <select id="ceoConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></select>
+                        <p id="ceoConstrFormLabel" class="font-semibold text-slate-300 text-sm">Post New Update</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Add or edit a milestone on the selected project</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <label class="text-xs text-gray-400">Project:</label>
+                        <select id="ceoConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm min-w-[180px]"></select>
+                    </div>
+                </div>
+                <form id="ceoConstructionForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input type="hidden" id="ceoConstructionEditId">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title *</label>
+                        <input type="text" id="ceoConstructionTitle" placeholder="e.g. Foundation complete, Finishing stage" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Milestone Title</label>
-                        <input type="text" id="ceoConstructionTitle" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Progress % (0–100)</label>
+                        <input type="number" min="0" max="100" id="ceoConstructionPercent" placeholder="e.g. 85" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Progress Percentage</label>
-                        <input type="number" min="0" max="100" id="ceoConstructionPercent" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Date</label>
+                        <input type="date" id="ceoConstructionDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Update Date</label>
-                        <input type="date" id="ceoConstructionDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Notes</label>
+                        <textarea id="ceoConstructionNotes" rows="2" placeholder="Optional detail about this milestone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
                     </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-2">Notes</label>
-                        <textarea id="ceoConstructionNotes" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
-                    </div>
-                    <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
-                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2 px-4 rounded-lg">Post Construction Update</button>
+                    <div class="sm:col-span-2 flex items-center gap-3 flex-wrap">
+                        <button type="submit" id="ceoConstrSubmitBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2 px-5 rounded-lg text-sm">Post Update</button>
+                        <button type="button" id="ceoConstrCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelConstructionEdit('ceo')">Cancel Edit</button>
                         <span id="ceoConstructionMsg" class="text-sm"></span>
                     </div>
                 </form>
             </div>
-            <div class="bg-gray-800 p-4 rounded-lg">
-                <div class="flex items-center justify-between gap-3 mb-3">
-                    <h3 class="font-semibold text-slate-300">Project Timeline Feed</h3>
+            <!-- Timeline list -->
+            <div class="bg-gray-800 rounded-xl p-5">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-slate-300">Project Timeline</h3>
                     <span id="ceoConstructionHeadline" class="text-sm text-emerald-400 font-medium">0%</span>
                 </div>
                 <div id="ceoConstructionList" class="space-y-3"></div>
@@ -5145,42 +5157,28 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         async function submitConstructionUpdate(source) {
+            const prefix = source === 'ceo' ? 'ceo' : 'mgr';
             const ids = source === 'ceo'
-                ? {
-                    property: 'ceoConstructionProperty',
-                    title: 'ceoConstructionTitle',
-                    percent: 'ceoConstructionPercent',
-                    date: 'ceoConstructionDate',
-                    notes: 'ceoConstructionNotes',
-                    msg: 'ceoConstructionMsg',
-                    form: 'ceoConstructionForm',
-                  }
-                : {
-                    property: 'mgrConstructionProperty',
-                    title: 'mgrConstructionTitle',
-                    percent: 'mgrConstructionPercent',
-                    date: 'mgrConstructionDate',
-                    notes: 'mgrConstructionNotes',
-                    msg: 'mgrConstructionMsg',
-                    form: 'managerConstructionForm',
-                  };
+                ? { property: 'ceoConstructionProperty', title: 'ceoConstructionTitle', percent: 'ceoConstructionPercent', date: 'ceoConstructionDate', notes: 'ceoConstructionNotes', msg: 'ceoConstructionMsg', form: 'ceoConstructionForm', editId: 'ceoConstructionEditId' }
+                : { property: 'mgrConstructionProperty', title: 'mgrConstructionTitle', percent: 'mgrConstructionPercent', date: 'mgrConstructionDate', notes: 'mgrConstructionNotes', msg: 'mgrConstructionMsg', form: 'managerConstructionForm', editId: 'mgrConstructionEditId' };
             const msgEl = document.getElementById(ids.msg);
+            const editId = document.getElementById(ids.editId)?.value || '';
+            const propId = document.getElementById(ids.property)?.value;
             try {
-                const res = await fetchData('/admin/api/construction-updates', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        property_id: document.getElementById(ids.property).value,
-                        title: document.getElementById(ids.title).value,
-                        progress_percentage: document.getElementById(ids.percent).value,
-                        happened_on: document.getElementById(ids.date).value || null,
-                        notes: document.getElementById(ids.notes).value,
-                        is_public: true,
-                    })
-                });
-                msgEl.textContent = res.message || 'Update posted';
+                const payload = {
+                    property_id: propId,
+                    title: document.getElementById(ids.title).value,
+                    progress_percentage: document.getElementById(ids.percent).value,
+                    happened_on: document.getElementById(ids.date).value || null,
+                    notes: document.getElementById(ids.notes).value,
+                    is_public: true,
+                };
+                const url = editId ? `/admin/api/construction-updates/${editId}` : '/admin/api/construction-updates';
+                const method = editId ? 'PUT' : 'POST';
+                const res = await fetchData(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                msgEl.textContent = res.message || (editId ? 'Update saved' : 'Update posted');
                 msgEl.className = 'text-sm text-emerald-400';
-                document.getElementById(ids.form).reset();
+                cancelConstructionEdit(source);
                 loadConstructionPropertyOptions();
                 loadConstructionUpdates(document.getElementById(ids.property).value || null);
             } catch (e) {
@@ -5458,11 +5456,13 @@ ROLE_DASHBOARD_TEMPLATE = """
             {% elif r == 'MANAGER' %}
             <!-- MANAGER DASHBOARD -->
             <!-- Tab navigation -->
-            <div class="flex gap-1 flex-wrap border-b border-gray-700 pb-1 mb-6" id="mgrTabBar">
-                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors bg-slate-700 text-white" data-tab="mgrTabOverview" onclick="showMgrTab('mgrTabOverview')">Overview</button>
-                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
-                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full"></span></button>
-                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
+            <div class="overflow-x-auto -mx-1 mb-6">
+            <div class="flex gap-1 border-b border-gray-700 pb-0 min-w-max px-1" id="mgrTabBar">
+                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors bg-slate-700 text-white border-b-2 border-slate-500" data-tab="mgrTabOverview" onclick="showMgrTab('mgrTabOverview')">Overview</button>
+                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
+                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
+            </div>
             </div>
 
             <!-- OVERVIEW TAB -->
@@ -5556,19 +5556,35 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             <!-- CONSTRUCTION TAB -->
             <div id="mgrTabConstruction" class="hidden">
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <div class="flex items-center justify-between gap-3 mb-5">
-                        <h3 class="font-semibold text-lg text-slate-300">Construction Updates</h3>
+                <div class="bg-gray-800 rounded-xl p-5 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <div>
+                            <p id="mgrConstrFormLabel" class="font-semibold text-slate-300 text-sm">Post New Update</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Add or edit a milestone on the selected project</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label class="text-xs text-gray-400">Project:</label>
+                            <select id="mgrConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm min-w-[180px]"></select>
+                        </div>
+                    </div>
+                    <form id="managerConstructionForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="hidden" id="mgrConstructionEditId">
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title *</label><input id="mgrConstructionTitle" type="text" placeholder="e.g. Foundation complete, Finishing stage" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Progress % (0–100)</label><input id="mgrConstructionPercent" type="number" min="0" max="100" placeholder="e.g. 85" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Date</label><input id="mgrConstructionDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrConstructionNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap">
+                            <button type="submit" id="mgrConstrSubmitBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Post Update</button>
+                            <button type="button" id="mgrConstrCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelConstructionEdit('mgr')">Cancel Edit</button>
+                            <span id="mgrConstructionMsg" class="text-sm"></span>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-5">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-slate-300">Project Timeline</h3>
                         <span id="mgrConstructionProgress" class="text-sm text-emerald-400 font-medium">0%</span>
                     </div>
-                    <form id="managerConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Project</label><select id="mgrConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title</label><input id="mgrConstructionTitle" type="text" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Progress %</label><input id="mgrConstructionPercent" type="number" min="0" max="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Date</label><input id="mgrConstructionDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrConstructionNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
-                        <div class="md:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Post Update</button><span id="mgrConstructionMsg" class="text-sm"></span></div>
-                    </form>
                     <div id="mgrConstructionList" class="space-y-3"></div>
                 </div>
             </div>
@@ -6255,51 +6271,52 @@ ROLE_DASHBOARD_TEMPLATE = """
             const latest = getConstructionLatestItem(items);
             if (headlineEl) headlineEl.textContent = latest ? `${latest.progress_percentage}%` : '0%';
             if (!items.length) {
-                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No construction updates yet.</p>';
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No updates yet. Post the first milestone above.</p>';
                 return;
             }
+            const isCeoList = listId === 'ceoConstructionList';
+            const source = isCeoList ? 'ceo' : 'mgr';
             const sortedItems = items.slice().sort((a, b) => {
                 const timeDiff = getConstructionSortValue(b) - getConstructionSortValue(a);
                 if (timeDiff !== 0) return timeDiff;
                 return (b.progress_percentage || 0) - (a.progress_percentage || 0);
             });
             listEl.innerHTML = `
-                <div class="bg-gradient-to-br from-emerald-900/40 via-slate-800 to-gray-900 border border-emerald-700/40 rounded-2xl p-5">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <p class="text-xs uppercase tracking-[0.24em] text-emerald-300/80 mb-2">Current Site Status</p>
-                            <h4 class="text-xl font-semibold text-white">${latest?.title || 'Latest update'}</h4>
-                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || 'Selected project'}${latest?.happened_on ? ' • ' + latest.happened_on : ''}</p>
+                <div class="bg-gradient-to-br from-emerald-900/40 via-slate-800 to-gray-900 border border-emerald-700/40 rounded-2xl p-4 sm:p-5 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
+                            <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
+                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
-                        <div class="text-left md:text-right">
+                        <div class="flex-shrink-0">
                             <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
-                            <p class="text-xs text-gray-500 mt-1">Latest recorded progress</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Latest progress</p>
                         </div>
                     </div>
-                    <div class="mt-4 h-3 rounded-full bg-gray-700 overflow-hidden">
-                        <div class="h-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" style="width:${latest?.progress_percentage || 0}%"></div>
+                    <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
+                        <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
                     </div>
-                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-6 mt-4">${latest.notes}</p>` : ''}
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
                 </div>
-                <div class="space-y-3 mt-4">
+                <div class="space-y-2">
                     ${sortedItems.map((item, idx) => `
-                        <div class="relative bg-gray-700/30 border ${idx === 0 ? 'border-emerald-600/60' : 'border-gray-600/40'} rounded-2xl p-4 pl-5">
-                            <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-gray-600'}"></div>
-                            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <div class="relative bg-gray-700/30 border ${idx === 0 ? 'border-emerald-600/50' : 'border-gray-600/30'} rounded-xl p-3 sm:p-4 pl-4 sm:pl-5">
+                            <div class="absolute left-0 top-3 bottom-3 w-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-gray-600'}"></div>
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <p class="font-semibold text-white text-sm">${item.title}</p>
-                                        ${idx === 0 ? '<span class="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
+                                        ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
                                     </div>
-                                    <p class="text-xs text-gray-400">${item.property_title}${item.happened_on ? ' • ' + item.happened_on : ''}</p>
+                                    <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
                                 </div>
-                                <div class="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1 flex-shrink-0">
-                                    <span class="text-lg font-semibold text-emerald-400">${item.progress_percentage}%</span>
-                                    <span class="text-[11px] text-gray-500">Progress</span>
-                                    ${USER_ROLE === 'CEO' ? `<button onclick="deleteConstructionUpdate(${item.id})" class="text-[10px] text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-0.5 mt-1 transition-colors">Delete</button>` : ''}
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
+                                    <button onclick="deleteConstructionUpdate(${item.id},'${source}')" class="text-xs text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-1 transition-colors">Delete</button>
                                 </div>
                             </div>
-                            ${item.notes ? `<p class="text-sm text-gray-300 leading-6 mt-3">${item.notes}</p>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -6344,15 +6361,54 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('mgrConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
         });
 
-        async function deleteConstructionUpdate(id) {
+        async function deleteConstructionUpdate(id, source) {
             if (!confirm('Delete this construction update? This cannot be undone.')) return;
             try {
                 await fetchData('/admin/api/construction-updates/' + id, { method: 'DELETE' });
-                const sel = document.getElementById('ceoConstructionProperty') || document.getElementById('mgrConstructionProperty');
+                const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+                const sel = document.getElementById(prefix + 'ConstructionProperty') || document.getElementById('ceoConstructionProperty');
                 await loadConstructionUpdates(sel?.value || '');
             } catch (e) {
                 alert('Error deleting update. Please try again.');
             }
+        }
+
+        function editConstructionUpdate(id, title, pct, date, notes, propertyId, source) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const editIdEl = document.getElementById(prefix + 'ConstructionEditId');
+            if (editIdEl) editIdEl.value = id;
+            const titleEl = document.getElementById(prefix + 'ConstructionTitle');
+            const pctEl = document.getElementById(prefix + 'ConstructionPercent');
+            const dateEl = document.getElementById(prefix + 'ConstructionDate');
+            const notesEl = document.getElementById(prefix + 'ConstructionNotes');
+            const propEl = document.getElementById(prefix + 'ConstructionProperty');
+            if (titleEl) titleEl.value = title;
+            if (pctEl) pctEl.value = pct;
+            if (dateEl) dateEl.value = date;
+            if (notesEl) notesEl.value = notes;
+            if (propEl && propertyId) propEl.value = propertyId;
+            const submitBtn = document.getElementById(prefix + 'ConstrSubmitBtn');
+            if (submitBtn) submitBtn.textContent = 'Save Changes';
+            const labelEl = document.getElementById(prefix + 'ConstrFormLabel');
+            if (labelEl) labelEl.textContent = 'Editing Update';
+            const cancelBtn = document.getElementById(prefix + 'ConstrCancelBtn');
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+            const form = document.getElementById(prefix === 'mgr' ? 'managerConstructionForm' : 'ceoConstructionForm');
+            form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function cancelConstructionEdit(source) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const editIdEl = document.getElementById(prefix + 'ConstructionEditId');
+            if (editIdEl) editIdEl.value = '';
+            const form = document.getElementById(prefix === 'mgr' ? 'managerConstructionForm' : 'ceoConstructionForm');
+            if (form) form.reset();
+            const submitBtn = document.getElementById(prefix + 'ConstrSubmitBtn');
+            if (submitBtn) submitBtn.textContent = 'Post Update';
+            const labelEl = document.getElementById(prefix + 'ConstrFormLabel');
+            if (labelEl) labelEl.textContent = 'Post New Update';
+            const cancelBtn = document.getElementById(prefix + 'ConstrCancelBtn');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
         }
 
         function showMgrTab(tabId) {
@@ -6365,7 +6421,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const active = btn.dataset.tab === tabId;
                 btn.classList.toggle('bg-slate-700', active);
                 btn.classList.toggle('text-white', active);
+                btn.classList.toggle('border-slate-500', active);
                 btn.classList.toggle('text-gray-400', !active);
+                btn.classList.toggle('border-transparent', !active);
             });
             if (tabId === 'mgrTabConstruction') {
                 loadConstructionPropertyOptions();
