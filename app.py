@@ -4550,7 +4550,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                     ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
-                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
+                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
                                     <button onclick="deleteConstructionUpdate(${item.id},'${source}')" class="text-xs text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-1 transition-colors">Delete</button>
                                 </div>
                             </div>
@@ -6403,7 +6403,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                                     ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
-                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
+                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
                                     <button onclick="deleteConstructionUpdate(${item.id},'${source}')" class="text-xs text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-1 transition-colors">Delete</button>
                                 </div>
                             </div>
@@ -6430,21 +6430,33 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
         };
 
-        const baseSubmitConstructionUpdate = submitConstructionUpdate;
-        submitConstructionUpdate = async function(source) {
-            const propertyId = source === 'ceo'
-                ? document.getElementById('ceoConstructionProperty')?.value
-                : document.getElementById('mgrConstructionProperty')?.value;
-            await baseSubmitConstructionUpdate(source);
-            if (source === 'ceo') {
-                const ceoSel = document.getElementById('ceoConstructionProperty');
-                if (ceoSel && propertyId) ceoSel.value = propertyId;
-            } else {
-                const mgrSel = document.getElementById('mgrConstructionProperty');
-                if (mgrSel && propertyId) mgrSel.value = propertyId;
+        async function submitConstructionUpdate(source) {
+            const ids = source === 'ceo'
+                ? { property: 'ceoConstructionProperty', title: 'ceoConstructionTitle', percent: 'ceoConstructionPercent', date: 'ceoConstructionDate', notes: 'ceoConstructionNotes', msg: 'ceoConstructionMsg', form: 'ceoConstructionForm', editId: 'ceoConstructionEditId' }
+                : { property: 'mgrConstructionProperty', title: 'mgrConstructionTitle', percent: 'mgrConstructionPercent', date: 'mgrConstructionDate', notes: 'mgrConstructionNotes', msg: 'mgrConstructionMsg', form: 'managerConstructionForm', editId: 'mgrConstructionEditId' };
+            const msgEl = document.getElementById(ids.msg);
+            const editId = document.getElementById(ids.editId)?.value || '';
+            const propId = document.getElementById(ids.property)?.value;
+            try {
+                const payload = {
+                    property_id: propId,
+                    title: document.getElementById(ids.title).value,
+                    progress_percentage: document.getElementById(ids.percent).value,
+                    happened_on: document.getElementById(ids.date).value || null,
+                    notes: document.getElementById(ids.notes).value,
+                    is_public: true,
+                };
+                const url = editId ? `/admin/api/construction-updates/${editId}` : '/admin/api/construction-updates';
+                const method = editId ? 'PUT' : 'POST';
+                const res = await fetchData(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                if (msgEl) { msgEl.textContent = res.message || (editId ? 'Update saved' : 'Update posted'); msgEl.className = 'text-sm text-emerald-400'; }
+                cancelConstructionEdit(source);
+                loadConstructionPropertyOptions();
+                loadConstructionUpdates(document.getElementById(ids.property)?.value || null);
+            } catch (e) {
+                if (msgEl) { msgEl.textContent = e.message || 'Error posting update'; msgEl.className = 'text-sm text-red-400'; }
             }
-            await loadConstructionUpdates(propertyId);
-        };
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('ceoConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
