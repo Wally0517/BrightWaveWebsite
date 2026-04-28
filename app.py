@@ -4497,6 +4497,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     mgrSel.innerHTML = options;
                     mgrSel.value = mgrCurrent && props.some(p => String(p.id) === mgrCurrent) ? mgrCurrent : (props[0] ? String(props[0].id) : '');
                 }
+                loadConstructionUpdates(ceoSel?.value || mgrSel?.value || '');
             } catch (e) {}
         }
 
@@ -4504,37 +4505,71 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const listEl = document.getElementById(listId);
             const headlineEl = document.getElementById(headlineId);
             if (!listEl) return;
-            const latest = items.length ? items[items.length - 1] : null;
+            const latest = getConstructionLatestItem(items);
             if (headlineEl) headlineEl.textContent = latest ? `${latest.progress_percentage}%` : '0%';
             if (!items.length) {
-                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No construction updates yet.</p>';
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No updates yet. Post the first milestone above.</p>';
                 return;
             }
-            listEl.innerHTML = items.slice().reverse().map(item => `
-                <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
-                    <div class="flex items-start justify-between gap-3 mb-2">
-                        <div>
-                            <p class="font-semibold text-white text-sm">${item.title}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">${item.property_title}${item.happened_on ? ' • ' + item.happened_on : ''}</p>
+            const isCeoList = listId === 'ceoConstructionList';
+            const source = isCeoList ? 'ceo' : 'mgr';
+            const sortedItems = items.slice().sort((a, b) => {
+                const timeDiff = getConstructionSortValue(b) - getConstructionSortValue(a);
+                if (timeDiff !== 0) return timeDiff;
+                return (b.progress_percentage || 0) - (a.progress_percentage || 0);
+            });
+            listEl.innerHTML = `
+                <div class="bg-gradient-to-br from-emerald-900/40 via-slate-800 to-gray-900 border border-emerald-700/40 rounded-2xl p-4 sm:p-5 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
+                            <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
+                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
-                        <span class="text-sm font-semibold text-emerald-400">${item.progress_percentage}%</span>
+                        <div class="flex-shrink-0">
+                            <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Latest progress</p>
+                        </div>
                     </div>
-                    ${item.notes ? `<p class="text-sm text-gray-300 leading-6">${item.notes}</p>` : ''}
+                    <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
+                        <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
+                    </div>
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
                 </div>
-            `).join('');
+                <div class="space-y-2">
+                    ${sortedItems.map((item, idx) => `
+                        <div class="relative bg-gray-700/30 border ${idx === 0 ? 'border-emerald-600/50' : 'border-gray-600/30'} rounded-xl p-3 sm:p-4 pl-4 sm:pl-5">
+                            <div class="absolute left-0 top-3 bottom-3 w-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-gray-600'}"></div>
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
+                                    <button onclick="deleteConstructionUpdate(${item.id},'${source}')" class="text-xs text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-1 transition-colors">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
         async function loadConstructionUpdates(propertyId) {
             try {
-                const query = propertyId ? ('?property_id=' + propertyId) : '';
+                const ceoSel = document.getElementById('ceoConstructionProperty');
+                const selectedId = propertyId || ceoSel?.value || '';
+                const query = selectedId ? ('?property_id=' + selectedId) : '';
                 const updates = await fetchData('/admin/api/construction-updates' + query);
                 renderConstructionUpdates(updates, 'ceoConstructionList', 'ceoConstructionHeadline');
-                renderConstructionUpdates(updates, 'mgrConstructionList', 'mgrConstructionProgress');
             } catch (e) {
                 const ceoList = document.getElementById('ceoConstructionList');
-                const mgrList = document.getElementById('mgrConstructionList');
                 if (ceoList) ceoList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
-                if (mgrList) mgrList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
             }
         }
 
@@ -5193,11 +5228,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             loadStats();
             loadProperties();
             loadConstructionPropertyOptions();
-            loadConstructionUpdates();
             loadInquiries();
             loadMessages();
             loadSiteContent();
             loadTeamMembers();
+            document.getElementById('ceoConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
             document.getElementById('ceoConstructionForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 await submitConstructionUpdate('ceo');
@@ -5229,6 +5264,61 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         function closeContractModal() {
             const modal = document.getElementById('contractViewModal');
             modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+
+        async function deleteConstructionUpdate(id, source) {
+            if (!confirm('Delete this construction update? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/construction-updates/' + id, { method: 'DELETE' });
+                const sel = document.getElementById('ceoConstructionProperty');
+                await loadConstructionUpdates(sel?.value || '');
+            } catch (e) {
+                alert('Error deleting update. Please try again.');
+            }
+        }
+
+        function editConstructionUpdate(id, title, pct, date, notes, propertyId, source) {
+            const editIdEl = document.getElementById('ceoConstructionEditId');
+            const titleEl = document.getElementById('ceoConstructionTitle');
+            const pctEl = document.getElementById('ceoConstructionPercent');
+            const dateEl = document.getElementById('ceoConstructionDate');
+            const notesEl = document.getElementById('ceoConstructionNotes');
+            const labelEl = document.getElementById('ceoConstrFormLabel');
+            const submitBtn = document.getElementById('ceoConstrSubmitBtn');
+            const cancelBtn = document.getElementById('ceoConstrCancelBtn');
+            const propertySel = document.getElementById('ceoConstructionProperty');
+            if (!editIdEl) return;
+            editIdEl.value = id;
+            if (titleEl) titleEl.value = title;
+            if (pctEl) pctEl.value = pct;
+            if (dateEl) dateEl.value = date;
+            if (notesEl) notesEl.value = notes;
+            if (propertySel) propertySel.value = String(propertyId);
+            if (labelEl) labelEl.textContent = 'Edit Update';
+            if (submitBtn) submitBtn.textContent = 'Save Changes';
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+            titleEl?.focus();
+        }
+
+        function cancelConstructionEdit(source) {
+            const editIdEl = document.getElementById('ceoConstructionEditId');
+            const titleEl = document.getElementById('ceoConstructionTitle');
+            const pctEl = document.getElementById('ceoConstructionPercent');
+            const dateEl = document.getElementById('ceoConstructionDate');
+            const notesEl = document.getElementById('ceoConstructionNotes');
+            const labelEl = document.getElementById('ceoConstrFormLabel');
+            const submitBtn = document.getElementById('ceoConstrSubmitBtn');
+            const cancelBtn = document.getElementById('ceoConstrCancelBtn');
+            const msgEl = document.getElementById('ceoConstructionMsg');
+            if (editIdEl) editIdEl.value = '';
+            if (titleEl) titleEl.value = '';
+            if (pctEl) pctEl.value = '';
+            if (dateEl) dateEl.value = '';
+            if (notesEl) notesEl.value = '';
+            if (labelEl) labelEl.textContent = 'Post New Update';
+            if (submitBtn) submitBtn.textContent = 'Post Update';
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+            if (msgEl) msgEl.textContent = '';
         }
     </script>
 
