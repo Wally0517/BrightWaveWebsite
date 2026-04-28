@@ -1175,6 +1175,7 @@ def serve_hostels():
             else send_from_directory('.', 'index.html')
 
 @app.route('/hostels/detail')
+@app.route('/hostels/phase1')
 def serve_hostel_detail():
     return send_from_directory('.', 'hostel-detail.html')
 
