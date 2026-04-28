@@ -1225,6 +1225,28 @@ def pwa_manifest():
     from flask import Response
     return Response(json.dumps(manifest), mimetype='application/json')
 
+@app.route('/site.webmanifest')
+def public_pwa_manifest():
+    manifest = {
+        "id": "/",
+        "name": "BrightWave Habitat Enterprise",
+        "short_name": "BrightWave",
+        "description": "BrightWave Habitat Enterprise official website",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [
+            {"src": "/apple-touch-icon.png?v=2", "sizes": "180x180", "type": "image/png"},
+            {"src": "/assets/images/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ]
+    }
+    from flask import Response
+    return Response(json.dumps(manifest), mimetype='application/manifest+json')
+
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
