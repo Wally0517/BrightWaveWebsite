@@ -4440,14 +4440,36 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function getConstructionSortValue(item) {
+            const happened = item.happened_on ? new Date(item.happened_on).getTime() : 0;
+            const created = item.created_at ? new Date(item.created_at).getTime() : 0;
+            return Math.max(happened || 0, created || 0, 0);
+        }
+
+        function getConstructionLatestItem(items) {
+            return items.slice().sort((a, b) => {
+                const timeDiff = getConstructionSortValue(b) - getConstructionSortValue(a);
+                if (timeDiff !== 0) return timeDiff;
+                return (b.progress_percentage || 0) - (a.progress_percentage || 0);
+            })[0] || null;
+        }
+
         async function loadConstructionPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
                 const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
                 const ceoSel = document.getElementById('ceoConstructionProperty');
                 const mgrSel = document.getElementById('mgrConstructionProperty');
-                if (ceoSel) ceoSel.innerHTML = options;
-                if (mgrSel) mgrSel.innerHTML = options;
+                const ceoCurrent = ceoSel?.value || '';
+                const mgrCurrent = mgrSel?.value || '';
+                if (ceoSel) {
+                    ceoSel.innerHTML = options;
+                    ceoSel.value = ceoCurrent && props.some(p => String(p.id) === ceoCurrent) ? ceoCurrent : (props[0] ? String(props[0].id) : '');
+                }
+                if (mgrSel) {
+                    mgrSel.innerHTML = options;
+                    mgrSel.value = mgrCurrent && props.some(p => String(p.id) === mgrCurrent) ? mgrCurrent : (props[0] ? String(props[0].id) : '');
+                }
             } catch (e) {}
         }
 
@@ -6080,6 +6102,134 @@ ROLE_DASHBOARD_TEMPLATE = """
                 e.preventDefault();
                 await submitConstructionUpdate('manager');
             });
+        });
+
+        loadConstructionPropertyOptions = async function() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const ceoSel = document.getElementById('ceoConstructionProperty');
+                const mgrSel = document.getElementById('mgrConstructionProperty');
+                const ceoCurrent = ceoSel?.value || '';
+                const mgrCurrent = mgrSel?.value || '';
+                if (ceoSel) {
+                    ceoSel.innerHTML = options;
+                    ceoSel.value = ceoCurrent && props.some(p => String(p.id) === ceoCurrent) ? ceoCurrent : (props[0] ? String(props[0].id) : '');
+                }
+                if (mgrSel) {
+                    mgrSel.innerHTML = options;
+                    mgrSel.value = mgrCurrent && props.some(p => String(p.id) === mgrCurrent) ? mgrCurrent : (props[0] ? String(props[0].id) : '');
+                }
+            } catch (e) {}
+        };
+
+        function getConstructionSortValue(item) {
+            const happened = item.happened_on ? new Date(item.happened_on).getTime() : 0;
+            const created = item.created_at ? new Date(item.created_at).getTime() : 0;
+            return Math.max(happened || 0, created || 0, 0);
+        }
+
+        function getConstructionLatestItem(items) {
+            return items.slice().sort((a, b) => {
+                const timeDiff = getConstructionSortValue(b) - getConstructionSortValue(a);
+                if (timeDiff !== 0) return timeDiff;
+                return (b.progress_percentage || 0) - (a.progress_percentage || 0);
+            })[0] || null;
+        }
+
+        renderConstructionUpdates = function(items, listId, headlineId) {
+            const listEl = document.getElementById(listId);
+            const headlineEl = document.getElementById(headlineId);
+            if (!listEl) return;
+            const latest = getConstructionLatestItem(items);
+            if (headlineEl) headlineEl.textContent = latest ? `${latest.progress_percentage}%` : '0%';
+            if (!items.length) {
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No construction updates yet.</p>';
+                return;
+            }
+            const sortedItems = items.slice().sort((a, b) => {
+                const timeDiff = getConstructionSortValue(b) - getConstructionSortValue(a);
+                if (timeDiff !== 0) return timeDiff;
+                return (b.progress_percentage || 0) - (a.progress_percentage || 0);
+            });
+            listEl.innerHTML = `
+                <div class="bg-gradient-to-br from-emerald-900/40 via-slate-800 to-gray-900 border border-emerald-700/40 rounded-2xl p-5">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.24em] text-emerald-300/80 mb-2">Current Site Status</p>
+                            <h4 class="text-xl font-semibold text-white">${latest?.title || 'Latest update'}</h4>
+                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || 'Selected project'}${latest?.happened_on ? ' • ' + latest.happened_on : ''}</p>
+                        </div>
+                        <div class="text-left md:text-right">
+                            <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
+                            <p class="text-xs text-gray-500 mt-1">Latest recorded progress</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 h-3 rounded-full bg-gray-700 overflow-hidden">
+                        <div class="h-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" style="width:${latest?.progress_percentage || 0}%"></div>
+                    </div>
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-6 mt-4">${latest.notes}</p>` : ''}
+                </div>
+                <div class="space-y-3 mt-4">
+                    ${sortedItems.map((item, idx) => `
+                        <div class="relative bg-gray-700/30 border ${idx === 0 ? 'border-emerald-600/60' : 'border-gray-600/40'} rounded-2xl p-4 pl-5">
+                            <div class="absolute left-0 top-4 bottom-4 w-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-gray-600'}"></div>
+                            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        ${idx === 0 ? '<span class="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
+                                    </div>
+                                    <p class="text-xs text-gray-400">${item.property_title}${item.happened_on ? ' • ' + item.happened_on : ''}</p>
+                                </div>
+                                <div class="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1 flex-shrink-0">
+                                    <span class="text-lg font-semibold text-emerald-400">${item.progress_percentage}%</span>
+                                    <span class="text-[11px] text-gray-500">Progress</span>
+                                </div>
+                            </div>
+                            ${item.notes ? `<p class="text-sm text-gray-300 leading-6 mt-3">${item.notes}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        loadConstructionUpdates = async function(propertyId) {
+            try {
+                const ceoSel = document.getElementById('ceoConstructionProperty');
+                const mgrSel = document.getElementById('mgrConstructionProperty');
+                const selectedId = propertyId || ceoSel?.value || mgrSel?.value || '';
+                const query = selectedId ? ('?property_id=' + selectedId) : '';
+                const updates = await fetchData('/admin/api/construction-updates' + query);
+                renderConstructionUpdates(updates, 'ceoConstructionList', 'ceoConstructionHeadline');
+                renderConstructionUpdates(updates, 'mgrConstructionList', 'mgrConstructionProgress');
+            } catch (e) {
+                const ceoList = document.getElementById('ceoConstructionList');
+                const mgrList = document.getElementById('mgrConstructionList');
+                if (ceoList) ceoList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
+                if (mgrList) mgrList.innerHTML = '<p class="text-red-400 text-sm py-4">Error loading construction updates.</p>';
+            }
+        };
+
+        const baseSubmitConstructionUpdate = submitConstructionUpdate;
+        submitConstructionUpdate = async function(source) {
+            const propertyId = source === 'ceo'
+                ? document.getElementById('ceoConstructionProperty')?.value
+                : document.getElementById('mgrConstructionProperty')?.value;
+            await baseSubmitConstructionUpdate(source);
+            if (source === 'ceo') {
+                const ceoSel = document.getElementById('ceoConstructionProperty');
+                if (ceoSel && propertyId) ceoSel.value = propertyId;
+            } else {
+                const mgrSel = document.getElementById('mgrConstructionProperty');
+                if (mgrSel && propertyId) mgrSel.value = propertyId;
+            }
+            await loadConstructionUpdates(propertyId);
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('ceoConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
+            document.getElementById('mgrConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
         });
 
         async function fetchContractForRole(role) {
