@@ -5556,44 +5556,140 @@ ROLE_DASHBOARD_TEMPLATE = """
         <div id="roleSection_{{ r }}" class="{% if r != user_role %}hidden{% endif %}">
 
             {% if r == 'INVESTOR' %}
-            <!-- INVESTOR DASHBOARD -->
-            <div id="investorLoading" class="text-center py-12 text-gray-400">Loading your investment data...</div>
-            <div id="investorDashboard" class="hidden space-y-6">
-                <div id="investmentSummaryCard" class="bg-gradient-to-br from-slate-800 to-gray-900 border border-slate-600 rounded-2xl p-6"></div>
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Project Timeline</h3>
-                    <div id="projectTimeline"></div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <h3 class="font-semibold text-lg text-slate-300">Construction Progress Graph</h3>
-                        <span id="invProgressHeadline" class="text-sm text-emerald-400 font-medium">0%</span>
-                    </div>
-                    <div id="investorProgressGraph"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Amount Invested</p><p id="invAmountDisplay" class="text-2xl font-bold text-white">-</p></div>
-                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Expected Total Return</p><p id="invExpectedReturn" class="text-2xl font-bold text-emerald-400">-</p><p id="invReturnNote" class="text-xs text-gray-500 mt-1"></p></div>
-                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Distributed So Far</p><p id="invDistributed" class="text-2xl font-bold text-blue-400">-</p></div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Distribution Schedule</h3>
-                    <div id="distributionSchedule"></div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
-                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            <div><p class="font-medium text-white">Investment Agreement</p><p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
-                        </div>
-                        <button id="viewAgreementBtn" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
-                    </div>
-                </div>
+            <!-- INVESTOR DASHBOARD — Premium -->
+            <!-- Loading state -->
+            <div id="investorLoading" class="flex flex-col items-center justify-center py-20 gap-4">
+                <div class="w-12 h-12 border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin"></div>
+                <p class="text-slate-400 text-sm">Loading your investment data…</p>
             </div>
-            <div id="investorNoProfile" class="hidden bg-gray-800 rounded-xl p-8 text-center">
-                <p class="text-gray-400 text-lg font-medium">Investment profile not set up yet</p>
-                <p class="text-gray-500 text-sm mt-2">Your CEO will configure your investment details. Please check back shortly.</p>
+
+            <!-- Main dashboard -->
+            <div id="investorDashboard" class="hidden space-y-5">
+
+                <!-- 1. HERO / WELCOME CARD -->
+                <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 border border-slate-600/60 rounded-2xl p-5 sm:p-8">
+                    <!-- Decorative circles -->
+                    <div class="absolute -top-16 -right-16 w-56 h-56 bg-emerald-500/5 rounded-full pointer-events-none"></div>
+                    <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-blue-500/5 rounded-full pointer-events-none"></div>
+                    <div class="relative">
+                        <!-- Brand row -->
+                        <div class="flex items-center justify-between gap-3 mb-5">
+                            <div class="flex items-center gap-3">
+                                <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full ring-2 ring-slate-500/40 object-cover flex-shrink-0">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase tracking-widest leading-tight">BrightWave Habitat Enterprise</p>
+                                    <p class="text-sm font-semibold text-slate-200 leading-tight">Investor Portal</p>
+                                </div>
+                            </div>
+                            <span id="invTypeBadge" class="text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"></span>
+                        </div>
+                        <!-- Greeting -->
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, <span id="invWelcomeName" class="text-emerald-400"></span></h2>
+                        <p id="invHeroSubtitle" class="text-slate-400 text-sm mb-6"></p>
+                        <!-- 4 quick-stat tiles -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4">
+                                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Invested</p>
+                                <p id="invHeroAmount" class="text-lg sm:text-xl font-bold text-white break-all">—</p>
+                            </div>
+                            <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 sm:p-4">
+                                <p class="text-xs text-emerald-400 uppercase tracking-wide mb-1">Total Return</p>
+                                <p id="invHeroReturn" class="text-lg sm:text-xl font-bold text-emerald-300 break-all">—</p>
+                                <p id="invHeroReturnNote" class="text-xs text-emerald-500/70 mt-0.5 leading-tight"></p>
+                            </div>
+                            <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 sm:p-4">
+                                <p class="text-xs text-blue-400 uppercase tracking-wide mb-1">Paid Out</p>
+                                <p id="invHeroDistributed" class="text-lg sm:text-xl font-bold text-blue-300 break-all">—</p>
+                            </div>
+                            <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 sm:p-4">
+                                <p class="text-xs text-amber-400 uppercase tracking-wide mb-1">Site Progress</p>
+                                <p id="invHeroProgress" class="text-lg sm:text-xl font-bold text-amber-300">—</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. CONSTRUCTION PROGRESS -->
+                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
+                    <div class="flex items-center justify-between gap-3 mb-5">
+                        <div>
+                            <h3 class="font-bold text-white text-base sm:text-lg">Construction Progress</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Live milestones posted by the project team</p>
+                        </div>
+                        <span id="invProgressHeadline" class="text-2xl font-bold text-emerald-400">0%</span>
+                    </div>
+                    <!-- Animated main bar -->
+                    <div class="relative h-4 bg-gray-700 rounded-full overflow-hidden mb-2">
+                        <div id="invMainProgressBar" class="h-full rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-1000" style="width:0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mb-5">
+                        <span>0%</span><span>50%</span><span>100%</span>
+                    </div>
+                    <div id="invMilestones"></div>
+                </div>
+
+                <!-- 3. RETURN SCHEDULE -->
+                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
+                    <div class="flex items-start justify-between gap-3 mb-5">
+                        <div>
+                            <h3 class="font-bold text-white text-base sm:text-lg">Your Return Schedule</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Projected annual distributions at maturity</p>
+                        </div>
+                        <span id="invRoiTag" class="text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-2.5 py-1 rounded-full flex-shrink-0"></span>
+                    </div>
+                    <div id="invReturnSchedule"></div>
+                </div>
+
+                <!-- 4. DETAILS + DOCUMENTS side by side -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Investment details -->
+                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
+                        <h3 class="font-bold text-white text-base mb-4">Investment Details</h3>
+                        <div id="invDetailsGrid" class="space-y-3"></div>
+                    </div>
+                    <!-- Documents -->
+                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
+                        <h3 class="font-bold text-white text-base mb-4">Your Documents</h3>
+                        <div class="flex items-start gap-4 p-4 bg-gray-700/50 border border-gray-600/50 rounded-xl mb-4">
+                            <div class="w-10 h-10 bg-emerald-900/60 border border-emerald-700/40 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-file-contract text-emerald-400 text-sm"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-white text-sm">Investment Agreement</p>
+                                <p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading…</p>
+                            </div>
+                            <button id="viewAgreementBtn" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700/60 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors">View</button>
+                        </div>
+                        <p class="text-xs text-gray-500 leading-relaxed">Your signed agreement is legally binding and on record. The original is held securely by BrightWave Habitat Enterprise.</p>
+                    </div>
+                </div>
+
+                <!-- 5. CONTACT CTA -->
+                <div class="bg-gradient-to-r from-slate-800 to-gray-800 border border-slate-600/40 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <p class="font-semibold text-white text-sm">Have a question about your investment?</p>
+                        <p class="text-xs text-gray-400 mt-0.5">The CEO is available to address any concerns or provide updates directly.</p>
+                    </div>
+                    <a href="mailto:admin@brightwavehabitat.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-2 px-5 rounded-xl transition-colors flex items-center gap-2">
+                        <i class="fas fa-envelope text-xs"></i> Contact CEO
+                    </a>
+                </div>
+
+            </div>
+
+            <!-- No profile state -->
+            <div id="investorNoProfile" class="hidden">
+                <div class="bg-gradient-to-br from-slate-800 to-gray-900 border border-slate-600/50 rounded-2xl p-8 sm:p-12 text-center max-w-lg mx-auto">
+                    <div class="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-5">
+                        <i class="fas fa-chart-line text-slate-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Your investment profile is being set up</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed mb-6">The CEO will link your investment details shortly. Once that's done, you'll see your full return schedule, construction progress, and distribution timeline right here.</p>
+                    <div class="flex items-center justify-center gap-2 text-xs text-gray-500">
+                        <img src="/assets/images/brightwave-logo.png" alt="" class="w-5 h-5 rounded-full opacity-60">
+                        BrightWave Habitat Enterprise · Kwara State, Nigeria
+                    </div>
+                </div>
             </div>
 
             {% elif r == 'MANAGER' %}
@@ -6090,29 +6186,37 @@ ROLE_DASHBOARD_TEMPLATE = """
             loadRoleDashboard(USER_ROLE);
         });
 
-        function renderInvestorProgressGraph(updates) {
-            const graphEl = document.getElementById('investorProgressGraph');
+        function renderInvestorMilestones(updates) {
+            const barEl = document.getElementById('invMainProgressBar');
             const headlineEl = document.getElementById('invProgressHeadline');
-            if (!graphEl) return;
+            const milestonesEl = document.getElementById('invMilestones');
+            const latestPct = updates.length ? updates[updates.length - 1].progress_percentage : 0;
+            if (headlineEl) headlineEl.textContent = latestPct + '%';
+            if (barEl) setTimeout(() => { barEl.style.width = latestPct + '%'; }, 120);
+            if (!milestonesEl) return;
             if (!updates.length) {
-                if (headlineEl) headlineEl.textContent = '0%';
-                graphEl.innerHTML = '<p class="text-sm text-gray-500">Construction updates will appear here once management posts them.</p>';
+                milestonesEl.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Construction milestones will appear here once the project team posts them.</p>';
                 return;
             }
-            const latest = updates[updates.length - 1];
-            if (headlineEl) headlineEl.textContent = `${latest.progress_percentage}%`;
-            if (updates.length === 1) {
-                graphEl.innerHTML = `<div class="space-y-3"><div class="w-full bg-gray-700 rounded-full h-3"><div class="bg-emerald-500 h-3 rounded-full" style="width:${latest.progress_percentage}%"></div></div><div class="flex justify-between text-xs text-gray-400"><span>${latest.title}</span><span>${latest.progress_percentage}%</span></div></div>`;
-                return;
-            }
-            const width = 640;
-            const height = 180;
-            const points = updates.map((item, idx) => {
-                const x = 24 + (idx * ((width - 48) / Math.max(updates.length - 1, 1)));
-                const y = height - 24 - ((item.progress_percentage / 100) * (height - 48));
-                return { x, y };
-            });
-            graphEl.innerHTML = `<div class="overflow-x-auto"><svg viewBox="0 0 ${width} ${height}" class="w-full min-w-[560px]"><line x1="24" y1="${height - 24}" x2="${width - 24}" y2="${height - 24}" stroke="#4b5563" stroke-width="1"></line><line x1="24" y1="24" x2="24" y2="${height - 24}" stroke="#4b5563" stroke-width="1"></line><polyline fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${points.map(p => `${p.x},${p.y}`).join(' ')}"></polyline>${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#111827" stroke="#10b981" stroke-width="3"></circle>`).join('')}</svg></div><div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">${updates.slice().reverse().map(item => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3"><div class="flex justify-between gap-3"><p class="font-medium text-white text-sm">${item.title}</p><span class="text-xs text-emerald-400 font-semibold">${item.progress_percentage}%</span></div><p class="text-xs text-gray-400 mt-1">${item.happened_on || 'Date pending'}</p>${item.notes ? `<p class="text-sm text-gray-300 mt-2">${item.notes}</p>` : ''}</div>`).join('')}</div>`;
+            milestonesEl.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+                updates.slice().reverse().map(item => {
+                    const pct = item.progress_percentage || 0;
+                    const colorClass = pct >= 75 ? 'border-emerald-600/50 bg-emerald-900/20' : pct >= 40 ? 'border-amber-600/50 bg-amber-900/20' : 'border-gray-600/50 bg-gray-700/30';
+                    const dotColor = pct >= 75 ? 'bg-emerald-400' : pct >= 40 ? 'bg-amber-400' : 'bg-gray-400';
+                    return `<div class="border ${colorClass} rounded-xl p-4">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1 ${dotColor}"></span>
+                                <p class="font-semibold text-white text-sm leading-tight">${item.title}</p>
+                            </div>
+                            <span class="text-xs font-bold text-emerald-400 flex-shrink-0">${pct}%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-1.5 mb-2">
+                            <div class="h-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" style="width:${pct}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500">${item.happened_on || 'Date pending'}${item.notes ? ' · ' + item.notes : ''}</p>
+                    </div>`;
+                }).join('') + '</div>';
         }
 
         function renderUnitsTable(targetId, units, showProperty = false) {
@@ -6189,45 +6293,115 @@ ROLE_DASHBOARD_TEMPLATE = """
                     return;
                 }
                 document.getElementById('investorDashboard').classList.remove('hidden');
-                const amount = profile.investment_amount;
-                const type = profile.investment_type;
-                const roi = profile.roi_rate;
-                const equity = profile.equity_percentage;
+
+                const amount = profile.investment_amount || 0;
+                const type = profile.investment_type || 'DEBT';
+                const roi = parseFloat(profile.roi_rate) || 3.5;
+                const equity = profile.equity_percentage || 0;
                 const distributed = profile.total_distributed || 0;
+                const termYears = profile.investment_term_years || 4;
                 const updates = (profile.construction_updates || []).sort((a, b) => (a.progress_percentage || 0) - (b.progress_percentage || 0));
                 const latestProgress = updates.length ? updates[updates.length - 1].progress_percentage : 0;
-                document.getElementById('invAmountDisplay').textContent = formatNGN(amount);
-                document.getElementById('invDistributed').textContent = formatNGN(distributed);
-                renderInvestorProgressGraph(updates);
-                const badgeColor = type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700';
-                const summaryLabel = type === 'DEBT' ? `${roi}% Annual Return` : `${equity}% Project Equity`;
-                document.getElementById('investmentSummaryCard').innerHTML = `<div class="flex justify-between items-start mb-4"><div><p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Your Investment</p><p class="text-4xl font-bold text-white">${formatNGN(amount)}</p></div><span class="text-sm font-semibold px-3 py-1 rounded-full text-white ${badgeColor}">${type}</span></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm"><div><p class="text-gray-400 text-xs">Return Structure</p><p class="text-white font-medium mt-0.5">${summaryLabel}</p></div><div><p class="text-gray-400 text-xs">Investment Date</p><p class="text-white font-medium mt-0.5">${profile.investment_date || 'Pending'}</p></div><div><p class="text-gray-400 text-xs">Project</p><p class="text-white font-medium mt-0.5">${profile.project_property_title || 'BrightWave Project'}</p></div><div><p class="text-gray-400 text-xs">Current Progress</p><p class="text-white font-medium mt-0.5">${latestProgress}%</p></div></div>`;
-                const termYears = profile.investment_term_years || 4;
+
+                // --- Hero card ---
+                const firstName = (USER_NAME || '').split(' ')[0] || 'Investor';
+                document.getElementById('invWelcomeName').textContent = firstName;
+                document.getElementById('invHeroSubtitle').textContent =
+                    (profile.project_property_title || 'BrightWave Phase 1') +
+                    (profile.investment_date ? ' · Since ' + profile.investment_date : '');
+
+                const badgeText = type === 'DEBT' ? 'DEBT · ' + roi + '% p.a.' : 'EQUITY · ' + equity + '%';
+                const badgeClasses = type === 'DEBT'
+                    ? 'bg-blue-900/70 text-blue-300 border border-blue-700/50'
+                    : 'bg-emerald-900/70 text-emerald-300 border border-emerald-700/50';
+                const badgeEl = document.getElementById('invTypeBadge');
+                badgeEl.textContent = badgeText;
+                badgeEl.className = 'text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ' + badgeClasses;
+
+                document.getElementById('invHeroAmount').textContent = formatNGN(amount);
+                document.getElementById('invHeroDistributed').textContent = formatNGN(distributed);
+                document.getElementById('invHeroProgress').textContent = latestProgress + '%';
+
                 if (type === 'DEBT') {
                     const annualReturn = amount * roi / 100;
                     const totalInterest = annualReturn * termYears;
-                    document.getElementById('invExpectedReturn').textContent = formatNGN(amount + totalInterest);
-                    document.getElementById('invReturnNote').textContent = `Principal ${formatNGN(amount)} + ${formatNGN(totalInterest)} interest over ${termYears} year${termYears !== 1 ? 's' : ''}`;
+                    document.getElementById('invHeroReturn').textContent = formatNGN(amount + totalInterest);
+                    document.getElementById('invHeroReturnNote').textContent =
+                        roi + '% × ' + termYears + ' yr' + (termYears !== 1 ? 's' : '') + ' + principal';
                 } else {
-                    document.getElementById('invExpectedReturn').textContent = `${equity}% ownership`;
-                    document.getElementById('invReturnNote').textContent = 'Returns proportional to project revenue';
+                    document.getElementById('invHeroReturn').textContent = equity + '% ownership';
+                    document.getElementById('invHeroReturnNote').textContent = 'Proportional to project revenue';
                 }
-                document.getElementById('projectTimeline').innerHTML = updates.length ? `<div class="mb-3"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>Management-posted progress</span><span>${latestProgress}%</span></div><div class="w-full bg-gray-700 rounded-full h-3"><div class="timeline-bar bg-emerald-500 h-3 rounded-full" style="width: ${latestProgress}%"></div></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">${updates.slice().reverse().slice(0, 3).map(update => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500">${update.happened_on || 'Pending date'}</p><p class="text-sm font-semibold text-white mt-1">${update.title}</p>${update.notes ? `<p class="text-sm text-gray-300 mt-2">${update.notes}</p>` : ''}</div>`).join('')}</div><div class="mt-3 text-xs text-gray-500 text-center">Progress is driven by updates posted from the CEO or Manager portal.</div>` : '<p class="text-gray-400 text-sm">Construction updates will appear once management starts posting milestones.</p>';
+
+                // --- Construction progress ---
+                renderInvestorMilestones(updates);
+
+                // --- Return schedule ---
+                const roiTagEl = document.getElementById('invRoiTag');
+                roiTagEl.textContent = type === 'DEBT' ? roi + '% p.a.' : 'Equity · ' + equity + '%';
+
+                const scheduleEl = document.getElementById('invReturnSchedule');
                 const completion = profile.expected_completion_date ? new Date(profile.expected_completion_date) : null;
                 const now = new Date();
                 if (type === 'DEBT' && completion) {
                     const annualReturn = amount * roi / 100;
-                    document.getElementById('distributionSchedule').innerHTML = Array.from({length: termYears}, (_, idx) => idx + 1).map(yr => { const paymentDate = new Date(completion); paymentDate.setFullYear(paymentDate.getFullYear() + yr); const isFinal = yr === termYears; const isPast = now > paymentDate; return `<div class="flex justify-between items-center py-3 border-b border-gray-700 last:border-0 text-sm"><div><span class="text-white">Year ${yr} Distribution</span>${isFinal ? `<span class="text-xs text-emerald-400 ml-2">+ principal</span>` : ''}</div><div class="text-right"><p class="font-medium text-white">${formatNGN(isFinal ? annualReturn + amount : annualReturn)}</p><p class="text-xs text-gray-400">${paymentDate.toLocaleDateString('en-GB', {month:'short',year:'numeric'})}</p></div><span class="text-xs ${isPast ? 'text-emerald-400' : 'text-yellow-400'} font-medium">${isPast ? 'Due' : 'Scheduled'}</span></div>`; }).join('');
+                    scheduleEl.innerHTML = Array.from({length: termYears}, (_, i) => i + 1).map(yr => {
+                        const payDate = new Date(completion);
+                        payDate.setFullYear(payDate.getFullYear() + yr);
+                        const isFinal = yr === termYears;
+                        const isPast = now > payDate;
+                        const payout = isFinal ? annualReturn + amount : annualReturn;
+                        const statusClass = isPast ? 'text-emerald-400' : 'text-amber-400';
+                        const statusLabel = isPast ? 'Due' : 'Scheduled';
+                        return `<div class="flex items-center justify-between gap-3 py-3 border-b border-gray-700/60 last:border-0">
+                            <div class="min-w-0">
+                                <p class="text-sm text-white font-medium">Year ${yr} — ${payDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'})}</p>
+                                ${isFinal ? '<p class="text-xs text-emerald-400 mt-0.5">Includes principal repayment</p>' : ''}
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="font-bold text-white text-sm">${formatNGN(payout)}</p>
+                                <span class="text-xs font-semibold ${statusClass}">${statusLabel}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
                 } else if (type === 'EQUITY') {
-                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Equity distributions are paid from project performance after completion. Management will keep the construction graph and milestone feed current here.</p>`;
+                    scheduleEl.innerHTML = '<p class="text-gray-400 text-sm leading-relaxed">Equity returns are distributed annually from project revenues proportional to your ' + equity + '% stake. Distributions begin after project completion. Management will update this dashboard as revenues are realised.</p>';
                 } else {
-                    document.getElementById('distributionSchedule').innerHTML = `<p class="text-gray-400 text-sm">Distribution schedule will be available once the expected completion date is set by the CEO.</p>`;
+                    scheduleEl.innerHTML = '<p class="text-gray-400 text-sm leading-relaxed">Distribution schedule will be calculated once the CEO sets the expected project completion date.</p>';
                 }
-                const docStatusMap = { completed: 'Both parties signed — Agreement on file', pending_ceo_signature: 'Awaiting CEO co-signature', pending_user_signature: 'Awaiting your signature' };
+
+                // --- Investment details ---
+                const detailsEl = document.getElementById('invDetailsGrid');
+                const detailRows = [
+                    ['Investment Type', type === 'DEBT' ? 'Debt (Fixed Return)' : 'Equity (Revenue Share)'],
+                    ['Amount Invested', formatNGN(amount)],
+                    ['Annual Return Rate', type === 'DEBT' ? roi + '% per annum' : 'N/A'],
+                    ['Investment Term', termYears + ' year' + (termYears !== 1 ? 's' : '')],
+                    ['Investment Date', profile.investment_date || 'Pending'],
+                    ['Expected Completion', profile.expected_completion_date || 'TBC'],
+                    ['Project', profile.project_property_title || 'BrightWave Phase 1'],
+                    ['Total Paid Out', formatNGN(distributed)],
+                ];
+                detailsEl.innerHTML = detailRows.map(([label, val]) => `
+                    <div class="flex items-start justify-between gap-3 py-2.5 border-b border-gray-700/50 last:border-0">
+                        <p class="text-xs text-gray-400 leading-tight">${label}</p>
+                        <p class="text-sm text-white font-medium text-right leading-tight">${val}</p>
+                    </div>`).join('');
+
+                // --- Documents ---
+                const docStatusMap = {
+                    completed: 'Both parties signed — Agreement on file',
+                    pending_ceo_signature: 'Awaiting CEO co-signature',
+                    pending_user_signature: 'Awaiting your signature',
+                };
                 document.getElementById('docStatus').textContent = docStatusMap[CONTRACT_STATUS] || 'Status unknown';
                 if (CONTRACT_STATUS === 'completed') document.getElementById('viewAgreementBtn')?.classList.remove('hidden');
+
             } catch (e) {
-                document.getElementById('investorLoading').textContent = 'Error loading investment data. Please refresh.';
+                const loadEl = document.getElementById('investorLoading');
+                if (loadEl) {
+                    loadEl.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Error loading investment data. Please refresh the page.</p>';
+                }
             }
         }
 
