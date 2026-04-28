@@ -3558,7 +3558,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
                         </select>
                     </div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input type="text" id="pmtDesc" placeholder="Optional notes" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><input type="text" id="pmtUnit" placeholder="e.g. 1A, 2B" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Period / Session</label><input type="text" id="pmtPeriod" placeholder="e.g. Jan 2026, 2025/2026" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><input type="text" id="pmtDesc" placeholder="Optional notes" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div class="flex items-end gap-3">
                         <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Record Payment</button>
                         <span id="paymentMsg" class="text-sm"></span>
@@ -3574,6 +3576,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         <!-- Enhanced Statistics -->
         <section id="overviewSection" class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Dashboard Overview</h2>
+            <div id="ceoAttentionBar" class="space-y-2 mb-5"></div>
             <div id="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <!-- Stats will be populated by JavaScript -->
             </div>
@@ -3893,6 +3896,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadStats() {
             try {
                 const stats = await fetchData('/admin/api/stats');
+
+                // Attention bar
+                const attnBar = document.getElementById('ceoAttentionBar');
+                if (attnBar) {
+                    const items = [];
+                    if (PENDING_SIGS_COUNT > 0) items.push(`<div class="flex items-center justify-between gap-3 bg-red-900/40 border border-red-700/50 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 animate-pulse"></span><p class="text-sm text-red-200 font-medium">${PENDING_SIGS_COUNT} contract${PENDING_SIGS_COUNT > 1 ? 's' : ''} waiting for your co-signature</p></div><button onclick="showSection('signaturesSection')" class="text-xs text-red-300 border border-red-600 rounded-lg px-3 py-1.5 hover:bg-red-800/40 transition-colors flex-shrink-0">Review Now</button></div>`);
+                    if (stats.new_inquiries > 0) items.push(`<div class="flex items-center justify-between gap-3 bg-amber-900/30 border border-amber-700/40 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><p class="text-sm text-amber-200 font-medium">${stats.new_inquiries} new inquiry${stats.new_inquiries > 1 ? 'ies' : ''} not yet actioned</p></div><button onclick="showSection('inquiriesSection2')" class="text-xs text-amber-300 border border-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-800/30 transition-colors flex-shrink-0">View Inquiries</button></div>`);
+                    if (stats.available_units > 0 && stats.active_tenants === 0) items.push(`<div class="flex items-center justify-between gap-3 bg-blue-900/30 border border-blue-700/40 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><p class="text-sm text-blue-200 font-medium">${stats.available_units} unit${stats.available_units > 1 ? 's' : ''} available — no active tenants recorded</p></div><button onclick="showSection('tenantsSection')" class="text-xs text-blue-300 border border-blue-600 rounded-lg px-3 py-1.5 hover:bg-blue-800/30 transition-colors flex-shrink-0">Manage Tenants</button></div>`);
+                    attnBar.innerHTML = items.join('');
+                    attnBar.classList.toggle('hidden', items.length === 0);
+                }
 
                 // Business metrics row
                 document.getElementById('businessStats').innerHTML = `
@@ -4993,25 +5007,41 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {}
         }
 
+        function parsePaymentMeta(desc) {
+            if (!desc) return { unit: '', period: '', notes: desc || '' };
+            const parts = desc.split(' | ');
+            let unit = '', period = '', notes = [];
+            for (const p of parts) {
+                if (p.startsWith('Unit:')) unit = p.slice(5).trim();
+                else if (p.startsWith('Period:')) period = p.slice(7).trim();
+                else notes.push(p);
+            }
+            return { unit, period, notes: notes.join(' | ') };
+        }
+
         async function loadPayments() {
             try {
                 const payments = await fetchData('/admin/api/payments');
                 const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
-                document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => `
-                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
+                document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => {
+                    const meta = parsePaymentMeta(p.description);
+                    return `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
                         <div class="flex items-start justify-between gap-3 mb-3">
                             <div>
                                 <p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>
-                                ${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}
+                                ${meta.notes ? `<p class="text-xs text-gray-400 mt-0.5">${meta.notes}</p>` : ''}
                             </div>
                             <p class="text-emerald-400 font-bold text-base flex-shrink-0">${fmtNGN(p.amount)}</p>
                         </div>
-                        <div class="flex items-center gap-3 flex-wrap text-xs">
+                        <div class="flex items-center gap-2 flex-wrap text-xs">
                             <span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span>
+                            ${meta.unit ? `<span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">Unit ${meta.unit}</span>` : ''}
+                            ${meta.period ? `<span class="px-2 py-1 rounded-full bg-indigo-900/50 text-indigo-300">${meta.period}</span>` : ''}
                             <span class="text-gray-400">${p.payment_date}</span>
                             ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
                         </div>
-                    </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded</p>';
+                    </div>`;
+                }).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded</p>';
             } catch (e) {
                 document.getElementById('paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading payments</p>';
             }
@@ -5022,6 +5052,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const msgEl = document.getElementById('paymentMsg');
             try {
                 const tenantSelect = document.getElementById('pmtTenantId');
+                const unit = (document.getElementById('pmtUnit')?.value || '').trim();
+                const period = (document.getElementById('pmtPeriod')?.value || '').trim();
+                const notes = (document.getElementById('pmtDesc')?.value || '').trim();
+                const descParts = [];
+                if (unit) descParts.push(`Unit:${unit}`);
+                if (period) descParts.push(`Period:${period}`);
+                if (notes) descParts.push(notes);
                 const res = await fetchData('/admin/api/payments', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
@@ -5031,7 +5068,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         amount: document.getElementById('pmtAmount').value,
                         payment_date: document.getElementById('pmtDate').value,
                         payment_type: document.getElementById('pmtType').value,
-                        description: document.getElementById('pmtDesc').value,
+                        description: descParts.join(' | ') || null,
                     })
                 });
                 msgEl.textContent = res.message;
@@ -5420,67 +5457,39 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'MANAGER' %}
             <!-- MANAGER DASHBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-3xl font-bold">-</p></div>
-                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-3xl font-bold">-</p></div>
-                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-3xl font-bold">-</p></div>
-                <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-3xl font-bold">-</p></div>
+            <!-- Tab navigation -->
+            <div class="flex gap-1 flex-wrap border-b border-gray-700 pb-1 mb-6" id="mgrTabBar">
+                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors bg-slate-700 text-white" data-tab="mgrTabOverview" onclick="showMgrTab('mgrTabOverview')">Overview</button>
+                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
+                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full"></span></button>
+                <button class="mgr-tab-btn px-4 py-2 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6 mb-6">
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <h3 class="font-semibold text-lg text-slate-300">Phase 1 Leasing Units</h3>
-                        <span class="text-xs text-gray-500">Default units: 1A-5A, 1B-5B</span>
+
+            <!-- OVERVIEW TAB -->
+            <div id="mgrTabOverview">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-3xl font-bold">-</p></div>
+                    <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-3xl font-bold">-</p></div>
+                    <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-3xl font-bold">-</p></div>
+                    <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-3xl font-bold">-</p></div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
+                    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
+                </div>
+                {% if all_roles | length > 1 %}
+                <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                    <h3 class="font-semibold text-base mb-3 text-slate-300">Your Access Roles</h3>
+                    <div class="flex flex-wrap gap-2">
+                        {% for ar in all_roles %}
+                        <button onclick="switchRole('{{ ar }}')" class="text-xs font-medium px-4 py-2 rounded-lg border {% if ar == 'MANAGER' %}border-teal-600 bg-teal-900/40 text-teal-300{% else %}border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500 hover:text-white{% endif %} transition-colors">
+                            {{ ar }}{% if ar == 'MANAGER' %} (current){% endif %}
+                        </button>
+                        {% endfor %}
                     </div>
-                    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
+                    <p class="text-xs text-gray-500 mt-3">Switch between your roles using these buttons or the switcher at the top.</p>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-6">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Add or Update Tenant</h3>
-                    <form id="managerTenantForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input id="mgrTenantEditId" type="hidden">
-                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Hostel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input id="mgrTenantLeaseEnd" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrTenantNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
-                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button id="mgrTenantSubmit" type="submit" class="bg-teal-700 hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Tenant</button><button id="mgrTenantCancelEdit" type="button" class="hidden bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="mgrTenantMsg" class="text-sm"></span></div>
-                    </form>
-                </div>
-            </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
-                <div class="flex items-center justify-between gap-3 mb-4">
-                    <h3 class="font-semibold text-lg text-slate-300">Active Tenants</h3>
-                    <span class="text-xs text-gray-500">Manager can add and vacate tenants</span>
-                </div>
-                <div id="mgr_tenantsList" class="space-y-3"></div>
-            </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
-                <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Inquiries</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="mgr_inquiriesTable"></tbody></table></div>
-            </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
-                <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
-            </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
-                <div class="flex items-center justify-between gap-3 mb-4">
-                    <h3 class="font-semibold text-lg text-slate-300">Construction Updates</h3>
-                    <span id="mgrConstructionProgress" class="text-sm text-emerald-400 font-medium">0%</span>
-                </div>
-                <form id="managerConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Project</label><select id="mgrConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title</label><input id="mgrConstructionTitle" type="text" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Progress %</label><input id="mgrConstructionPercent" type="number" min="0" max="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Date</label><input id="mgrConstructionDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrConstructionNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
-                    <div class="md:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Post Update</button><span id="mgrConstructionMsg" class="text-sm"></span></div>
-                </form>
-                <div id="mgrConstructionList" class="space-y-3"></div>
-            </div>
+                {% endif %}
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
                     <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
@@ -5491,6 +5500,78 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <button id="viewRoleDocBtn_MANAGER" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- UNITS & TENANTS TAB -->
+            <div id="mgrTabUnits" class="hidden">
+                <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6 mb-6">
+                    <div class="bg-gray-800 rounded-xl p-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h3 class="font-semibold text-lg text-slate-300">Phase 1 Units</h3>
+                            <span class="text-xs text-gray-500">Click status to update</span>
+                        </div>
+                        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
+                    </div>
+                    <div class="bg-gray-800 rounded-xl p-6">
+                        <h3 class="font-semibold text-lg mb-4 text-slate-300">Add or Update Tenant</h3>
+                        <form id="managerTenantForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input id="mgrTenantEditId" type="hidden">
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Hostel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input id="mgrTenantLeaseEnd" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrTenantNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                            <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button id="mgrTenantSubmit" type="submit" class="bg-teal-700 hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Tenant</button><button id="mgrTenantCancelEdit" type="button" class="hidden bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="mgrTenantMsg" class="text-sm"></span></div>
+                        </form>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-lg text-slate-300">Active Tenants</h3>
+                        <span class="text-xs text-gray-500">Manager can add and vacate tenants</span>
+                    </div>
+                    <div id="mgr_tenantsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- INQUIRIES TAB -->
+            <div id="mgrTabInquiries" class="hidden">
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-lg text-slate-300">All Inquiries</h3>
+                        <span class="text-xs text-gray-500">Update status to track your pipeline</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead>
+                            <tbody id="mgr_inquiriesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONSTRUCTION TAB -->
+            <div id="mgrTabConstruction" class="hidden">
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-5">
+                        <h3 class="font-semibold text-lg text-slate-300">Construction Updates</h3>
+                        <span id="mgrConstructionProgress" class="text-sm text-emerald-400 font-medium">0%</span>
+                    </div>
+                    <form id="managerConstructionForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Project</label><select id="mgrConstructionProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Milestone Title</label><input id="mgrConstructionTitle" type="text" placeholder="Foundation complete" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Progress %</label><input id="mgrConstructionPercent" type="number" min="0" max="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Date</label><input id="mgrConstructionDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrConstructionNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                        <div class="md:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Post Update</button><span id="mgrConstructionMsg" class="text-sm"></span></div>
+                    </form>
+                    <div id="mgrConstructionList" class="space-y-3"></div>
+                </div>
+            </div>
 
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
@@ -5996,17 +6077,46 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const [stats, inquiries, props, units, tenants] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/properties'), fetchData('/admin/api/units'), fetchData('/admin/api/tenants')]);
                 document.getElementById('mgr_properties').textContent = stats.active_properties || 0;
                 document.getElementById('mgr_available_units').textContent = stats.available_units || 0;
-                document.getElementById('mgr_inquiries').textContent = stats.new_inquiries || stats.total_inquiries || 0;
+                const openCount = stats.new_inquiries || stats.total_inquiries || 0;
+                document.getElementById('mgr_inquiries').textContent = openCount;
                 document.getElementById('mgr_active_tenants').textContent = stats.active_tenants || 0;
-                document.getElementById('mgr_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `<tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries</td></tr>';
+                // Inquiries badge on tab
+                const badge = document.getElementById('mgrInquiriesBadge');
+                if (badge) { badge.textContent = openCount; badge.classList.toggle('hidden', openCount === 0); }
+                // Inquiries table with status dropdown
+                const inqStatuses = ['new','contacted','qualified','converted','closed'];
+                document.getElementById('mgr_inquiriesTable').innerHTML = inquiries.map(i => `
+                    <tr class="border-b border-gray-700">
+                        <td class="py-2 pr-3 font-medium">${i.full_name}</td>
+                        <td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td>
+                        <td class="py-2 pr-3 text-xs">${i.inquiry_type}</td>
+                        <td class="py-2 pr-3">
+                            <select onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 w-full">
+                                ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2 text-xs text-gray-500 whitespace-nowrap">${new Date(i.created_at).toLocaleDateString()}</td>
+                    </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries yet</td></tr>';
                 document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                // Units table with status action column
                 const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Hostel');
-                renderUnitsTable('mgr_unitsTable', phase1Units);
+                const statusClasses = { available: 'bg-emerald-900/50 text-emerald-300', occupied: 'bg-blue-900/50 text-blue-300', reserved: 'bg-amber-900/50 text-amber-300', maintenance: 'bg-red-900/50 text-red-300' };
+                const unitTableEl = document.getElementById('mgr_unitsTable');
+                if (unitTableEl) unitTableEl.innerHTML = phase1Units.map(u => `
+                    <tr class="border-b border-gray-700">
+                        <td class="py-2 pr-3 font-medium text-white">${u.unit_code}</td>
+                        <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[u.status] || 'bg-gray-700 text-gray-300'}">${u.status}</span></td>
+                        <td class="py-2 pr-3 text-xs text-gray-300">${u.monthly_rent ? formatNGN(u.monthly_rent) : '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400">${u.notes || '—'}</td>
+                        <td class="py-2">
+                            <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${['available','occupied','reserved','maintenance'].map(s => `<option value="${s}" ${u.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                            </select>
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="5" class="text-gray-500 py-3 text-center text-xs">No units found</td></tr>';
                 populateManagerUnitSelect(phase1Units);
                 renderTenantCards('mgr_tenantsList', tenants.filter(t => t.status === 'active'));
-                loadConstructionPropertyOptions();
-                loadConstructionUpdates();
-            } catch (e) {}
+            } catch (e) { console.error('Manager dashboard error', e); }
         }
 
         async function loadAccountantDashboard() {
@@ -6186,6 +6296,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                                 <div class="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1 flex-shrink-0">
                                     <span class="text-lg font-semibold text-emerald-400">${item.progress_percentage}%</span>
                                     <span class="text-[11px] text-gray-500">Progress</span>
+                                    ${USER_ROLE === 'CEO' ? `<button onclick="deleteConstructionUpdate(${item.id})" class="text-[10px] text-red-400 hover:text-red-300 border border-red-800/50 rounded px-2 py-0.5 mt-1 transition-colors">Delete</button>` : ''}
                                 </div>
                             </div>
                             ${item.notes ? `<p class="text-sm text-gray-300 leading-6 mt-3">${item.notes}</p>` : ''}
@@ -6232,6 +6343,49 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('ceoConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
             document.getElementById('mgrConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
         });
+
+        async function deleteConstructionUpdate(id) {
+            if (!confirm('Delete this construction update? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/construction-updates/' + id, { method: 'DELETE' });
+                const sel = document.getElementById('ceoConstructionProperty') || document.getElementById('mgrConstructionProperty');
+                await loadConstructionUpdates(sel?.value || '');
+            } catch (e) {
+                alert('Error deleting update. Please try again.');
+            }
+        }
+
+        function showMgrTab(tabId) {
+            const tabs = ['mgrTabOverview', 'mgrTabUnits', 'mgrTabInquiries', 'mgrTabConstruction'];
+            tabs.forEach(t => {
+                const el = document.getElementById(t);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+            });
+            document.querySelectorAll('.mgr-tab-btn').forEach(btn => {
+                const active = btn.dataset.tab === tabId;
+                btn.classList.toggle('bg-slate-700', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+            if (tabId === 'mgrTabConstruction') {
+                loadConstructionPropertyOptions();
+                const mgrSel = document.getElementById('mgrConstructionProperty');
+                loadConstructionUpdates(mgrSel?.value || '');
+            }
+        }
+
+        async function updateMgrUnitStatus(unitId, newStatus) {
+            try {
+                await fetchData('/admin/api/units/' + unitId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ status: newStatus })
+                });
+                await loadManagerDashboard();
+            } catch (e) {
+                alert('Error updating unit status.');
+            }
+        }
 
         async function fetchContractForRole(role) {
             return fetchData('/admin/api/my-contract?role=' + encodeURIComponent(role));
