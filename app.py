@@ -3108,12 +3108,25 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             #sidebar { transform: translateX(-100%); width: 240px; }
             #sidebar.mobile-open { transform: translateX(0); }
             #mainWrapper { margin-left: 0 !important; }
+            #mainWrapper > main { padding-left: 1rem !important; padding-right: 1rem !important; }
+            .mobile-stack { flex-direction: column !important; align-items: stretch !important; }
+            .mobile-full { width: 100% !important; min-width: 0 !important; }
+            .attention-bar-item { flex-wrap: wrap; }
         }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+        /* prevent any child from blowing out the horizontal layout */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { overflow-x: hidden; }
+        #mainWrapper { max-width: 100vw; overflow-x: hidden; }
+        /* compact tables on mobile */
+        @media (max-width: 640px) {
+            table { font-size: 0.75rem; }
+            td, th { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="bg-gray-900 text-white min-h-screen overflow-x-hidden">
     <script>
         const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
         const USER_ROLE = 'CEO';
@@ -3211,7 +3224,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 {% endif %}
             </div>
         </header>
-        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <main class="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
         <!-- Change Password Form -->
         <section id="passwordForm" class="mb-8 hidden">
             <h2 class="text-xl font-semibold mb-4">Change Password</h2>
@@ -3660,7 +3673,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <label class="text-xs text-gray-400">Project:</label>
-                        <select id="ceoConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm min-w-[180px]"></select>
+                        <select id="ceoConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[180px]"></select>
                     </div>
                 </div>
                 <form id="ceoConstructionForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3803,8 +3816,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         <!-- Properties Table (part of propertiesSection) -->
         <section class="mb-8 hidden" id="propertiesTableSection">
             <h2 class="text-xl font-semibold mb-4">Properties</h2>
-            <div class="bg-gray-800 p-4 rounded-lg overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[400px]">
                     <thead>
                         <tr class="border-b border-gray-600">
                             <th class="py-2 text-left">Title</th>
@@ -3817,15 +3830,15 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <tbody id="propertiesTable">
                         <!-- Properties will be populated by JavaScript -->
                     </tbody>
-                </table>
+                </table></div>
             </div>
         </section>
 
         <!-- Inquiries and Messages Tabs -->
         <section id="inquiriesSection2" class="hidden">
-            <div class="flex space-x-4 mb-4">
-                <button id="inquiriesTab" class="bg-slate-600 text-white px-4 py-2 rounded-lg">Property Inquiries</button>
-                <button id="messagesTab" class="bg-gray-600 text-white px-4 py-2 rounded-lg">Contact Messages</button>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button id="inquiriesTab" class="bg-slate-600 text-white px-4 py-2 rounded-lg text-sm">Property Inquiries</button>
+                <button id="messagesTab" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">Contact Messages</button>
             </div>
             
             <div id="inquiriesSection" class="bg-gray-800 p-4 rounded-lg">
@@ -3913,9 +3926,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const attnBar = document.getElementById('ceoAttentionBar');
                 if (attnBar) {
                     const items = [];
-                    if (PENDING_SIGS_COUNT > 0) items.push(`<div class="flex items-center justify-between gap-3 bg-red-900/40 border border-red-700/50 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 animate-pulse"></span><p class="text-sm text-red-200 font-medium">${PENDING_SIGS_COUNT} contract${PENDING_SIGS_COUNT > 1 ? 's' : ''} waiting for your co-signature</p></div><button onclick="showSection('signaturesSection')" class="text-xs text-red-300 border border-red-600 rounded-lg px-3 py-1.5 hover:bg-red-800/40 transition-colors flex-shrink-0">Review Now</button></div>`);
-                    if (stats.new_inquiries > 0) items.push(`<div class="flex items-center justify-between gap-3 bg-amber-900/30 border border-amber-700/40 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><p class="text-sm text-amber-200 font-medium">${stats.new_inquiries} new inquiry${stats.new_inquiries > 1 ? 'ies' : ''} not yet actioned</p></div><button onclick="showSection('inquiriesSection2')" class="text-xs text-amber-300 border border-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-800/30 transition-colors flex-shrink-0">View Inquiries</button></div>`);
-                    if (stats.available_units > 0 && stats.active_tenants === 0) items.push(`<div class="flex items-center justify-between gap-3 bg-blue-900/30 border border-blue-700/40 rounded-xl px-4 py-3"><div class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><p class="text-sm text-blue-200 font-medium">${stats.available_units} unit${stats.available_units > 1 ? 's' : ''} available — no active tenants recorded</p></div><button onclick="showSection('tenantsSection')" class="text-xs text-blue-300 border border-blue-600 rounded-lg px-3 py-1.5 hover:bg-blue-800/30 transition-colors flex-shrink-0">Manage Tenants</button></div>`);
+                    if (PENDING_SIGS_COUNT > 0) items.push(`<div class="flex flex-wrap items-center justify-between gap-2 bg-red-900/40 border border-red-700/50 rounded-xl px-3 sm:px-4 py-3"><div class="flex items-center gap-2 min-w-0"><span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 animate-pulse"></span><p class="text-sm text-red-200 font-medium">${PENDING_SIGS_COUNT} contract${PENDING_SIGS_COUNT > 1 ? 's' : ''} waiting for your co-signature</p></div><button onclick="showSection('signaturesSection')" class="text-xs text-red-300 border border-red-600 rounded-lg px-3 py-1.5 hover:bg-red-800/40 transition-colors flex-shrink-0">Review Now</button></div>`);
+                    if (stats.new_inquiries > 0) items.push(`<div class="flex flex-wrap items-center justify-between gap-2 bg-amber-900/30 border border-amber-700/40 rounded-xl px-3 sm:px-4 py-3"><div class="flex items-center gap-2 min-w-0"><span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><p class="text-sm text-amber-200 font-medium">${stats.new_inquiries} new inquiry${stats.new_inquiries > 1 ? 'ies' : ''} not yet actioned</p></div><button onclick="showSection('inquiriesSection2')" class="text-xs text-amber-300 border border-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-800/30 transition-colors flex-shrink-0">View Inquiries</button></div>`);
+                    if (stats.available_units > 0 && stats.active_tenants === 0) items.push(`<div class="flex flex-wrap items-center justify-between gap-2 bg-blue-900/30 border border-blue-700/40 rounded-xl px-3 sm:px-4 py-3"><div class="flex items-center gap-2 min-w-0"><span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><p class="text-sm text-blue-200 font-medium">${stats.available_units} unit${stats.available_units > 1 ? 's' : ''} available — no active tenants recorded</p></div><button onclick="showSection('tenantsSection')" class="text-xs text-blue-300 border border-blue-600 rounded-lg px-3 py-1.5 hover:bg-blue-800/30 transition-colors flex-shrink-0">Manage Tenants</button></div>`);
                     attnBar.innerHTML = items.join('');
                     attnBar.classList.toggle('hidden', items.length === 0);
                 }
@@ -3936,10 +3949,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="w-10 h-10 bg-emerald-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-money-bill-wave text-emerald-300"></i>
                         </div>
-                        <div>
+                        <div class="min-w-0">
                             <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide">This Month Revenue</p>
-                            <p class="text-2xl font-bold text-white mt-0.5">${fmtNGN(stats.monthly_revenue)}</p>
-                            <p class="text-xs text-emerald-300 mt-1">All time: ${fmtNGN(stats.total_revenue)}</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.monthly_revenue)}</p>
+                            <p class="text-xs text-emerald-300 mt-1 break-all">All time: ${fmtNGN(stats.total_revenue)}</p>
                         </div>
                     </div>
                     <div class="bg-slate-700/80 border border-slate-600/40 p-5 rounded-xl flex items-start gap-4 shadow">
@@ -3995,7 +4008,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
                             <h4 class="text-xs font-semibold text-teal-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-money-bill-wave"></i> Recent Payments</h4>
-                            <table class="w-full text-sm">
+                            <div class="overflow-x-auto"><table class="w-full text-sm min-w-[280px]">
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Tenant</th><th class="py-1 text-left text-gray-500 font-medium">Amount</th><th class="py-1 text-left text-gray-500 font-medium">Date</th></tr></thead>
                                 <tbody>${stats.recent_activity.payments.length ? stats.recent_activity.payments.map(p => `
                                     <tr class="border-b border-gray-700/50">
@@ -4003,11 +4016,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                         <td class="py-2 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${p.payment_date}</td>
                                     </tr>`).join('') : noRows}</tbody>
-                            </table>
+                            </table></div>
                         </div>
                         <div>
                             <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-users"></i> Recent Tenants</h4>
-                            <table class="w-full text-sm">
+                            <div class="overflow-x-auto"><table class="w-full text-sm min-w-[260px]">
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Name</th><th class="py-1 text-left text-gray-500 font-medium">Property</th><th class="py-1 text-left text-gray-500 font-medium">Status</th></tr></thead>
                                 <tbody>${stats.recent_activity.tenants.length ? stats.recent_activity.tenants.map(t => `
                                     <tr class="border-b border-gray-700/50">
@@ -4015,7 +4028,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                         <td class="py-2 text-gray-400 text-xs">${t.property_name || '—'}</td>
                                         <td class="py-2"><span class="text-xs px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-teal-800 text-teal-300' : 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
                                     </tr>`).join('') : noRows}</tbody>
-                            </table>
+                            </table></div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -5372,14 +5385,27 @@ ROLE_DASHBOARD_TEMPLATE = """
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BrightWave">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         .contract-scroll::-webkit-scrollbar { width: 6px; }
         .contract-scroll::-webkit-scrollbar-track { background: #374151; }
         .contract-scroll::-webkit-scrollbar-thumb { background: #6B7280; border-radius: 3px; }
         .timeline-bar { transition: width 0.8s ease; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { overflow-x: hidden; }
+        /* tab bar scrolls on mobile */
+        #mgrTabBar { scrollbar-width: none; }
+        #mgrTabBar::-webkit-scrollbar { display: none; }
+        /* compact mobile padding */
+        @media (max-width: 640px) {
+            main { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+            table { font-size: 0.72rem; }
+            td, th { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
+            .mobile-card-stack { flex-direction: column !important; }
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="bg-gray-900 text-white min-h-screen overflow-x-hidden">
     <script>
         const USER_ROLE = {{ user_role | tojson }};
         const ALL_ROLES = {{ all_roles_json | safe }};
@@ -5449,21 +5475,34 @@ ROLE_DASHBOARD_TEMPLATE = """
     {% endif %}
 
     <header class="bg-gray-800 shadow border-b border-gray-700">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center flex-wrap gap-3">
-            <div>
-                <p class="text-xs text-gray-500 uppercase tracking-widest">BrightWave Habitat Enterprise</p>
-                <h1 id="portalTitle" class="text-xl font-bold text-slate-300">
-                    {% if user_role == 'MANAGER' %}Property Manager Portal
-                    {% elif user_role == 'ACCOUNTANT' %}Finance Portal
-                    {% elif user_role == 'REALTOR' %}Realtor Portal
-                    {% elif user_role == 'INVESTOR' %}Investor Portal
-                    {% else %}{{ user_role }} Portal{% endif %}
-                </h1>
+        <div class="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
+            <!-- Top row: brand + logout -->
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="min-w-0">
+                    <p class="text-xs text-gray-500 uppercase tracking-widest hidden sm:block">BrightWave Habitat Enterprise</p>
+                    <h1 id="portalTitle" class="text-base sm:text-xl font-bold text-slate-300 truncate">
+                        {% if user_role == 'MANAGER' %}Property Manager Portal
+                        {% elif user_role == 'ACCOUNTANT' %}Finance Portal
+                        {% elif user_role == 'REALTOR' %}Realtor Portal
+                        {% elif user_role == 'INVESTOR' %}Investor Portal
+                        {% else %}{{ user_role }} Portal{% endif %}
+                    </h1>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-sm font-medium text-white">{{ user_name }}</p>
+                        <p id="activeRoleLabel" class="text-xs text-gray-400">{{ user_role }}</p>
+                    </div>
+                    {% if awaiting_ceo_signature %}
+                    <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full hidden sm:inline">Awaiting CEO</span>
+                    {% endif %}
+                    <a href="/admin/logout" class="text-gray-400 hover:text-white text-xs sm:text-sm border border-gray-600 rounded-lg px-2 sm:px-3 py-1.5 flex-shrink-0">Logout</a>
+                </div>
             </div>
-            <div class="flex items-center gap-3 flex-wrap">
-                {% if all_roles | length > 1 %}
-                <div class="w-full sm:w-auto overflow-x-auto">
-                <div id="roleSwitcher" class="flex gap-1 bg-gray-700 p-1 rounded-lg min-w-max">
+            {% if all_roles | length > 1 %}
+            <!-- Role switcher row — scrollable on mobile -->
+            <div class="overflow-x-auto -mx-1">
+                <div id="roleSwitcher" class="flex gap-1 bg-gray-700/60 p-1 rounded-lg min-w-max mx-1">
                     {% for r in all_roles %}
                     <button onclick="switchRole('{{ r }}')" id="roleBtn_{{ r }}"
                         class="role-switch-btn flex-none text-xs font-medium px-3 py-1.5 rounded-md transition-colors {% if r == user_role %}bg-slate-600 text-white{% else %}text-gray-400 hover:text-white{% endif %}">
@@ -5471,17 +5510,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </button>
                     {% endfor %}
                 </div>
-                </div>
-                {% endif %}
-                <div class="text-right hidden sm:block">
-                    <p class="text-sm font-medium text-white">{{ user_name }}</p>
-                    <p id="activeRoleLabel" class="text-xs text-gray-400">{{ user_role }}</p>
-                </div>
-                {% if awaiting_ceo_signature %}
-                <span class="bg-yellow-600 text-white text-xs px-3 py-1 rounded-full">Awaiting CEO Signature</span>
-                {% endif %}
-                <a href="/admin/logout" class="text-gray-400 hover:text-white text-sm border border-gray-600 rounded-lg px-3 py-1.5">Logout</a>
             </div>
+            {% endif %}
         </div>
     </header>
 
@@ -5497,7 +5527,7 @@ ROLE_DASHBOARD_TEMPLATE = """
     </div>
     {% endif %}
 
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <main class="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
 
         {% for r in all_roles %}
         <div id="roleSection_{{ r }}" class="{% if r != user_role %}hidden{% endif %}">
@@ -5546,12 +5576,12 @@ ROLE_DASHBOARD_TEMPLATE = """
             {% elif r == 'MANAGER' %}
             <!-- MANAGER DASHBOARD -->
             <!-- Tab navigation -->
-            <div class="overflow-x-auto -mx-1 mb-6">
-            <div class="flex gap-1 border-b border-gray-700 pb-0 min-w-max px-1" id="mgrTabBar">
-                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors bg-slate-700 text-white border-b-2 border-slate-500" data-tab="mgrTabOverview" onclick="showMgrTab('mgrTabOverview')">Overview</button>
-                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
-                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
-                <button class="mgr-tab-btn px-4 py-2.5 rounded-t-lg text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
+            <div class="overflow-x-auto -mx-3 sm:-mx-1 mb-5 border-b border-gray-700">
+            <div class="flex gap-0.5 min-w-max px-3 sm:px-1" id="mgrTabBar">
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors bg-slate-700 text-white border-b-2 border-slate-400 whitespace-nowrap" data-tab="mgrTabOverview" onclick="showMgrTab('mgrTabOverview')">Overview</button>
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
             </div>
             </div>
 
@@ -5654,7 +5684,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
                             <label class="text-xs text-gray-400">Project:</label>
-                            <select id="mgrConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm min-w-[180px]"></select>
+                            <select id="mgrConstructionProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[180px]"></select>
                         </div>
                     </div>
                     <form id="managerConstructionForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -6089,7 +6119,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = '<p class="text-gray-400 py-4 text-center text-sm">No tenants yet</p>';
                 return;
             }
-            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-3 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-3 py-1 rounded-lg">Mark Vacated</button></div></div></div>`).join('');
+            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div></div>`).join('');
         }
 
         function editRoleTenant(id) {
