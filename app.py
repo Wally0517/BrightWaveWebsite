@@ -197,7 +197,7 @@ class InvestorProfile(db.Model):
     investment_type = db.Column(db.String(10), nullable=False, default='DEBT')  # DEBT or EQUITY
     investment_amount = db.Column(db.Float, nullable=False)
     investment_date = db.Column(db.Date, nullable=True)
-    roi_rate = db.Column(db.Float, default=10.0)         # annual % for DEBT investors
+    roi_rate = db.Column(db.Float, default=3.5)          # annual % for DEBT investors
     equity_percentage = db.Column(db.Float, nullable=True)  # % project ownership for EQUITY
     construction_start_date = db.Column(db.Date, nullable=True)
     expected_completion_date = db.Column(db.Date, nullable=True)
@@ -1015,7 +1015,7 @@ DEBT INVESTMENT TERMS:
 — The Investor lends capital to the Company at the agreed annual interest rate for the agreed investment term (typically 3, 5, or 10 years as confirmed in the Investor's profile).
 — Interest distributions are paid annually, commencing after project completion and first revenue generation.
 — Principal is returned in full at the end of the agreed investment term.
-— The annual return rate recommended by the Company for founding investors is 10% per annum.
+— The annual return rate for founding investors in the current phase is 3.5% per annum. This rate reflects the early-stage nature of the business and ensures long-term sustainability for both the Company and its investors. The CEO reserves the right to revise the rate upward in future investment rounds as the Company scales and revenues increase, with any revision to be confirmed in writing prior to the signing of any new agreement.
 — The Investor may not demand early repayment of principal except by separate written agreement with the CEO.
 
 EQUITY INVESTMENT TERMS:
@@ -1195,14 +1195,15 @@ def management_redirect():
 @app.route('/apple-touch-icon.png')
 @app.route('/apple-touch-icon-precomposed.png')
 def apple_touch_icon():
-    icon_name = 'apple-touch-icon.png'
-    if not os.path.exists(os.path.join('assets', 'images', icon_name)):
-        if os.path.exists(os.path.join('assets', 'images', 'icon-192.png')):
-            icon_name = 'icon-192.png'
-        else:
-            icon_name = 'brightwave-logo.png'
-    resp = make_response(send_from_directory('assets/images', icon_name, mimetype='image/png'))
-    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    # Serve from repo root first (180x180 copy of icon-192), fall back to assets
+    if os.path.exists('apple-touch-icon.png'):
+        resp = make_response(send_from_directory('.', 'apple-touch-icon.png', mimetype='image/png'))
+    elif os.path.exists(os.path.join('assets', 'images', 'icon-192.png')):
+        resp = make_response(send_from_directory('assets/images', 'icon-192.png', mimetype='image/png'))
+    else:
+        resp = make_response(send_from_directory('assets/images', 'brightwave-logo.png', mimetype='image/png'))
+    resp.headers['Cache-Control'] = 'public, max-age=3600, must-revalidate'
+    resp.headers['ETag'] = 'brightwave-icon-v3'
     return resp
 
 @app.route('/manifest.json')
@@ -1250,7 +1251,7 @@ def public_pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v5';
+const CACHE_NAME = 'brightwave-portal-v6';
 const PRECACHE_ASSETS = [
     '/admin/login',
     '/assets/images/brightwave-logo.png',
@@ -2815,7 +2816,7 @@ def admin_investors():
             investment_type=data['investment_type'],
             investment_amount=float(data['investment_amount']),
             investment_date=parse_date(data.get('investment_date')),
-            roi_rate=float(data.get('roi_rate') or 10.0),
+            roi_rate=float(data.get('roi_rate') or 3.5),
             equity_percentage=float(data['equity_percentage']) if data.get('equity_percentage') else None,
             construction_start_date=parse_date(data.get('construction_start_date')),
             expected_completion_date=parse_date(data.get('expected_completion_date')),
@@ -3438,7 +3439,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">ROI Rate % (Annual, Debt)</label>
-                        <input type="number" id="invRoi" value="10" step="0.5" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <input type="number" id="invRoi" value="3.5" step="0.5" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Equity % (Equity type only)</label>
@@ -4913,7 +4914,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             editingInvestorId = id;
             document.getElementById('invEditAmount').value = data.investment_amount || '';
             document.getElementById('invEditType').value = data.investment_type || 'DEBT';
-            document.getElementById('invEditRoi').value = data.roi_rate || 10;
+            document.getElementById('invEditRoi').value = data.roi_rate || 3.5;
             document.getElementById('invEditEquity').value = data.equity_percentage || '';
             document.getElementById('invEditTerm').value = data.investment_term_years || '';
             document.getElementById('invEditDist').value = data.total_distributed || 0;
