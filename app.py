@@ -451,6 +451,12 @@ def ensure_runtime_schema_updates():
     if investor_columns and 'property_id' not in investor_columns:
         db.session.execute(text('ALTER TABLE investor_profile ADD COLUMN property_id INTEGER REFERENCES property(id)'))
 
+    # Rename legacy "Hostel" property titles to "Apartment" branding
+    if inspector.has_table('property'):
+        db.session.execute(text("UPDATE property SET title = 'BrightWave Phase 1 Apartment' WHERE title = 'BrightWave Phase 1 Hostel'"))
+        db.session.execute(text("UPDATE property SET title = 'BrightWave Apartment Phase 2' WHERE title = 'BrightWave Hostel Phase 2'"))
+        db.session.execute(text("UPDATE property SET title = 'BrightWave Apartment Phase 3' WHERE title = 'BrightWave Hostel Phase 3'"))
+
     # Clear placeholder capital_budget values from seed data on planning/pending properties
     # that have no recorded expenses — these were example values not set by the user
     if inspector.has_table('property') and inspector.has_table('project_expense'):
@@ -662,8 +668,8 @@ def init_sample_data():
 
     # --- Hostels (keep images) ---
     phase1 = Property(
-        title='BrightWave Phase 1 Hostel',
-        description='Modern 10-room self-contained hostel near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
+        title='BrightWave Phase 1 Apartment',
+        description='Modern 10-room self-contained apartment near KWASU with private bathrooms, kitchens, 24/7 security, and solar power.',
         property_type='hostel',
         location='Malete, Kwara State, Nigeria',
         price=None, price_type='Now Open - Contact for Rates',
@@ -675,8 +681,8 @@ def init_sample_data():
     )
 
     phase2 = Property(
-        title='BrightWave Hostel Phase 2',
-        description='30-room modern hostel with enhanced amenities.',
+        title='BrightWave Apartment Phase 2',
+        description='30-room modern apartment complex with enhanced amenities.',
         property_type='hostel', location='Malete, Kwara State',
         price=480000, price_type='per session',
         total_rooms=20, available_rooms=20,
@@ -687,8 +693,8 @@ def init_sample_data():
     )
 
     phase3 = Property(
-        title='BrightWave Hostel Phase 3',
-        description='40-room premium hostel complex with gym, library, and recreational facilities.',
+        title='BrightWave Apartment Phase 3',
+        description='40-room premium apartment complex with gym, library, and recreational facilities.',
         property_type='hostel', location='GreenCity, Malete, Kwara State',
         price=520000, price_type='per session',
         total_rooms=40, available_rooms=40,
@@ -742,7 +748,7 @@ def init_sample_data():
 
 
 def seed_default_units():
-    phase1 = Property.query.filter_by(title='BrightWave Phase 1 Hostel').first()
+    phase1 = Property.query.filter_by(title='BrightWave Phase 1 Apartment').first()
     if not phase1:
         return
 
@@ -859,8 +865,8 @@ def reconcile_property_catalog():
         '3-Bedroom Bungalow - Adewole',
     }
     coming_soon_titles = {
-        'BrightWave Hostel Phase 2',
-        'BrightWave Hostel Phase 3',
+        'BrightWave Apartment Phase 2',
+        'BrightWave Apartment Phase 3',
         'BrightWave Estate - Obada Ikija',
     }
 
@@ -1140,7 +1146,7 @@ For properties actively listed under BrightWave Habitat Enterprise, the Realtor 
 
 5. COMMISSION STRUCTURE
 The Realtor is entitled to the following commission rates on transactions successfully completed and confirmed in writing by the CEO on behalf of BrightWave Habitat Enterprise:
-   — 10% of the gross rent value per residential or hostel unit successfully leased or let.
+   — 10% of the gross rent value per residential or apartment unit successfully leased or let.
    — 10% of the agreed sale price per land plot sold.
    — 10% of the gross contract value per service apartment successfully arranged or let.
 Commission is earned upon full completion of the transaction confirmed in writing by the CEO, and is payable in accordance with the Company's standard payment schedule. No commission is payable on incomplete, uncertified, or disputed transactions. The CEO reserves the right to adjust commission terms for future engagements with 14 days written notice.
@@ -3404,6 +3410,9 @@ def my_investment():
             'notes': profile.notes or '',
             'project_property_id': project_property.id if project_property else None,
             'project_property_title': project_property.title if project_property else '',
+            'project_property_price': project_property.price if project_property else None,
+            'project_property_total_rooms': project_property.total_rooms if project_property else None,
+            'project_property_construction_status': project_property.construction_status if project_property else None,
             'construction_updates': [serialize_construction_update(update) for update in updates],
             'distribution_model': debt_schedule['distribution_model'] if debt_schedule else 'equity_variable',
             'annual_principal_component': debt_schedule['annual_principal_component'] if debt_schedule else None,
@@ -4166,7 +4175,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div>
                         <label class="block text-sm font-medium mb-2">Property Type</label>
                         <select id="property_type" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                            <option value="hostel">Hostel</option>
+                            <option value="hostel">Apartment</option>
                             <option value="land">Land</option>
                             <option value="residential">Residential</option>
                         </select>
@@ -4586,7 +4595,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div>
                             <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Properties</p>
                             <p class="text-3xl font-bold text-white mt-0.5">${stats.total_properties}</p>
-                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active &bull; H:${stats.property_breakdown.hostels} L:${stats.property_breakdown.land_plots} R:${stats.property_breakdown.residential}</p>
+                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active &bull; Apt:${stats.property_breakdown.hostels} Land:${stats.property_breakdown.land_plots} Res:${stats.property_breakdown.residential}</p>
                         </div>
                     </div>
                     <div class="bg-amber-800/60 border border-amber-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
@@ -4710,7 +4719,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
                             prop.property_type === 'hostel' ? 'bg-slate-600' : 
                             prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
-                        }">${prop.property_type}</span></td>
+                        }">${prop.property_type === 'hostel' ? 'Apartment' : prop.property_type.charAt(0).toUpperCase() + prop.property_type.slice(1)}</span></td>
                         <td class="py-2">${prop.location}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
@@ -6735,7 +6744,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Hostel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Apartment" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -7325,26 +7334,36 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (barEl) setTimeout(() => { barEl.style.width = latestPct + '%'; }, 120);
             if (!milestonesEl) return;
             if (!updates.length) {
-                milestonesEl.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Construction milestones will appear here once the project team posts them.</p>';
+                milestonesEl.innerHTML = '<p class="text-sm text-gray-500 text-center py-6">Construction milestones will appear here once the project team posts them.</p>';
                 return;
             }
-            milestonesEl.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-                updates.slice().reverse().map(item => {
+            const sorted = updates.slice().reverse(); // newest first
+            milestonesEl.innerHTML = '<div class="relative">' +
+                '<div class="absolute left-3.5 top-0 bottom-0 w-px bg-gray-700/80"></div>' +
+                sorted.map((item, i) => {
                     const pct = item.progress_percentage || 0;
-                    const colorClass = pct >= 75 ? 'border-emerald-600/50 bg-emerald-900/20' : pct >= 40 ? 'border-amber-600/50 bg-amber-900/20' : 'border-gray-600/50 bg-gray-700/30';
-                    const dotColor = pct >= 75 ? 'bg-emerald-400' : pct >= 40 ? 'bg-amber-400' : 'bg-gray-400';
-                    return `<div class="border ${colorClass} rounded-xl p-4">
-                        <div class="flex items-start justify-between gap-2 mb-2">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1 ${dotColor}"></span>
-                                <p class="font-semibold text-white text-sm leading-tight">${item.title}</p>
+                    const isLatest = i === 0;
+                    const dotBg = pct >= 75 ? 'bg-emerald-500 ring-emerald-500/30' : pct >= 40 ? 'bg-amber-500 ring-amber-500/30' : 'bg-gray-500 ring-gray-500/30';
+                    const labelColor = pct >= 75 ? 'text-emerald-400' : pct >= 40 ? 'text-amber-400' : 'text-gray-400';
+                    return `<div class="relative flex gap-4 pb-5 last:pb-0">
+                        <div class="flex-shrink-0 relative z-10 mt-0.5">
+                            <span class="flex w-7 h-7 items-center justify-center rounded-full ring-4 ring-gray-800 ${dotBg} ${isLatest ? 'animate-pulse' : ''}">
+                                <i class="fas ${pct >= 100 ? 'fa-check' : 'fa-hard-hat'} text-white text-[10px]"></i>
+                            </span>
+                        </div>
+                        <div class="flex-1 min-w-0 pt-0.5">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                                <div>
+                                    <p class="text-sm font-semibold text-white leading-tight">${item.title}${isLatest ? ' <span class="ml-1 text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Latest</span>' : ''}</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">${item.happened_on || 'Date pending'}</p>
+                                </div>
+                                <span class="text-xs font-bold flex-shrink-0 ${labelColor}">${pct}%</span>
                             </div>
-                            <span class="text-xs font-bold text-emerald-400 flex-shrink-0">${pct}%</span>
+                            <div class="w-full bg-gray-700 rounded-full h-1 mb-1.5">
+                                <div class="h-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" style="width:${pct}%"></div>
+                            </div>
+                            ${item.notes ? `<p class="text-xs text-gray-400 leading-relaxed">${item.notes}</p>` : ''}
                         </div>
-                        <div class="w-full bg-gray-700 rounded-full h-1.5 mb-2">
-                            <div class="h-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" style="width:${pct}%"></div>
-                        </div>
-                        <p class="text-xs text-gray-500">${item.happened_on || 'Date pending'}${item.notes ? ' · ' + item.notes : ''}</p>
                     </div>`;
                 }).join('') + '</div>';
         }
@@ -7386,7 +7405,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('mgrTenantName').value = tenant.name || '';
             document.getElementById('mgrTenantEmail').value = tenant.email || '';
             document.getElementById('mgrTenantPhone').value = tenant.phone || '';
-            document.getElementById('mgrTenantProperty').value = tenant.property_name || 'BrightWave Phase 1 Hostel';
+            document.getElementById('mgrTenantProperty').value = tenant.property_name || 'BrightWave Phase 1 Apartment';
             const unitSelect = document.getElementById('mgrTenantUnit');
             if (tenant.unit_number && unitSelect && !Array.from(unitSelect.options).some(opt => opt.value === tenant.unit_number)) {
                 const option = document.createElement('option');
@@ -7465,25 +7484,96 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const scheduleEl = document.getElementById('invReturnSchedule');
                 const now = new Date();
                 if (type === 'DEBT' && payoutSchedule.length) {
-                    scheduleEl.innerHTML = payoutSchedule.map(item => {
+                    // Track payment status per year using cumulative total_distributed
+                    let remaining = distributed;
+                    const annotated = payoutSchedule.map(item => {
+                        if (remaining >= item.total_payout) {
+                            remaining -= item.total_payout;
+                            return { ...item, payStatus: 'paid' };
+                        } else if (remaining > 0) {
+                            const partial = remaining;
+                            remaining = 0;
+                            return { ...item, payStatus: 'partial', paid_amount: partial };
+                        } else {
+                            const payDate = item.due_date ? new Date(item.due_date) : null;
+                            return { ...item, payStatus: payDate && now > payDate ? 'overdue' : 'scheduled' };
+                        }
+                    });
+                    scheduleEl.innerHTML = annotated.map(item => {
                         const payDate = item.due_date ? new Date(item.due_date) : null;
-                        const isPast = payDate ? now > payDate : false;
-                        const statusClass = isPast ? 'text-emerald-400' : 'text-amber-400';
-                        const statusLabel = isPast ? 'Due' : 'Scheduled';
                         const subline = `${formatNGN(item.principal_component)} principal + ${formatNGN(item.roi_component)} ROI`;
+                        const statusMap = {
+                            paid:      { label: '✓ Paid',      cls: 'text-emerald-400', bar: 'bg-emerald-500' },
+                            partial:   { label: '~ Partial',   cls: 'text-amber-300',   bar: 'bg-amber-500' },
+                            overdue:   { label: '! Overdue',   cls: 'text-red-400',     bar: 'bg-red-500' },
+                            scheduled: { label: 'Scheduled',   cls: 'text-gray-400',    bar: 'bg-gray-600' },
+                        };
+                        const s = statusMap[item.payStatus] || statusMap.scheduled;
+                        const paidBadge = item.payStatus === 'partial'
+                            ? `<p class="text-[11px] text-amber-400/80 mt-0.5">${formatNGN(item.paid_amount)} of ${formatNGN(item.total_payout)} received</p>`
+                            : '';
                         return `<div class="flex items-center justify-between gap-3 py-3 border-b border-gray-700/60 last:border-0">
-                            <div class="min-w-0">
-                                <p class="text-sm text-white font-medium">Year ${item.year} — ${payDate ? payDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'}) : 'TBC'}</p>
-                                <p class="text-xs text-gray-400 mt-0.5">${subline}</p>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-2 h-2 rounded-full flex-shrink-0 ${s.bar}"></span>
+                                    <p class="text-sm text-white font-medium">Year ${item.year} — ${payDate ? payDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'}) : 'TBC'}</p>
+                                </div>
+                                <p class="text-xs text-gray-400 pl-4">${subline}</p>
+                                ${paidBadge ? `<p class="text-[11px] text-amber-400/80 pl-4">${paidBadge}</p>` : ''}
                             </div>
                             <div class="text-right flex-shrink-0">
                                 <p class="font-bold text-white text-sm">${formatNGN(item.total_payout)}</p>
-                                <span class="text-xs font-semibold ${statusClass}">${statusLabel}</span>
+                                <span class="text-xs font-semibold ${s.cls}">${s.label}</span>
                             </div>
                         </div>`;
                     }).join('');
+                    // Summary bar
+                    const totalPayout = profile.projected_total_payout || 0;
+                    const paidPct = totalPayout > 0 ? Math.min(100, Math.round(distributed / totalPayout * 100)) : 0;
+                    scheduleEl.innerHTML += `<div class="mt-4 pt-3 border-t border-gray-700/60">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1.5"><span>Total paid out</span><span>${formatNGN(distributed)} of ${formatNGN(totalPayout)} (${paidPct}%)</span></div>
+                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full transition-all" style="width:${paidPct}%"></div></div>
+                    </div>`;
                 } else if (type === 'EQUITY') {
-                    scheduleEl.innerHTML = '<p class="text-gray-400 text-sm leading-relaxed">Equity returns are distributed annually from project revenues proportional to your ' + equity + '% stake. Distributions begin after project completion. Management will update this dashboard as revenues are realised.</p>';
+                    const rooms = profile.project_property_total_rooms || 0;
+                    const pricePerRoom = profile.project_property_price || 0;
+                    const constructionStatus = profile.project_property_construction_status || '';
+                    const annualGrossRevenue = rooms * pricePerRoom;
+                    const yourAnnualRevenue = annualGrossRevenue * (equity / 100);
+                    const completionLabel = constructionStatus === 'completed' ? 'Project complete — distributions can begin' : constructionStatus === 'in_progress' ? 'Under construction' : 'Pre-construction';
+                    const progressPct = latestProgress;
+                    scheduleEl.innerHTML = `
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                            <div class="bg-emerald-900/30 border border-emerald-700/30 rounded-xl p-4 text-center">
+                                <p class="text-xs text-emerald-400 uppercase tracking-wide mb-1">Your Equity Stake</p>
+                                <p class="text-2xl font-bold text-white">${equity}%</p>
+                                <p class="text-xs text-gray-400 mt-0.5">of project ownership</p>
+                            </div>
+                            <div class="bg-blue-900/30 border border-blue-700/30 rounded-xl p-4 text-center">
+                                <p class="text-xs text-blue-400 uppercase tracking-wide mb-1">Est. Annual Revenue</p>
+                                <p class="text-2xl font-bold text-white">${annualGrossRevenue > 0 ? formatNGN(yourAnnualRevenue) : '—'}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${annualGrossRevenue > 0 ? 'at full occupancy' : 'Set room price to calculate'}</p>
+                            </div>
+                            <div class="bg-amber-900/30 border border-amber-700/30 rounded-xl p-4 text-center">
+                                <p class="text-xs text-amber-400 uppercase tracking-wide mb-1">Total Received</p>
+                                <p class="text-2xl font-bold text-white">${formatNGN(distributed)}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">distributed to date</p>
+                            </div>
+                        </div>
+                        ${annualGrossRevenue > 0 ? `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 mb-4">
+                            <p class="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Revenue Projection</p>
+                            <div class="space-y-1.5 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-400">${rooms} units × ${formatNGN(pricePerRoom)}/yr</span><span class="text-white">${formatNGN(annualGrossRevenue)} gross</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Your ${equity}% stake</span><span class="text-emerald-400 font-semibold">${formatNGN(yourAnnualRevenue)}/yr</span></div>
+                            </div>
+                        </div>` : ''}
+                        <div class="flex items-start gap-3 text-sm">
+                            <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${constructionStatus === 'completed' ? 'bg-emerald-400' : 'bg-amber-400'}"></div>
+                            <div>
+                                <p class="text-white font-medium">${completionLabel}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">Construction progress: ${progressPct}% · Equity distributions are proportional to actual revenues and begin after project handover.</p>
+                            </div>
+                        </div>`;
                 } else {
                     scheduleEl.innerHTML = '<p class="text-gray-400 text-sm leading-relaxed">Distribution schedule will be calculated once the CEO sets the expected project completion date.</p>';
                 }
@@ -7493,15 +7583,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const detailRows = [
                     ['Investment Type', type === 'DEBT' ? 'Debt (Fixed Return)' : 'Equity (Revenue Share)'],
                     ['Amount Invested', formatNGN(amount)],
-                    ['Annual Return Rate', type === 'DEBT' ? roi + '% per annum' : 'N/A'],
+                    type === 'DEBT' ? ['Annual Return Rate', roi + '% per annum'] : ['Equity Stake', equity + '% ownership'],
                     ['Investment Term', termYears + ' year' + (termYears !== 1 ? 's' : '')],
-                    ['Annual Principal Return', type === 'DEBT' ? formatNGN(annualPrincipal) : 'N/A'],
-                    ['Annual ROI Cashflow', type === 'DEBT' ? formatNGN(annualRoiAmount) : 'N/A'],
+                    type === 'DEBT' ? ['Annual Principal Return', formatNGN(annualPrincipal)] : null,
+                    type === 'DEBT' ? ['Annual ROI Cashflow', formatNGN(annualRoiAmount)] : null,
+                    type === 'DEBT' ? ['Projected Total Payout', formatNGN(profile.projected_total_payout || 0)] : null,
                     ['Investment Date', profile.investment_date || 'Pending'],
                     ['Expected Completion', profile.expected_completion_date || 'TBC'],
-                    ['Project', profile.project_property_title || 'BrightWave Phase 1'],
+                    ['Project', profile.project_property_title || 'BrightWave Phase 1 Apartment'],
                     ['Total Paid Out', formatNGN(distributed)],
-                ];
+                ].filter(Boolean);
                 detailsEl.innerHTML = detailRows.map(([label, val]) => `
                     <div class="flex items-start justify-between gap-3 py-2.5 border-b border-gray-700/50 last:border-0">
                         <p class="text-xs text-gray-400 leading-tight">${label}</p>
@@ -7552,7 +7643,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries yet</td></tr>';
                 document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 // Units table with status action column
-                const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Hostel');
+                const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Apartment');
                 const statusClasses = { available: 'bg-emerald-900/50 text-emerald-300', occupied: 'bg-blue-900/50 text-blue-300', reserved: 'bg-amber-900/50 text-amber-300', maintenance: 'bg-red-900/50 text-red-300' };
                 const unitTableEl = document.getElementById('mgr_unitsTable');
                 if (unitTableEl) unitTableEl.innerHTML = phase1Units.map(u => `
@@ -7658,7 +7749,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     msgEl.textContent = res.message || 'Tenant saved';
                     msgEl.className = 'text-sm text-emerald-400';
                     document.getElementById('managerTenantForm').reset();
-                    document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Hostel';
+                    document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Apartment';
                     document.getElementById('mgrTenantEditId').value = '';
                     document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
                     document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
@@ -7671,7 +7762,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('mgrTenantCancelEdit')?.addEventListener('click', () => {
                 document.getElementById('managerTenantForm').reset();
                 document.getElementById('mgrTenantEditId').value = '';
-                document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Hostel';
+                document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Apartment';
                 document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
                 document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
             });
