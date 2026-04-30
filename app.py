@@ -451,6 +451,16 @@ def ensure_runtime_schema_updates():
     if investor_columns and 'property_id' not in investor_columns:
         db.session.execute(text('ALTER TABLE investor_profile ADD COLUMN property_id INTEGER REFERENCES property(id)'))
 
+    # Clear placeholder capital_budget values from seed data on planning/pending properties
+    # that have no recorded expenses — these were example values not set by the user
+    if inspector.has_table('property') and inspector.has_table('project_expense'):
+        db.session.execute(text("""
+            UPDATE property SET capital_budget = NULL
+            WHERE construction_status IN ('planning', 'pending', 'not_started')
+            AND capital_budget IS NOT NULL
+            AND id NOT IN (SELECT DISTINCT property_id FROM project_expense WHERE property_id IS NOT NULL)
+        """))
+
     db.session.commit()
 
 def get_site_content():
@@ -673,7 +683,7 @@ def init_sample_data():
         amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
         images=['images/hostels/brightwave-phase2-render.jpg'],
         construction_status='planning', completion_date=datetime(2027, 6, 30).date(),
-        featured=False, status='active', capital_budget=60000000
+        featured=False, status='active', capital_budget=None
     )
 
     phase3 = Property(
@@ -685,7 +695,7 @@ def init_sample_data():
         amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
         images=['images/hostels/brightwave-phase3-concept.jpg'],
         construction_status='pending', completion_date=datetime(2028, 12, 31).date(),
-        featured=False, status='active', capital_budget=95000000
+        featured=False, status='active', capital_budget=None
     )
 
     # --- Lands ---
@@ -4595,8 +4605,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <div class="min-w-0">
                             <p class="text-xs text-cyan-400 font-medium uppercase tracking-wide">Budget Position</p>
-                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.capital_budget_remaining)}</p>
-                            <p class="text-xs text-cyan-300 mt-1 break-all">Budgeted: ${fmtNGN(stats.total_capital_budget)}</p>
+                            <p class="text-xl sm:text-2xl font-bold ${stats.capital_budget_remaining < 0 ? 'text-red-400' : 'text-white'} mt-0.5 break-all">${stats.total_capital_budget > 0 ? fmtNGN(Math.abs(stats.capital_budget_remaining)) + (stats.capital_budget_remaining < 0 ? ' over' : ' left') : '—'}</p>
+                            <p class="text-xs text-cyan-300 mt-1 break-all">Budgeted: ${fmtNGN(stats.total_capital_budget)} · Approved: ${fmtNGN(stats.approved_capital_spent)}</p>
                         </div>
                     </div>
                 `;
