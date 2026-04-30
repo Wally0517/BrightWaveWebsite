@@ -6281,24 +6281,23 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 @page{size:A4;margin:22mm 20mm 22mm 20mm}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
-.hdr{border-bottom:2.5pt solid #000;padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
+.hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
 .co-addr{font-size:8pt;color:#555;margin-top:4pt}
 .doc-title{text-align:center;margin:16pt 0 14pt}
-.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;border-bottom:1pt solid #000;padding-bottom:5pt;display:inline-block}
-.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;border:0.5pt solid #ccc;padding:7pt 10pt;background:#f8f8f8}
+.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;padding-bottom:5pt;display:inline-block}
+.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;padding:7pt 0;background:#fff}
 .btext{white-space:pre-wrap;font-size:10.5pt;line-height:1.8;text-align:justify;margin-bottom:26pt}
-.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;border-bottom:0.5pt solid #000;padding-bottom:4pt;margin-bottom:14pt}
+.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;padding-bottom:4pt;margin-bottom:14pt}
 .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:28pt;margin-bottom:28pt}
-.sig-box{border-top:1.5pt solid #000;padding-top:9pt}
+.sig-box{padding-top:9pt}
 .sig-lbl{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:4pt}
 .sig-name{font-size:14pt;font-style:italic;font-family:'Brush Script MT','Segoe Script',cursive;margin-bottom:3pt;min-height:22pt}
 .sig-date{font-size:8.5pt;color:#333}
 .status-badge{display:inline-block;border:0.8pt solid #888;padding:5pt 14pt;font-size:8.5pt;letter-spacing:1px;margin-top:10pt}
-.stamp-area{text-align:right;margin-top:16pt;padding-top:10pt;border-top:0.5pt solid #ccc}
-.stamp-area p{font-size:7.5pt;color:#888;letter-spacing:1px;margin-bottom:4pt}
-.ftr{margin-top:28pt;border-top:0.8pt solid #ccc;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+.stamp-area{margin-top:36pt}
+.ftr{margin-top:28pt;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
 @media print{.no-print{display:none}}
 </style></head><body>
 <div class="hdr">
@@ -6332,11 +6331,8 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
     <div class="sig-date">${ceoDate || 'Date: ____________________________'}</div>
   </div>
 </div>
-<div class="stamp-area">
-  <p>Affix Company Stamp Here</p>
-  <div style="border:1pt dashed #bbb;width:120pt;height:70pt;display:inline-block;"></div>
-</div>
-<div style="text-align:center;margin-top:14pt"><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
+<div class="stamp-area"></div>
+<div style="text-align:center;margin-top:10pt"><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
 <div class="ftr">
   <span>BrightWave Habitat Enterprise &nbsp;&middot;&nbsp; Kwara State, Nigeria</span>
   <span>Ref: ${refNum} &nbsp;&middot;&nbsp; Generated ${printDate}</span>
@@ -8194,24 +8190,23 @@ ROLE_DASHBOARD_TEMPLATE = """
 @page{size:A4;margin:22mm 20mm 22mm 20mm}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
-.hdr{border-bottom:2.5pt solid #000;padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
+.hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
 .co-addr{font-size:8pt;color:#555;margin-top:4pt}
 .doc-title{text-align:center;margin:16pt 0 14pt}
-.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;border-bottom:1pt solid #000;padding-bottom:5pt;display:inline-block}
-.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;border:0.5pt solid #ccc;padding:7pt 10pt;background:#f8f8f8}
+.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;padding-bottom:5pt;display:inline-block}
+.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;padding:7pt 0;background:#fff}
 .btext{white-space:pre-wrap;font-size:10.5pt;line-height:1.8;text-align:justify;margin-bottom:26pt}
-.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;border-bottom:0.5pt solid #000;padding-bottom:4pt;margin-bottom:14pt}
+.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;padding-bottom:4pt;margin-bottom:14pt}
 .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:28pt;margin-bottom:28pt}
-.sig-box{border-top:1.5pt solid #000;padding-top:9pt}
+.sig-box{padding-top:9pt}
 .sig-lbl{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:4pt}
 .sig-name{font-size:14pt;font-style:italic;font-family:'Brush Script MT','Segoe Script',cursive;margin-bottom:3pt;min-height:22pt}
 .sig-date{font-size:8.5pt;color:#333}
 .status-badge{display:inline-block;border:0.8pt solid #888;padding:5pt 14pt;font-size:8.5pt;letter-spacing:1px;margin-top:10pt}
-.stamp-area{text-align:right;margin-top:16pt;padding-top:10pt;border-top:0.5pt solid #ccc}
-.stamp-area p{font-size:7.5pt;color:#888;letter-spacing:1px;margin-bottom:4pt}
-.ftr{margin-top:28pt;border-top:0.8pt solid #ccc;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+.stamp-area{margin-top:36pt}
+.ftr{margin-top:28pt;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
 @media print{.no-print{display:none}}
 </style></head><body>
 <div class="hdr">
@@ -8245,11 +8240,8 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
     <div class="sig-date">${ceoDate || 'Date: ____________________________'}</div>
   </div>
 </div>
-<div class="stamp-area">
-  <p>Affix Company Stamp Here</p>
-  <div style="border:1pt dashed #bbb;width:120pt;height:70pt;display:inline-block;"></div>
-</div>
-<div style="text-align:center;margin-top:14pt"><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
+<div class="stamp-area"></div>
+<div style="text-align:center;margin-top:10pt"><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
 <div class="ftr">
   <span>BrightWave Habitat Enterprise &nbsp;&middot;&nbsp; Kwara State, Nigeria</span>
   <span>Ref: ${refNum} &nbsp;&middot;&nbsp; Generated ${printDate}</span>
