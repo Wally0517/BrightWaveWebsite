@@ -5286,14 +5286,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <div class="text-right flex-shrink-0">
                                 <p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-semibold ${exp.status === 'approved' ? 'bg-emerald-900/60 text-emerald-300' : exp.status === 'rejected' ? 'bg-red-900/60 text-red-300' : 'bg-yellow-900/60 text-yellow-300'}">${(exp.status || 'pending').charAt(0).toUpperCase() + (exp.status || 'pending').slice(1)}</span>
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-semibold ${exp.approval_status === 'approved' ? 'bg-emerald-900/60 text-emerald-300' : exp.approval_status === 'rejected' ? 'bg-red-900/60 text-red-300' : 'bg-yellow-900/60 text-yellow-300'}">${(exp.approval_status || 'pending').charAt(0).toUpperCase() + (exp.approval_status || 'pending').slice(1)}</span>
                             </div>
                         </div>
                         <div class="flex items-center justify-between gap-3 mt-3 text-xs">
                             <div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div>
                             <div class="flex items-center gap-3">
-                                ${exp.status !== 'approved' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}
-                                ${exp.status !== 'rejected' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-red-400 hover:text-red-300 font-medium">Reject</button>` : ''}
+                                ${exp.approval_status !== 'approved' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}
+                                ${exp.approval_status !== 'rejected' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-red-400 hover:text-red-300 font-medium">Reject</button>` : ''}
                                 <button type="button" onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
                                 <button type="button" onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>
                             </div>
@@ -5307,10 +5307,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function ceoApproveExpense(id, status) {
             if (!confirm('Mark expense as ' + status + '?')) return;
             try {
-                await fetchData('/admin/api/project-expenses/' + id + '/approve', {
-                    method: 'POST',
+                await fetchData('/admin/api/project-expenses/' + id, {
+                    method: 'PUT',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ status })
+                    body: JSON.stringify({ approval_status: status })
                 });
                 await ceoLoadExpenses();
                 await loadStats();
