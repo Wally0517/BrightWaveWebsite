@@ -6549,16 +6549,14 @@ ROLE_DASHBOARD_TEMPLATE = """
             </div>
 
             <!-- Main dashboard -->
-            <div id="investorDashboard" class="hidden space-y-5">
+            <div id="investorDashboard" class="hidden space-y-4 sm:space-y-6">
 
                 <!-- 1. HERO / WELCOME CARD -->
                 <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 border border-slate-600/60 rounded-2xl p-5 sm:p-8">
-                    <!-- Decorative circles -->
                     <div class="absolute -top-16 -right-16 w-56 h-56 bg-emerald-500/5 rounded-full pointer-events-none"></div>
                     <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-blue-500/5 rounded-full pointer-events-none"></div>
                     <div class="relative">
-                        <!-- Brand row -->
-                        <div class="flex items-center justify-between gap-3 mb-5">
+                        <div class="flex items-center justify-between gap-3 mb-4 sm:mb-6">
                             <div class="flex items-center gap-3">
                                 <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full ring-2 ring-slate-500/40 object-cover flex-shrink-0">
                                 <div>
@@ -6568,82 +6566,77 @@ ROLE_DASHBOARD_TEMPLATE = """
                             </div>
                             <span id="invTypeBadge" class="text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"></span>
                         </div>
-                        <!-- Greeting -->
                         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, <span id="invWelcomeName" class="text-emerald-400"></span></h2>
-                        <p id="invHeroSubtitle" class="text-slate-400 text-sm mb-6"></p>
-                        <!-- 4 quick-stat tiles -->
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <p id="invHeroSubtitle" class="text-slate-400 text-sm mb-5 sm:mb-7"></p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                             <div class="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Invested</p>
-                                <p id="invHeroAmount" class="text-lg sm:text-xl font-bold text-white break-all">—</p>
+                                <p class="text-[11px] text-slate-400 uppercase tracking-wide mb-1.5">Invested</p>
+                                <p id="invHeroAmount" class="text-base sm:text-xl font-bold text-white break-all leading-tight">—</p>
                             </div>
                             <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 sm:p-4">
-                                <p class="text-xs text-emerald-400 uppercase tracking-wide mb-1">Total Return</p>
-                                <p id="invHeroReturn" class="text-lg sm:text-xl font-bold text-emerald-300 break-all">—</p>
-                                <p id="invHeroReturnNote" class="text-xs text-emerald-500/70 mt-0.5 leading-tight"></p>
+                                <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1.5">Total Return</p>
+                                <p id="invHeroReturn" class="text-base sm:text-xl font-bold text-emerald-300 break-all leading-tight">—</p>
+                                <p id="invHeroReturnNote" class="text-[11px] text-emerald-500/70 mt-1 leading-snug hidden sm:block"></p>
                             </div>
                             <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 sm:p-4">
-                                <p class="text-xs text-blue-400 uppercase tracking-wide mb-1">Paid Out</p>
-                                <p id="invHeroDistributed" class="text-lg sm:text-xl font-bold text-blue-300 break-all">—</p>
+                                <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1.5">Paid Out</p>
+                                <p id="invHeroDistributed" class="text-base sm:text-xl font-bold text-blue-300 break-all leading-tight">—</p>
                             </div>
                             <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 sm:p-4">
-                                <p class="text-xs text-amber-400 uppercase tracking-wide mb-1">Site Progress</p>
-                                <p id="invHeroProgress" class="text-lg sm:text-xl font-bold text-amber-300">—</p>
+                                <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1.5">Site Progress</p>
+                                <p id="invHeroProgress" class="text-base sm:text-xl font-bold text-amber-300 leading-tight">—</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 2. CONSTRUCTION PROGRESS -->
-                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
-                    <div class="flex items-center justify-between gap-3 mb-5">
+                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
+                    <div class="flex items-center justify-between gap-3 mb-4 sm:mb-6">
                         <div>
                             <h3 class="font-bold text-white text-base sm:text-lg">Construction Progress</h3>
                             <p class="text-xs text-gray-500 mt-0.5">Live milestones posted by the project team</p>
                         </div>
-                        <span id="invProgressHeadline" class="text-2xl font-bold text-emerald-400">0%</span>
+                        <span id="invProgressHeadline" class="text-2xl sm:text-3xl font-bold text-emerald-400">0%</span>
                     </div>
-                    <!-- Animated main bar -->
-                    <div class="relative h-4 bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div class="relative h-3 sm:h-4 bg-gray-700 rounded-full overflow-hidden mb-2">
                         <div id="invMainProgressBar" class="h-full rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-1000" style="width:0%"></div>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-500 mb-5">
+                    <div class="flex justify-between text-xs text-gray-500 mb-5 sm:mb-7">
                         <span>0%</span><span>50%</span><span>100%</span>
                     </div>
                     <div id="invMilestones"></div>
                 </div>
 
                 <!-- 3. RETURN SCHEDULE -->
-                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
-                    <div class="flex items-start justify-between gap-3 mb-5">
+                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
+                    <div class="flex items-start justify-between gap-3 mb-4 sm:mb-6">
                         <div>
                             <h3 class="font-bold text-white text-base sm:text-lg">Your Return Schedule</h3>
                             <p class="text-xs text-gray-500 mt-0.5">Projected annual distributions at maturity</p>
                         </div>
-                        <span id="invRoiTag" class="text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-2.5 py-1 rounded-full flex-shrink-0"></span>
+                        <span id="invRoiTag" class="text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-2.5 py-1.5 rounded-full flex-shrink-0"></span>
                     </div>
                     <div id="invReturnSchedule"></div>
                 </div>
 
-                <!-- 4. DETAILS + DOCUMENTS side by side -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <!-- Investment details -->
-                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
-                        <h3 class="font-bold text-white text-base mb-4">Investment Details</h3>
-                        <div id="invDetailsGrid" class="space-y-3"></div>
+                <!-- 4. DETAILS + DOCUMENTS -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
+                        <h3 class="font-bold text-white text-base mb-4 sm:mb-5">Investment Details</h3>
+                        <div id="invDetailsGrid"></div>
                     </div>
-                    <!-- Documents -->
-                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
-                        <h3 class="font-bold text-white text-base mb-4">Your Documents</h3>
-                        <div class="flex items-start gap-4 p-4 bg-gray-700/50 border border-gray-600/50 rounded-xl mb-4">
+                    <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
+                        <h3 class="font-bold text-white text-base mb-4 sm:mb-5">Your Documents</h3>
+                        <div class="flex items-start gap-4 p-4 sm:p-5 bg-gray-700/50 border border-gray-600/50 rounded-xl mb-4">
                             <div class="w-10 h-10 bg-emerald-900/60 border border-emerald-700/40 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <i class="fas fa-file-contract text-emerald-400 text-sm"></i>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="font-semibold text-white text-sm">Investment Agreement</p>
-                                <p id="docStatus" class="text-xs text-gray-400 mt-0.5">Loading…</p>
+                                <p id="docStatus" class="text-xs text-gray-400 mt-1">Loading…</p>
                             </div>
-                            <button id="viewAgreementBtn" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700/60 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors">View</button>
+                            <button id="viewAgreementBtn" onclick="viewMyContract()" class="hidden text-sm text-emerald-400 hover:text-emerald-300 border border-emerald-700/60 rounded-lg px-3 py-2.5 flex-shrink-0 transition-colors font-medium">View</button>
                         </div>
                         <p class="text-xs text-gray-500 leading-relaxed">Your signed agreement is legally binding and on record. The original is held securely by BrightWave Habitat Enterprise.</p>
                     </div>
@@ -6652,10 +6645,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <!-- 5. CONTACT CTA -->
                 <div class="bg-gradient-to-r from-slate-800 to-gray-800 border border-slate-600/40 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <p class="font-semibold text-white text-sm">Have a question about your investment?</p>
-                        <p class="text-xs text-gray-400 mt-0.5">The CEO is available to address any concerns or provide updates directly.</p>
+                        <p class="font-semibold text-white">Have a question about your investment?</p>
+                        <p class="text-sm text-gray-400 mt-1">The CEO is available to address any concerns or provide updates directly.</p>
                     </div>
-                    <a href="mailto:brightwavehabitat@gmail.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-2 px-5 rounded-xl transition-colors flex items-center gap-2">
+                    <a href="mailto:brightwavehabitat@gmail.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-3 px-6 rounded-xl transition-colors flex items-center gap-2">
                         <i class="fas fa-envelope text-xs"></i> Contact CEO
                     </a>
                 </div>
@@ -6692,15 +6685,15 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             <!-- OVERVIEW TAB -->
             <div id="mgrTabOverview">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-3xl font-bold">-</p></div>
-                    <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-3xl font-bold">-</p></div>
-                    <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-3xl font-bold">-</p></div>
-                    <div class="bg-purple-900 rounded-xl p-5"><p class="text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-3xl font-bold">-</p></div>
+                <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                    <div class="bg-gray-800 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                    <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                    <div class="bg-blue-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                    <div class="bg-purple-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-2xl sm:text-3xl font-bold">-</p></div>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-6 mb-6">
+                <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
-                    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
+                    <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="mgr_propertiesTable"></tbody></table></div>
                 </div>
                 {% if all_roles | length > 1 %}
                 <div class="bg-gray-800 rounded-xl p-6 mb-6">
@@ -6735,7 +6728,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <h3 class="font-semibold text-lg text-slate-300">Phase 1 Units</h3>
                             <span class="text-xs text-gray-500">Click status to update</span>
                         </div>
-                        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
                     </div>
                     <div class="bg-gray-800 rounded-xl p-6">
                         <h3 class="font-semibold text-lg mb-4 text-slate-300">Add or Update Tenant</h3>
@@ -6771,7 +6764,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <span class="text-xs text-gray-500">Update status to track your pipeline</span>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm min-w-[480px]">
                             <thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead>
                             <tbody id="mgr_inquiriesTable"></tbody>
                         </table>
@@ -6864,18 +6857,18 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Total Revenue (All Time)</p><p id="acc_total_revenue" class="text-3xl font-bold text-white">-</p></div>
-                <div class="bg-teal-900 rounded-xl p-5"><p class="text-xs text-teal-300 uppercase tracking-wide mb-1">Revenue This Month</p><p id="acc_monthly_revenue" class="text-3xl font-bold text-white">-</p></div>
-                <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-3xl font-bold text-white">-</p></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Total Revenue</p><p id="acc_total_revenue" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-teal-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-teal-300 uppercase tracking-wide mb-1">This Month</p><p id="acc_monthly_revenue" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-blue-900 rounded-xl p-4 sm:p-5 col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-amber-900 rounded-xl p-5"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Capital Spent (All Time)</p><p id="acc_capital_spent" class="text-3xl font-bold text-white">-</p></div>
-                <div class="bg-orange-900 rounded-xl p-5"><p class="text-xs text-orange-300 uppercase tracking-wide mb-1">Capital Spent This Month</p><p id="acc_monthly_capital" class="text-3xl font-bold text-white">-</p></div>
-                <div class="bg-cyan-900 rounded-xl p-5"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="acc_budget_remaining" class="text-3xl font-bold text-white">-</p></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div class="bg-amber-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1">Capital Spent</p><p id="acc_capital_spent" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-orange-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-orange-300 uppercase tracking-wide mb-1">Capital This Month</p><p id="acc_monthly_capital" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-cyan-900 rounded-xl p-4 sm:p-5 col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="acc_budget_remaining" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
-                <div class="bg-gray-800 rounded-xl p-6">
+                <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Record Payment</h3>
                     <form id="accountantPaymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="hidden" id="accPaymentEditId">
@@ -6888,16 +6881,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="accPaymentSubmit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><button type="button" id="accPaymentCancel" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="accPaymentMsg" class="text-sm"></span></div>
                     </form>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-6">
+                <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
                     <div id="acc_paymentsContainer" class="space-y-3"></div>
                 </div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6">
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Occupancy Snapshot</h3>
                 <div id="accUnitsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6 mt-6">
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Recent Project Expenses</h3>
                     <div id="accExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
@@ -6922,26 +6915,26 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'REALTOR' %}
             <!-- REALTOR DASHBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-5"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Active Properties</p><p id="rel_properties" class="text-3xl font-bold">-</p></div>
-                <div class="bg-emerald-900 rounded-xl p-5"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="rel_available_units" class="text-3xl font-bold">-</p></div>
-                <div class="bg-amber-900 rounded-xl p-5"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Open Leads</p><p id="rel_inquiries" class="text-3xl font-bold">-</p></div>
-                <div class="bg-green-900 rounded-xl p-5"><p class="text-xs text-green-300 uppercase tracking-wide mb-1">New Today</p><p id="rel_new" class="text-3xl font-bold">-</p></div>
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1">Active Properties</p><p id="rel_properties" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="rel_available_units" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                <div class="bg-amber-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1">Open Leads</p><p id="rel_inquiries" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                <div class="bg-green-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-green-300 uppercase tracking-wide mb-1">Total Leads</p><p id="rel_new" class="text-2xl sm:text-3xl font-bold">-</p></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Units Ready To Lease</h3>
-                    <span class="text-xs text-gray-500">Live availability for leasing conversations</span>
+                    <span class="text-xs text-gray-500 hidden sm:block">Live availability for leasing conversations</span>
                 </div>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="rel_unitsTable"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="rel_unitsTable"></tbody></table></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6 mb-6">
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Available Properties</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Price</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="rel_propertiesTable"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Price</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="rel_propertiesTable"></tbody></table></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6">
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Leads / Inquiries</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="rel_inquiriesTable"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="rel_inquiriesTable"></tbody></table></div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
@@ -7711,12 +7704,26 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const [stats, props, inquiries, units] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/properties'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/units')]);
                 document.getElementById('rel_properties').textContent = stats.active_properties || 0;
                 document.getElementById('rel_available_units').textContent = stats.available_units || 0;
-                document.getElementById('rel_inquiries').textContent = stats.total_inquiries || 0;
-                document.getElementById('rel_new').textContent = stats.new_inquiries || 0;
+                document.getElementById('rel_inquiries').textContent = stats.new_inquiries || 0;
+                document.getElementById('rel_new').textContent = stats.total_inquiries || 0;
                 renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
-                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
-                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.slice(0, 10).map(i => `<tr class="border-b border-gray-700"><td class="py-2 pr-3">${i.full_name}</td><td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${i.status}</span></td><td class="py-2 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
-            } catch (e) {}
+                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                const statuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
+                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.slice(0, 20).map(i => `<tr class="border-b border-gray-700/60"><td class="py-2.5 pr-3 font-medium text-sm">${i.full_name}</td><td class="py-2.5 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2.5 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2.5 pr-2"><select onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}</select></td><td class="py-2.5 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
+            } catch (e) {
+                console.error('Realtor dashboard error:', e);
+                const tbl = document.getElementById('rel_inquiriesTable');
+                if (tbl) tbl.innerHTML = '<tr><td colspan="5" class="text-red-400 py-3 text-center text-sm">Error loading data</td></tr>';
+            }
+        }
+
+        async function relUpdateInquiryStatus(id, status) {
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+                await loadRealtorDashboard();
+            } catch (e) {
+                alert('Failed to update status: ' + e.message);
+            }
         }
 
         async function vacateRoleTenant(id) {
@@ -8107,6 +8114,24 @@ ROLE_DASHBOARD_TEMPLATE = """
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
+
+        function downloadContract() {
+            const title = document.getElementById('cvModalTitle')?.textContent || 'Agreement';
+            const body = document.getElementById('cvModalBody')?.textContent || '';
+            const userSig = document.getElementById('cvUserSig')?.textContent || '';
+            const userDate = document.getElementById('cvUserDate')?.textContent || '';
+            const ceoSig = document.getElementById('cvCeoSig')?.textContent || '';
+            const ceoDate = document.getElementById('cvCeoDate')?.textContent || '';
+            const status = document.getElementById('cvStatus')?.textContent || '';
+            const content = `${title}\n${'='.repeat(title.length)}\n\n${body}\n\n${'—'.repeat(40)}\nEmployee / Investor Signature: ${userSig}\n${userDate}\n\nCEO Signature (BrightWave): ${ceoSig}\n${ceoDate}\n\nStatus: ${status}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = title.replace(/[^a-z0-9]/gi, '_') + '.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
         }
