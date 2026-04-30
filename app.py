@@ -2605,8 +2605,20 @@ def admin_project_expenses():
         property_id = data.get('property_id')
         item_name = (data.get('item_name') or '').strip()
         amount = data.get('amount')
-        if not property_id or not item_name or amount in (None, ''):
-            return jsonify({"success": False, "message": "property_id, item_name, and amount are required"}), 400
+        category = (data.get('category') or 'materials').strip() or 'materials'
+        if not property_id or amount in (None, ''):
+            return jsonify({"success": False, "message": "property_id and amount are required"}), 400
+        if not item_name:
+            payee_hint = (data.get('payee_name') or '').strip()
+            auto_names = {
+                'labour': f"Labour{' — ' + payee_hint if payee_hint else ''}",
+                'transport': 'Transport',
+                'permits': 'Permit / Fee',
+                'other': 'Other expense',
+            }
+            item_name = auto_names.get(category)
+            if not item_name:
+                return jsonify({"success": False, "message": "Item / Purchase name is required for this category"}), 400
 
         prop = Property.query.get_or_404(int(property_id))
         payee_name = (data.get('payee_name') or '').strip() or None
@@ -4320,12 +4332,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <form id="ceoExpenseForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="hidden" id="ceoExpenseEditId">
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Expense Date *</label><input type="date" id="ceoExpenseDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="ceoExpenseCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
-                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="ceoExpenseItem" placeholder="Cement, iron rods, bricklayer wages, diesel..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="ceoExpensePayee" placeholder="Supplier or worker name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="ceoExpenseCategory" onchange="updateExpenseForm('ceo')" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
+                        <div class="sm:col-span-2" id="ceoExpenseItemRow"><label id="ceoExpenseItemLabel" class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="ceoExpenseItem" placeholder="Cement, iron rods, electrical fittings..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="sm:col-span-2 hidden" id="ceoExpenseLabourHint"><p class="text-xs text-amber-300 bg-amber-900/30 border border-amber-700/40 rounded-lg px-3 py-2">Labour entry — fill in the worker name in <strong>Paid To</strong> and the total <strong>Amount</strong>. No item or quantity needed.</p></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400" id="ceoExpensePayeeLabel">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="ceoExpensePayee" placeholder="Supplier or worker name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="ceoExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="ceoExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="ceoExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div id="ceoExpenseQtyRow"><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="ceoExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div id="ceoExpenseUnitRow"><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="ceoExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="ceoExpenseReceipt" accept="image/*,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                         <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="ceoExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="ceoExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="ceoExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="ceoCancelExpenseEdit()">Cancel Edit</button><span id="ceoExpenseMsg" class="text-sm"></span></div>
@@ -5337,6 +5350,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('ceoExpenseEditId').value = exp.id;
             document.getElementById('ceoExpenseDate').value = exp.expense_date || '';
             document.getElementById('ceoExpenseCategory').value = exp.category || 'materials';
+            updateExpenseForm('ceo');
             document.getElementById('ceoExpenseItem').value = exp.item_name || '';
             document.getElementById('ceoExpensePayee').value = exp.payee_name || '';
             document.getElementById('ceoExpenseAmount').value = exp.amount || '';
@@ -5348,11 +5362,26 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('ceoExpenseForm')?.scrollIntoView({ behavior: 'smooth' });
         }
 
+        function updateExpenseForm(prefix) {
+            const cat = document.getElementById(prefix + 'ExpenseCategory')?.value || 'materials';
+            const isLabour = cat === 'labour';
+            const showQty = cat === 'materials' || cat === 'equipment';
+            document.getElementById(prefix + 'ExpenseItemRow')?.classList.toggle('hidden', isLabour);
+            document.getElementById(prefix + 'ExpenseLabourHint')?.classList.toggle('hidden', !isLabour);
+            document.getElementById(prefix + 'ExpenseQtyRow')?.classList.toggle('hidden', !showQty);
+            document.getElementById(prefix + 'ExpenseUnitRow')?.classList.toggle('hidden', !showQty);
+            const lbl = document.getElementById(prefix + 'ExpenseItemLabel');
+            if (lbl) lbl.textContent = {materials:'Item / Purchase *', transport:'Route / Purpose', permits:'Permit / Fee Description', equipment:'Equipment / Item *', other:'Description'}[cat] || 'Item / Purchase *';
+            const payeeLbl = document.getElementById(prefix + 'ExpensePayeeLabel');
+            if (payeeLbl) payeeLbl.textContent = isLabour ? 'Worker / Paid To *' : 'Paid To / Supplier';
+        }
+
         function ceoCancelExpenseEdit() {
             document.getElementById('ceoExpenseEditId').value = '';
             document.getElementById('ceoExpenseForm')?.reset();
             document.getElementById('ceoExpenseSubmitBtn').textContent = 'Save Expense';
             document.getElementById('ceoExpenseCancelBtn').classList.add('hidden');
+            updateExpenseForm('ceo');
         }
 
         async function ceoUploadReceipt() {
@@ -6892,12 +6921,13 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <form id="mgrExpenseForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <input type="hidden" id="mgrExpenseEditId">
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Expense Date *</label><input type="date" id="mgrExpenseDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="mgrExpenseCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
-                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="mgrExpenseItem" placeholder="Blocks, plumber wages, electrical fittings..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="mgrExpensePayee" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="mgrExpenseCategory" onchange="updateExpenseForm('mgr')" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
+                            <div class="sm:col-span-2" id="mgrExpenseItemRow"><label id="mgrExpenseItemLabel" class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="mgrExpenseItem" placeholder="Blocks, electrical fittings..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div class="sm:col-span-2 hidden" id="mgrExpenseLabourHint"><p class="text-xs text-amber-300 bg-amber-900/30 border border-amber-700/40 rounded-lg px-3 py-2">Labour entry — fill in the worker name in <strong>Paid To</strong> and the total <strong>Amount</strong>. No item or quantity needed.</p></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400" id="mgrExpensePayeeLabel">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="mgrExpensePayee" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="mgrExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="mgrExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="mgrExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div id="mgrExpenseQtyRow"><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="mgrExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div id="mgrExpenseUnitRow"><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="mgrExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="mgrExpenseReceipt" accept="image/*,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                             <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="mgrExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="mgrExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('mgr')">Cancel Edit</button><span id="mgrExpenseMsg" class="text-sm"></span></div>
@@ -7183,12 +7213,27 @@ ROLE_DASHBOARD_TEMPLATE = """
             return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span></div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${managementActions}${statusActions}</div></div></div>`;
         }
 
+        function updateExpenseForm(prefix) {
+            const cat = document.getElementById(prefix + 'ExpenseCategory')?.value || 'materials';
+            const isLabour = cat === 'labour';
+            const showQty = cat === 'materials' || cat === 'equipment';
+            document.getElementById(prefix + 'ExpenseItemRow')?.classList.toggle('hidden', isLabour);
+            document.getElementById(prefix + 'ExpenseLabourHint')?.classList.toggle('hidden', !isLabour);
+            document.getElementById(prefix + 'ExpenseQtyRow')?.classList.toggle('hidden', !showQty);
+            document.getElementById(prefix + 'ExpenseUnitRow')?.classList.toggle('hidden', !showQty);
+            const lbl = document.getElementById(prefix + 'ExpenseItemLabel');
+            if (lbl) lbl.textContent = {materials:'Item / Purchase *', transport:'Route / Purpose', permits:'Permit / Fee Description', equipment:'Equipment / Item *', other:'Description'}[cat] || 'Item / Purchase *';
+            const payeeLbl = document.getElementById(prefix + 'ExpensePayeeLabel');
+            if (payeeLbl) payeeLbl.textContent = isLabour ? 'Worker / Paid To *' : 'Paid To / Supplier';
+        }
+
         function cancelExpenseEdit(source) {
             const prefix = source === 'mgr' ? 'mgr' : 'ceo';
             document.getElementById(prefix + 'ExpenseEditId').value = '';
             document.getElementById(prefix + 'ExpenseForm')?.reset();
             document.getElementById(prefix + 'ExpenseSubmitBtn').textContent = 'Save Expense';
             document.getElementById(prefix + 'ExpenseCancelBtn').classList.add('hidden');
+            updateExpenseForm(prefix);
         }
 
         function editProjectExpense(source, expenseId) {
@@ -7198,6 +7243,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById(prefix + 'ExpenseEditId').value = expense.id;
             document.getElementById(prefix + 'ExpenseDate').value = expense.expense_date || '';
             document.getElementById(prefix + 'ExpenseCategory').value = expense.category || 'materials';
+            updateExpenseForm(prefix);
             document.getElementById(prefix + 'ExpenseItem').value = expense.item_name || '';
             document.getElementById(prefix + 'ExpensePayee').value = expense.payee_name || '';
             document.getElementById(prefix + 'ExpenseAmount').value = expense.amount || '';
