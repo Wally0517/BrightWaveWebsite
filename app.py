@@ -3133,6 +3133,13 @@ def admin_tenant_detail(tenant_id):
             return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
         tenant = Tenant.query.get_or_404(tenant_id)
         if request.method == 'DELETE':
+            if request.args.get('hard') == '1':
+                if not admin_has_any_role(_tenant_admin, 'CEO'):
+                    return jsonify({"success": False, "message": "CEO access required"}), 403
+                db.session.delete(tenant)
+                db.session.commit()
+                sync_property_units_from_tenants()
+                return jsonify({"success": True, "message": "Tenant removed"})
             tenant.status = 'vacated'
             db.session.commit()
             sync_property_units_from_tenants()
@@ -4063,6 +4070,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 p-4 rounded-lg mb-4">
                 <h3 class="font-semibold mb-3 text-slate-300">Record Payment</h3>
                 <form id="addPaymentForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="hidden" id="pmtEditId">
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Tenant</label>
                         <select id="pmtTenantId" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -4080,8 +4088,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><input type="text" id="pmtUnit" placeholder="e.g. 1A, 2B" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Period / Session</label><input type="text" id="pmtPeriod" placeholder="e.g. Jan 2026, 2025/2026" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><input type="text" id="pmtDesc" placeholder="Optional notes" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div class="flex items-end gap-3">
-                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Record Payment</button>
+                    <div class="flex items-end gap-3 flex-wrap">
+                        <button type="submit" id="pmtSubmitBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Record Payment</button>
+                        <button type="button" id="pmtCancelBtn" onclick="cancelCeoPaymentEdit()" class="hidden bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium py-2 px-4 rounded-lg">Cancel Edit</button>
                         <span id="paymentMsg" class="text-sm"></span>
                     </div>
                 </form>
@@ -4228,10 +4237,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div class="bg-red-900 rounded-xl p-4"><p class="text-xs text-red-300 uppercase tracking-wide mb-1">Rejected</p><p id="capRejectedTotal" class="text-2xl font-bold text-white">₦0</p></div>
                 <div class="bg-cyan-900 rounded-xl p-4"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="capBudgetRemaining" class="text-2xl font-bold text-white">—</p></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
                 <label class="text-sm text-gray-400 flex-shrink-0">Project:</label>
                 <select id="ceoCapitalProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[220px]"></select>
-                <p class="text-xs text-gray-500 sm:ml-2">Budget totals update when you select a project.</p>
+                <div class="flex items-center gap-4 sm:ml-3 text-xs text-gray-400">
+                    <span>Capital Budget: <span id="capBudgetTotal" class="text-white font-semibold">—</span></span>
+                    <span class="text-gray-600">|</span>
+                    <span class="text-gray-500">Approve / Reject buttons appear on each recorded expense card below</span>
+                </div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
                 <div class="bg-gray-800 rounded-xl p-5">
@@ -4254,7 +4267,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="ceoExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="ceoExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="ceoExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="ceoExpenseReceipt" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="ceoExpenseReceipt" accept="image/*,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                         <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="ceoExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="ceoExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="ceoExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('ceo')">Cancel Edit</button><span id="ceoExpenseMsg" class="text-sm"></span></div>
                         <p class="sm:col-span-2 text-[11px] text-gray-500">CEO and accountant approvals determine what counts against committed capital.</p>
@@ -5283,6 +5296,23 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             modal.classList.add('hidden'); modal.classList.remove('flex');
         }
 
+        function downloadContract() {
+            const title = document.getElementById('cvModalTitle')?.textContent || 'Agreement';
+            const body = document.getElementById('cvModalBody')?.textContent || '';
+            const userSig = document.getElementById('cvUserSig')?.textContent || '';
+            const userDate = document.getElementById('cvUserDate')?.textContent || '';
+            const ceoSig = document.getElementById('cvCeoSig')?.textContent || '';
+            const ceoDate = document.getElementById('cvCeoDate')?.textContent || '';
+            const status = document.getElementById('cvStatus')?.textContent || '';
+            const content = `${title}\n${'='.repeat(title.length)}\n\n${body}\n\n${'—'.repeat(40)}\nEmployee / Investor Signature: ${userSig}\n${userDate}\n\nCEO Signature (BrightWave): ${ceoSig}\n${ceoDate}\n\nStatus: ${status}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = title.replace(/[^a-z0-9]/gi, '_') + '.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
         // ===== TEAM ACCOUNTS =====
         async function loadAccounts() {
             try {
@@ -5614,8 +5644,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → '+t.lease_end : ''}</p>
                             </div>
                         </div>
-                        <div class="flex justify-end pt-2 border-t border-gray-600/50">
-                            <button onclick="vacateTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
+                            <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
+                            <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
                         </div>
                     </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No tenants found</p>';
             } catch (e) {
@@ -5685,9 +5716,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             return { unit, period, notes: notes.join(' | ') };
         }
 
+        let ceoPaymentsCache = [];
+
         async function loadPayments() {
             try {
                 const payments = await fetchData('/admin/api/payments');
+                ceoPaymentsCache = payments;
                 const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
                 document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => {
                     const meta = parsePaymentMeta(p.description);
@@ -5699,12 +5733,18 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <p class="text-emerald-400 font-bold text-base flex-shrink-0">${fmtNGN(p.amount)}</p>
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap text-xs">
-                            <span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span>
-                            ${meta.unit ? `<span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">Unit ${meta.unit}</span>` : ''}
-                            ${meta.period ? `<span class="px-2 py-1 rounded-full bg-indigo-900/50 text-indigo-300">${meta.period}</span>` : ''}
-                            <span class="text-gray-400">${p.payment_date}</span>
-                            ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                        <div class="flex items-center justify-between gap-2 flex-wrap text-xs">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span>
+                                ${meta.unit ? `<span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">Unit ${meta.unit}</span>` : ''}
+                                ${meta.period ? `<span class="px-2 py-1 rounded-full bg-indigo-900/50 text-indigo-300">${meta.period}</span>` : ''}
+                                <span class="text-gray-400">${p.payment_date}</span>
+                                ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button type="button" onclick="startCeoPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
+                                <button type="button" onclick="deleteCeoPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>
+                            </div>
                         </div>
                     </div>`;
                 }).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded</p>';
@@ -5713,9 +5753,54 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function startCeoPaymentEdit(paymentId) {
+            const p = ceoPaymentsCache.find(x => x.id === paymentId);
+            if (!p) return;
+            const meta = parsePaymentMeta(p.description);
+            document.getElementById('pmtEditId').value = p.id;
+            document.getElementById('pmtTenantId').value = p.tenant_id || '';
+            document.getElementById('pmtTenantName').value = p.tenant_name || '';
+            document.getElementById('pmtAmount').value = p.amount || '';
+            document.getElementById('pmtDate').value = p.payment_date || '';
+            document.getElementById('pmtType').value = p.payment_type || 'rent';
+            document.getElementById('pmtUnit').value = meta.unit || '';
+            document.getElementById('pmtPeriod').value = meta.period || '';
+            document.getElementById('pmtDesc').value = meta.notes || '';
+            document.getElementById('pmtSubmitBtn').textContent = 'Save Changes';
+            document.getElementById('pmtCancelBtn').classList.remove('hidden');
+            document.getElementById('addPaymentForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cancelCeoPaymentEdit() {
+            document.getElementById('pmtEditId').value = '';
+            document.getElementById('addPaymentForm').reset();
+            document.getElementById('pmtSubmitBtn').textContent = 'Record Payment';
+            document.getElementById('pmtCancelBtn').classList.add('hidden');
+        }
+
+        async function deleteCeoPayment(paymentId) {
+            if (!confirm('Remove this payment record?')) return;
+            try {
+                await fetchData('/admin/api/payments/' + paymentId, { method: 'DELETE' });
+                cancelCeoPaymentEdit();
+                loadPayments();
+                loadStats();
+            } catch (err) { alert(err.message || 'Error removing payment'); }
+        }
+
+        async function hardDeleteTenant(id) {
+            if (!confirm('Permanently remove this tenant record? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/tenants/' + id + '?hard=1', { method: 'DELETE' });
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+            } catch (e) { alert(e.message || 'Error removing tenant'); }
+        }
+
         document.getElementById('addPaymentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const msgEl = document.getElementById('paymentMsg');
+            const editId = document.getElementById('pmtEditId')?.value || '';
             try {
                 const tenantSelect = document.getElementById('pmtTenantId');
                 const unit = (document.getElementById('pmtUnit')?.value || '').trim();
@@ -5725,21 +5810,20 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 if (unit) descParts.push(`Unit:${unit}`);
                 if (period) descParts.push(`Period:${period}`);
                 if (notes) descParts.push(notes);
-                const res = await fetchData('/admin/api/payments', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        tenant_id: tenantSelect.value || null,
-                        tenant_name: document.getElementById('pmtTenantName').value,
-                        amount: document.getElementById('pmtAmount').value,
-                        payment_date: document.getElementById('pmtDate').value,
-                        payment_type: document.getElementById('pmtType').value,
-                        description: descParts.join(' | ') || null,
-                    })
-                });
+                const payload = {
+                    tenant_id: tenantSelect.value || null,
+                    tenant_name: document.getElementById('pmtTenantName').value,
+                    amount: document.getElementById('pmtAmount').value,
+                    payment_date: document.getElementById('pmtDate').value,
+                    payment_type: document.getElementById('pmtType').value,
+                    description: descParts.join(' | ') || null,
+                };
+                const url = editId ? '/admin/api/payments/' + editId : '/admin/api/payments';
+                const method = editId ? 'PUT' : 'POST';
+                const res = await fetchData(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
                 msgEl.textContent = res.message;
                 msgEl.className = 'text-sm text-green-400';
-                document.getElementById('addPaymentForm').reset();
+                cancelCeoPaymentEdit();
                 loadPayments();
                 loadStats();
             } catch (err) {
@@ -5885,6 +5969,23 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             modal.classList.add('hidden'); modal.classList.remove('flex');
         }
 
+        function downloadContract() {
+            const title = document.getElementById('cvModalTitle')?.textContent || 'Agreement';
+            const body = document.getElementById('cvModalBody')?.textContent || '';
+            const userSig = document.getElementById('cvUserSig')?.textContent || '';
+            const userDate = document.getElementById('cvUserDate')?.textContent || '';
+            const ceoSig = document.getElementById('cvCeoSig')?.textContent || '';
+            const ceoDate = document.getElementById('cvCeoDate')?.textContent || '';
+            const status = document.getElementById('cvStatus')?.textContent || '';
+            const content = `${title}\n${'='.repeat(title.length)}\n\n${body}\n\n${'—'.repeat(40)}\nEmployee / Investor Signature: ${userSig}\n${userDate}\n\nCEO Signature (BrightWave): ${ceoSig}\n${ceoDate}\n\nStatus: ${status}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = title.replace(/[^a-z0-9]/gi, '_') + '.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
         async function deleteConstructionUpdate(id, source) {
             if (!confirm('Delete this construction update? This cannot be undone.')) return;
             try {
@@ -5968,6 +6069,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     </div>
                 </div>
                 <p id="cvStatus" class="text-xs text-center text-gray-500 pt-1"></p>
+                <div class="flex justify-center gap-3 pt-2">
+                    <button onclick="downloadContract()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium py-2 px-4 rounded-lg flex items-center gap-2"><i class="fas fa-download"></i> Download PDF</button>
+                    <button onclick="closeContractModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium py-2 px-4 rounded-lg">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -6440,7 +6545,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="mgrExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="mgrExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="mgrExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="mgrExpenseReceipt" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="mgrExpenseReceipt" accept="image/*,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                             <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="mgrExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="mgrExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('mgr')">Cancel Edit</button><span id="mgrExpenseMsg" class="text-sm"></span></div>
                             <p class="sm:col-span-2 text-[11px] text-gray-500">Your entries stay pending until approved by the CEO or accountant.</p>
@@ -6708,7 +6813,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const managementActions = prefix !== 'acc'
                 ? `<button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>`
                 : '';
-            return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span></div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${managementActions}${statusActions}</div></div></div>`;
+            return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span></div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${managementActions}${statusActions}</div></div></div>`;
         }
 
         function cancelExpenseEdit(source) {
@@ -6807,8 +6912,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                     if (el('capPendingTotal')) el('capPendingTotal').textContent = formatNGN(approvalTotals.pending || 0);
                     if (el('capRejectedTotal')) el('capRejectedTotal').textContent = formatNGN(approvalTotals.rejected || 0);
                     if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? formatNGN(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
+                    if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? formatNGN(data.budget_total) : '—';
                 }
-                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
                 listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => renderExpenseCard(prefix, exp)).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
             } catch (err) {
@@ -7189,7 +7295,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     .join('<br>');
                 document.getElementById('accExpenseBreakdown').innerHTML = expenseCategorySummary || 'No capital entries yet';
                 document.getElementById('accExpenseList').innerHTML = (expensesData.expenses || []).length
-                    ? expensesData.expenses.slice(0, 12).map(exp => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.property_title || 'Unassigned project'} · ${exp.category} · ${exp.expense_date || ''}</p><p class="text-xs text-gray-500 mt-1">${exp.payee_name || 'No supplier / worker name recorded'}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="mt-3 text-xs text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div></div>`).join('')
+                    ? expensesData.expenses.slice(0, 12).map(exp => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.property_title || 'Unassigned project'} · ${exp.category} · ${exp.expense_date || ''}</p><p class="text-xs text-gray-500 mt-1">${exp.payee_name || 'No supplier / worker name recorded'}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="mt-3 text-xs text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div></div>`).join('')
                     : '<p class="text-gray-400 py-6 text-center text-sm">No project expenses recorded yet</p>';
                 const approvalTotals = expensesData.approval_totals || {};
                 const approvalSummary = [`Approved: ${formatNGN(approvalTotals.approved || 0)}`, `Pending: ${formatNGN(approvalTotals.pending || 0)}`, `Rejected: ${formatNGN(approvalTotals.rejected || 0)}`].join('<br>');
@@ -7640,6 +7746,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                 </div>
                 <p id="cvStatus" class="text-xs text-center text-gray-500 pt-1"></p>
+                <div class="flex justify-center gap-3 pt-2">
+                    <button onclick="downloadContract()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium py-2 px-4 rounded-lg flex items-center gap-2"><i class="fas fa-download"></i> Download PDF</button>
+                    <button onclick="closeContractModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium py-2 px-4 rounded-lg">Close</button>
+                </div>
             </div>
         </div>
     </div>
