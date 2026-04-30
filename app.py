@@ -1835,9 +1835,12 @@ def admin_stats():
         ).scalar() or 0
         total_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).scalar() or 0
         monthly_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.expense_date >= month_start
+            ProjectExpense.expense_date >= month_start,
+            ProjectExpense.approval_status == 'approved'
         ).scalar() or 0
-        total_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).scalar() or 0
+        total_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
+            ProjectExpense.approval_status == 'approved'
+        ).scalar() or 0
         approved_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
             ProjectExpense.approval_status == 'approved'
         ).scalar() or 0
@@ -4604,8 +4607,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <div class="min-w-0">
                             <p class="text-xs text-amber-400 font-medium uppercase tracking-wide">Capital Spent</p>
-                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.monthly_capital_spent)}</p>
-                            <p class="text-xs text-amber-300 mt-1 break-all">All time: ${fmtNGN(stats.total_capital_spent)}</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.approved_capital_spent)}</p>
+                            <p class="text-xs text-amber-300 mt-1 break-all">This month: ${fmtNGN(stats.monthly_capital_spent)} · All: ${fmtNGN(stats.total_capital_spent)}</p>
                         </div>
                     </div>
                     <div class="bg-cyan-800/60 border border-cyan-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
@@ -7724,7 +7727,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('acc_total_revenue').textContent = formatNGN(stats.total_revenue || 0);
                 document.getElementById('acc_monthly_revenue').textContent = formatNGN(stats.monthly_revenue || 0);
                 document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
-                document.getElementById('acc_capital_spent').textContent = formatNGN(stats.total_capital_spent || 0);
+                document.getElementById('acc_capital_spent').textContent = formatNGN(stats.approved_capital_spent || 0);
                 document.getElementById('acc_monthly_capital').textContent = formatNGN(stats.monthly_capital_spent || 0);
                 document.getElementById('acc_budget_remaining').textContent = formatNGN(stats.capital_budget_remaining || 0);
                 const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
