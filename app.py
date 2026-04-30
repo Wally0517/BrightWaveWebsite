@@ -2351,6 +2351,10 @@ def admin_property_detail(property_id):
 
         if request.method == 'PUT':
             data = request.get_json()
+            if 'capital_budget' in data and not data.get('title'):
+                property.capital_budget = float(data['capital_budget']) if data.get('capital_budget') not in (None, '') else None
+                db.session.commit()
+                return jsonify({"success": True, "message": "Budget updated"})
             if not all([data.get('title'), data.get('description'), data.get('property_type'), data.get('location')]):
                 return jsonify({"success": False, "message": "Required fields missing"}), 400
             
@@ -6735,6 +6739,20 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+
+        async function loadCapitalPropertyOptions() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const options = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const sel = document.getElementById('mgrCapitalProperty');
+                if (sel) {
+                    const cur = sel.value;
+                    sel.innerHTML = options;
+                    sel.value = cur && props.some(p => String(p.id) === cur) ? cur : (props[0] ? String(props[0].id) : '');
+                }
+                await loadProjectExpenses('mgr');
+            } catch (e) {}
+        }
 
         const ROLE_TITLES = {INVESTOR:'Investor Portal',MANAGER:'Property Manager Portal',ACCOUNTANT:'Finance Portal',REALTOR:'Realtor Portal'};
 
