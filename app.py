@@ -148,6 +148,7 @@ class PropertyInquiry(db.Model):
     year_of_study = db.Column(db.String(20), nullable=True)
     status = db.Column(db.String(20), default='new')
     priority = db.Column(db.String(10), default='medium')
+    inquiry_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     property = db.relationship('Property', backref='inquiries')
@@ -450,6 +451,10 @@ def ensure_runtime_schema_updates():
     investor_columns = {column['name'] for column in inspector.get_columns('investor_profile')} if inspector.has_table('investor_profile') else set()
     if investor_columns and 'property_id' not in investor_columns:
         db.session.execute(text('ALTER TABLE investor_profile ADD COLUMN property_id INTEGER REFERENCES property(id)'))
+
+    inquiry_columns = {column['name'] for column in inspector.get_columns('property_inquiry')} if inspector.has_table('property_inquiry') else set()
+    if inquiry_columns and 'inquiry_notes' not in inquiry_columns:
+        db.session.execute(text('ALTER TABLE property_inquiry ADD COLUMN inquiry_notes TEXT'))
 
     # Rename legacy "Hostel" property titles to "Apartment" branding
     if inspector.has_table('property'):
@@ -2780,6 +2785,7 @@ def admin_get_inquiries():
             'message': inquiry.message,
             'status': inquiry.status,
             'priority': inquiry.priority,
+            'inquiry_notes': inquiry.inquiry_notes or '',
             'created_at': inquiry.created_at.isoformat()
         } for inquiry in inquiries])
     except Exception as e:
@@ -2799,6 +2805,8 @@ def admin_update_inquiry(inquiry_id):
         
         inquiry.status = data.get('status', inquiry.status)
         inquiry.priority = data.get('priority', inquiry.priority)
+        if 'inquiry_notes' in data:
+            inquiry.inquiry_notes = (data['inquiry_notes'] or '').strip() or None
         inquiry.updated_at = datetime.utcnow()
         
         db.session.commit()
@@ -3388,6 +3396,46 @@ def admin_investor_detail(profile_id):
         logger.error(f"Error updating investor profile {profile_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
+def _serialize_investor_profile(profile):
+    project_property = profile.property if profile.property_id else get_investor_project_property()
+    updates = []
+    if project_property:
+        updates = ConstructionUpdate.query.filter_by(
+            property_id=project_property.id,
+            is_public=True
+        ).order_by(ConstructionUpdate.progress_percentage.asc(), ConstructionUpdate.created_at.asc()).all()
+    debt_schedule = build_debt_distribution_schedule(
+        profile.investment_amount,
+        profile.roi_rate,
+        profile.investment_term_years,
+        profile.expected_completion_date,
+    ) if profile.investment_type == 'DEBT' else None
+    return {
+        'id': profile.id,
+        'investment_type': profile.investment_type,
+        'investment_amount': profile.investment_amount,
+        'investment_date': profile.investment_date.isoformat() if profile.investment_date else None,
+        'roi_rate': profile.roi_rate,
+        'equity_percentage': profile.equity_percentage,
+        'construction_start_date': profile.construction_start_date.isoformat() if profile.construction_start_date else None,
+        'expected_completion_date': profile.expected_completion_date.isoformat() if profile.expected_completion_date else None,
+        'total_distributed': profile.total_distributed,
+        'investment_term_years': profile.investment_term_years,
+        'notes': profile.notes or '',
+        'project_property_id': project_property.id if project_property else None,
+        'project_property_title': project_property.title if project_property else '',
+        'project_property_price': project_property.price if project_property else None,
+        'project_property_total_rooms': project_property.total_rooms if project_property else None,
+        'project_property_construction_status': project_property.construction_status if project_property else None,
+        'construction_updates': [serialize_construction_update(u) for u in updates],
+        'distribution_model': debt_schedule['distribution_model'] if debt_schedule else 'equity_variable',
+        'annual_principal_component': debt_schedule['annual_principal_component'] if debt_schedule else None,
+        'annual_roi_amount': debt_schedule['annual_roi_amount'] if debt_schedule else None,
+        'projected_total_roi': debt_schedule['projected_total_roi'] if debt_schedule else None,
+        'projected_total_payout': debt_schedule['projected_total_payout'] if debt_schedule else None,
+        'payout_schedule': debt_schedule['schedule'] if debt_schedule else [],
+    }
+
 @app.route('/admin/api/my-investment', methods=['GET'])
 @login_required
 def my_investment():
@@ -3396,46 +3444,10 @@ def my_investment():
         all_roles = [admin.role] + (admin.secondary_roles or [])
         if 'INVESTOR' not in all_roles:
             return jsonify({"success": False, "message": "Not an investor account"}), 403
-        profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
-        if not profile:
-            return jsonify(None)
-        project_property = profile.property if profile.property_id else get_investor_project_property()
-        updates = []
-        if project_property:
-            updates = ConstructionUpdate.query.filter_by(
-                property_id=project_property.id,
-                is_public=True
-            ).order_by(ConstructionUpdate.progress_percentage.asc(), ConstructionUpdate.created_at.asc()).all()
-        debt_schedule = build_debt_distribution_schedule(
-            profile.investment_amount,
-            profile.roi_rate,
-            profile.investment_term_years,
-            profile.expected_completion_date,
-        ) if profile.investment_type == 'DEBT' else None
-        return jsonify({
-            'investment_type': profile.investment_type,
-            'investment_amount': profile.investment_amount,
-            'investment_date': profile.investment_date.isoformat() if profile.investment_date else None,
-            'roi_rate': profile.roi_rate,
-            'equity_percentage': profile.equity_percentage,
-            'construction_start_date': profile.construction_start_date.isoformat() if profile.construction_start_date else None,
-            'expected_completion_date': profile.expected_completion_date.isoformat() if profile.expected_completion_date else None,
-            'total_distributed': profile.total_distributed,
-            'investment_term_years': profile.investment_term_years,
-            'notes': profile.notes or '',
-            'project_property_id': project_property.id if project_property else None,
-            'project_property_title': project_property.title if project_property else '',
-            'project_property_price': project_property.price if project_property else None,
-            'project_property_total_rooms': project_property.total_rooms if project_property else None,
-            'project_property_construction_status': project_property.construction_status if project_property else None,
-            'construction_updates': [serialize_construction_update(update) for update in updates],
-            'distribution_model': debt_schedule['distribution_model'] if debt_schedule else 'equity_variable',
-            'annual_principal_component': debt_schedule['annual_principal_component'] if debt_schedule else None,
-            'annual_roi_amount': debt_schedule['annual_roi_amount'] if debt_schedule else None,
-            'projected_total_roi': debt_schedule['projected_total_roi'] if debt_schedule else None,
-            'projected_total_payout': debt_schedule['projected_total_payout'] if debt_schedule else None,
-            'payout_schedule': debt_schedule['schedule'] if debt_schedule else [],
-        })
+        profiles = InvestorProfile.query.filter_by(user_id=admin.id).all()
+        if not profiles:
+            return jsonify([])
+        return jsonify([_serialize_investor_profile(p) for p in profiles])
     except Exception as e:
         logger.error(f"Error fetching investment: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -6650,6 +6662,12 @@ ROLE_DASHBOARD_TEMPLATE = """
             <!-- Main dashboard -->
             <div id="investorDashboard" class="hidden space-y-4 sm:space-y-6">
 
+                <!-- Project selector (shown only when investor has multiple projects) -->
+                <div id="invProjectSelector" class="hidden bg-gray-800 border border-gray-700/60 rounded-2xl p-4">
+                    <p class="text-xs text-gray-400 uppercase tracking-wide mb-3 font-medium">Your Investments</p>
+                    <div id="invProjectTabs" class="flex flex-wrap gap-2"></div>
+                </div>
+
                 <!-- 1. HERO / WELCOME CARD -->
                 <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 border border-slate-600/60 rounded-2xl p-5 sm:p-8">
                     <div class="absolute -top-16 -right-16 w-56 h-56 bg-emerald-500/5 rounded-full pointer-events-none"></div>
@@ -6833,7 +6851,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div class="bg-gray-800 rounded-xl p-6">
                         <div class="flex items-center justify-between gap-3 mb-4">
                             <h3 class="font-semibold text-lg text-slate-300">Phase 1 Units</h3>
-                            <span class="text-xs text-gray-500">Click status to update</span>
+                            <span class="text-xs text-gray-500">Dropdown = status · Edit = rent & notes</span>
                         </div>
                         <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
                     </div>
@@ -6990,7 +7008,22 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </form>
                 </div>
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Recent Payments</h3>
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <h3 class="font-semibold text-lg text-slate-300">Payments</h3>
+                        <span id="accPaymentCount" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <select id="accPayFilterType" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white">
+                            <option value="">All types</option>
+                            <option value="rent">Rent</option>
+                            <option value="deposit">Deposit</option>
+                            <option value="fee">Fee</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <input type="date" id="accPayFilterFrom" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white" title="From date">
+                        <input type="date" id="accPayFilterTo" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white" title="To date">
+                        <button type="button" onclick="document.getElementById('accPayFilterType').value='';document.getElementById('accPayFilterFrom').value='';document.getElementById('accPayFilterTo').value='';renderAccountantPayments()" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-xs text-white rounded-lg">Clear</button>
+                    </div>
                     <div id="acc_paymentsContainer" class="space-y-3"></div>
                 </div>
             </div>
@@ -7124,6 +7157,22 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         let accountantPaymentsCache = [];
+
+        function renderAccountantPayments() {
+            const typeFilter = document.getElementById('accPayFilterType')?.value || '';
+            const fromFilter = document.getElementById('accPayFilterFrom')?.value || '';
+            const toFilter = document.getElementById('accPayFilterTo')?.value || '';
+            const typeColors = { rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
+            let filtered = accountantPaymentsCache;
+            if (typeFilter) filtered = filtered.filter(p => p.payment_type === typeFilter);
+            if (fromFilter) filtered = filtered.filter(p => p.payment_date >= fromFilter);
+            if (toFilter) filtered = filtered.filter(p => p.payment_date <= toFilter);
+            const countEl = document.getElementById('accPaymentCount');
+            if (countEl) countEl.textContent = filtered.length < accountantPaymentsCache.length ? `${filtered.length} of ${accountantPaymentsCache.length} shown` : `${filtered.length} total`;
+            document.getElementById('acc_paymentsContainer').innerHTML = filtered.slice(0, 30).map(p =>
+                `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
+            ).join('') || '<p class="text-gray-400 py-6 text-center text-sm">No payments match this filter</p>';
+        }
 
         function resetAccountantPaymentForm() {
             document.getElementById('accountantPaymentForm')?.reset();
@@ -7546,17 +7595,54 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('mgrTenantCancelEdit').classList.remove('hidden');
         }
 
+        let _investorProfiles = [];
+        let _activeProfileIdx = 0;
+
         async function loadInvestorDashboard() {
             try {
-                const profile = await fetchData('/admin/api/my-investment');
+                const profiles = await fetchData('/admin/api/my-investment');
                 document.getElementById('investorLoading').classList.add('hidden');
                 document.getElementById('investorDashboard').classList.add('hidden');
                 document.getElementById('investorNoProfile').classList.add('hidden');
-                if (!profile) {
+                if (!profiles || !profiles.length) {
                     document.getElementById('investorNoProfile').classList.remove('hidden');
                     return;
                 }
-                document.getElementById('investorDashboard').classList.remove('hidden');
+                _investorProfiles = profiles;
+                renderInvestorProfile(_activeProfileIdx);
+            } catch (e) {
+                document.getElementById('investorLoading').classList.add('hidden');
+                document.getElementById('investorNoProfile').classList.remove('hidden');
+                console.error('Investor load error', e);
+            }
+        }
+
+        function switchInvestorProject(idx) {
+            _activeProfileIdx = idx;
+            document.querySelectorAll('#invProjectTabs button').forEach((btn, i) => {
+                btn.className = i === idx
+                    ? 'px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-700 text-white'
+                    : 'px-4 py-2 rounded-xl text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600';
+            });
+            renderInvestorProfile(idx);
+        }
+
+        function renderInvestorProfile(idx) {
+            const profile = _investorProfiles[idx];
+            if (!profile) return;
+            document.getElementById('investorDashboard').classList.remove('hidden');
+
+            // Project selector
+            const selectorEl = document.getElementById('invProjectSelector');
+            const tabsEl = document.getElementById('invProjectTabs');
+            if (_investorProfiles.length > 1) {
+                selectorEl.classList.remove('hidden');
+                tabsEl.innerHTML = _investorProfiles.map((p, i) =>
+                    `<button onclick="switchInvestorProject(${i})" class="${i === idx ? 'px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-700 text-white' : 'px-4 py-2 rounded-xl text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600'}">${p.project_property_title || 'Investment ' + (i+1)}</button>`
+                ).join('');
+            } else {
+                selectorEl.classList.add('hidden');
+            }
 
                 const amount = profile.investment_amount || 0;
                 const type = profile.investment_type || 'DEBT';
@@ -7732,12 +7818,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('docStatus').textContent = docStatusMap[CONTRACT_STATUS] || 'Status unknown';
                 if (CONTRACT_STATUS === 'completed') document.getElementById('viewAgreementBtn')?.classList.remove('hidden');
 
-            } catch (e) {
-                const loadEl = document.getElementById('investorLoading');
-                if (loadEl) {
-                    loadEl.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Error loading investment data. Please refresh the page.</p>';
-                }
-            }
         }
 
         async function loadManagerDashboard() {
@@ -7806,7 +7886,6 @@ ROLE_DASHBOARD_TEMPLATE = """
             try {
                 const expenseFilters = getExpenseFilters('acc');
                 const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
-                accountantPaymentsCache = payments;
                 document.getElementById('acc_total_revenue').textContent = fmtCompact(stats.total_revenue || 0);
                 document.getElementById('acc_monthly_revenue').textContent = fmtCompact(stats.monthly_revenue || 0);
                 document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
@@ -7818,8 +7897,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('acc_budget_remaining').className = `text-lg sm:text-xl font-bold truncate ${isOverBudget ? 'text-red-400' : 'text-white'}`;
                 document.getElementById('acc_budget_label').textContent = isOverBudget ? 'Over Budget' : 'Budget Remaining';
                 document.getElementById('acc_budget_card').className = `${isOverBudget ? 'bg-red-900/80 border border-red-700/40' : 'bg-cyan-900'} rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1`;
-                const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
-                document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
+                accountantPaymentsCache = payments;
+                renderAccountantPayments();
                 document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Available Units</p><p class="text-xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Occupied Units</p><p class="text-xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Active Tenants</p><p class="text-xl font-bold text-white mt-1">${tenants.length}</p></div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
                 const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
@@ -7856,7 +7935,34 @@ ROLE_DASHBOARD_TEMPLATE = """
                 renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
                 document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 const statuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
-                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.slice(0, 20).map(i => `<tr class="border-b border-gray-700/60"><td class="py-2.5 pr-3 font-medium text-sm">${i.full_name}</td><td class="py-2.5 pr-3 text-gray-400 text-xs">${i.property_title}</td><td class="py-2.5 pr-3 text-xs">${i.inquiry_type}</td><td class="py-2.5 pr-2"><select onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}</select></td><td class="py-2.5 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
+                const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
+                document.getElementById('rel_inquiriesTable').innerHTML = (inquiries.slice(0, 40).map(i => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${i.inquiry_type.replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
+                                ${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2.5 text-xs text-gray-500">${new Date(i.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="relDetail_${i.id}" class="hidden bg-gray-800/60">
+                        <td colspan="5" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                            </div>
+                            <div class="flex items-end gap-3">
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
+                                <button type="button" onclick="relSaveNotes(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium flex-shrink-0">Save Note</button>
+                            </div>
+                        </td>
+                    </tr>`).join('')) || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
             } catch (e) {
                 console.error('Realtor dashboard error:', e);
                 const tbl = document.getElementById('rel_inquiriesTable');
@@ -7871,6 +7977,23 @@ ROLE_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 alert('Failed to update status: ' + e.message);
             }
+        }
+
+        function relToggleDetail(id) {
+            const row = document.getElementById('relDetail_' + id);
+            if (!row) return;
+            const isHidden = row.classList.contains('hidden');
+            document.querySelectorAll('[id^="relDetail_"]').forEach(r => r.classList.add('hidden'));
+            if (isHidden) row.classList.remove('hidden');
+        }
+
+        async function relSaveNotes(id) {
+            const notes = document.getElementById('relNote_' + id)?.value || '';
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ inquiry_notes: notes }) });
+                const btn = document.querySelector(`button[onclick="relSaveNotes(${id})"]`);
+                if (btn) { btn.textContent = 'Saved ✓'; btn.classList.add('bg-emerald-600'); setTimeout(() => { btn.textContent = 'Save Note'; btn.classList.remove('bg-emerald-600'); }, 2000); }
+            } catch (e) { alert('Failed to save note: ' + e.message); }
         }
 
         async function vacateRoleTenant(id) {
