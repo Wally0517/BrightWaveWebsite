@@ -209,9 +209,11 @@ class InvestorProfile(db.Model):
     notes = db.Column(db.Text, nullable=True)
     total_distributed = db.Column(db.Float, default=0.0)
     investment_term_years = db.Column(db.Integer, nullable=True)  # e.g. 3, 5, 10
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('Admin', backref='investor_profile_rel', foreign_keys=[user_id])
+    property = db.relationship('Property', foreign_keys=[property_id])
 
 class PropertyUnit(db.Model):
     __tablename__ = 'property_unit'
@@ -444,6 +446,10 @@ def ensure_runtime_schema_updates():
         if 'approved_at' not in expense_columns:
             db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN approved_at {timestamp_type}'))
         db.session.execute(text("UPDATE project_expense SET approval_status = 'pending' WHERE approval_status IS NULL OR approval_status = ''"))
+
+    investor_columns = {column['name'] for column in inspector.get_columns('investor_profile')} if inspector.has_table('investor_profile') else set()
+    if investor_columns and 'property_id' not in investor_columns:
+        db.session.execute(text('ALTER TABLE investor_profile ADD COLUMN property_id INTEGER REFERENCES property(id)'))
 
     db.session.commit()
 
@@ -3273,6 +3279,8 @@ def admin_investors():
                     'total_distributed': p.total_distributed,
                     'investment_term_years': p.investment_term_years,
                     'notes': p.notes or '',
+                    'property_id': p.property_id,
+                    'property_title': p.property.title if p.property else '',
                     'created_at': p.created_at.strftime('%Y-%m-%d'),
                 })
             return jsonify(result)
@@ -3298,6 +3306,7 @@ def admin_investors():
             construction_start_date=parse_date(data.get('construction_start_date')),
             expected_completion_date=parse_date(data.get('expected_completion_date')),
             notes=(data.get('notes') or '').strip() or None,
+            property_id=int(data['property_id']) if data.get('property_id') else None,
         )
         db.session.add(profile)
         db.session.commit()
@@ -3339,6 +3348,8 @@ def admin_investor_detail(profile_id):
             profile.notes = (data['notes'] or '').strip() or None
         if 'investment_term_years' in data:
             profile.investment_term_years = int(data['investment_term_years']) if data['investment_term_years'] else None
+        if 'property_id' in data:
+            profile.property_id = int(data['property_id']) if data['property_id'] else None
         profile.updated_at = datetime.utcnow()
         db.session.commit()
         return jsonify({"success": True, "message": "Investor profile updated"})
@@ -3357,7 +3368,7 @@ def my_investment():
         profile = InvestorProfile.query.filter_by(user_id=admin.id).first()
         if not profile:
             return jsonify(None)
-        project_property = get_investor_project_property()
+        project_property = profile.property if profile.property_id else get_investor_project_property()
         updates = []
         if project_property:
             updates = ConstructionUpdate.query.filter_by(
@@ -3915,6 +3926,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </select>
                     </div>
                     <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Project / Property *</label>
+                        <select id="invPropertyId" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">Select project...</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Investment Type *</label>
                         <select id="invType" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                             <option value="DEBT">Debt (Fixed Return + Principal Back)</option>
@@ -3962,6 +3979,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <thead>
                             <tr class="border-b border-gray-600">
                                 <th class="py-2 text-left">Investor</th>
+                                <th class="py-2 text-left">Project</th>
                                 <th class="py-2 text-left">Type</th>
                                 <th class="py-2 text-left">Amount</th>
                                 <th class="py-2 text-left">ROI/Equity</th>
@@ -4016,6 +4034,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <label class="block text-xs font-medium text-gray-400 mb-1">Expected Completion</label>
                                 <input id="invEditCompletion" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
                             </div>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Project / Property</label>
+                            <select id="invEditPropertyId" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none">
+                                <option value="">— no specific project —</option>
+                            </select>
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1">Notes</label>
@@ -5096,7 +5120,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (window.innerWidth < 768) closeSidebar();
             if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); loadResetRequests(); }
-            if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); }
+            if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); loadInvestorPropertyDropdowns(); }
             if (sectionId === 'tenantsSection') loadTenants();
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
@@ -5718,6 +5742,19 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             return '₦' + Number(amount).toLocaleString('en-NG');
         }
 
+        let _investorPropertiesCache = [];
+
+        async function loadInvestorPropertyDropdowns() {
+            try {
+                _investorPropertiesCache = await fetchData('/admin/api/properties');
+                const opts = '<option value="">— no specific project —</option>' + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                ['invPropertyId', 'invEditPropertyId'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = (id === 'invPropertyId' ? '<option value="">Select project...</option>' : '<option value="">— no specific project —</option>') + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                });
+            } catch (e) {}
+        }
+
         async function loadInvestors() {
             try {
                 const investors = await fetchData('/admin/api/investors');
@@ -5735,6 +5772,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="font-medium">${p.investor_name}</p>
                                 <p class="text-xs text-gray-400">${p.investor_email}</p>
                             </td>
+                            <td class="py-2 pr-3 text-xs text-gray-300">${p.property_title || '<span class="text-gray-600">—</span>'}</td>
                             <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${p.investment_type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700'}">${p.investment_type}</span></td>
                             <td class="py-2 pr-3 font-medium">${formatNGN(p.investment_amount)}</td>
                             <td class="py-2 pr-3 text-sm text-gray-300">${display}</td>
@@ -5746,9 +5784,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </td>
                         </tr>
                     `;
-                }).join('') || '<tr><td colspan="7" class="text-gray-400 py-4 text-center">No investor profiles yet</td></tr>';
+                }).join('') || '<tr><td colspan="8" class="text-gray-400 py-4 text-center">No investor profiles yet</td></tr>';
             } catch (e) {
-                document.getElementById('investorsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading investors</td></tr>';
+                document.getElementById('investorsTable').innerHTML = '<tr><td colspan="8" class="text-red-400 py-2">Error loading investors</td></tr>';
             }
         }
 
@@ -5765,6 +5803,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('invEditDate').value = data.investment_date || '';
             document.getElementById('invEditCompletion').value = data.expected_completion_date || '';
             document.getElementById('invEditNotes').value = data.notes || '';
+            const propSel = document.getElementById('invEditPropertyId');
+            if (propSel) propSel.value = data.property_id ? String(data.property_id) : '';
             document.getElementById('invEditModal').classList.remove('hidden');
         }
 
@@ -5792,6 +5832,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         investment_date: document.getElementById('invEditDate').value || null,
                         expected_completion_date: document.getElementById('invEditCompletion').value || null,
                         notes: document.getElementById('invEditNotes').value,
+                        property_id: document.getElementById('invEditPropertyId')?.value || null,
                     })
                 });
                 msgEl.textContent = res.message || 'Saved';
@@ -5829,6 +5870,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         construction_start_date: document.getElementById('invConstructionStart').value,
                         expected_completion_date: document.getElementById('invCompletion').value,
                         notes: document.getElementById('invNotes').value,
+                        property_id: document.getElementById('invPropertyId')?.value || null,
                     })
                 });
                 msgEl.textContent = res.message;
