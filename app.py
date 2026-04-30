@@ -4282,7 +4282,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="ceoExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="ceoExpenseReceipt" accept="image/*,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                         <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="ceoExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
-                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="ceoExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="ceoExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('ceo')">Cancel Edit</button><span id="ceoExpenseMsg" class="text-sm"></span></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="ceoExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="ceoExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="ceoCancelExpenseEdit()">Cancel Edit</button><span id="ceoExpenseMsg" class="text-sm"></span></div>
                         <p class="sm:col-span-2 text-[11px] text-gray-500">CEO and accountant approvals determine what counts against committed capital.</p>
                     </form>
                 </div>
@@ -5153,8 +5153,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     sel.innerHTML = options;
                     sel.value = cur && props.some(p => String(p.id) === cur) ? cur : (props[0] ? String(props[0].id) : '');
                 });
-                await loadProjectExpenses('ceo');
-                await loadProjectExpenses('mgr');
+                if (typeof loadProjectExpenses === 'function') {
+                    await loadProjectExpenses('ceo');
+                    await loadProjectExpenses('mgr');
+                } else {
+                    await ceoLoadExpenses();
+                }
             } catch (e) {}
         }
 
@@ -5186,11 +5190,174 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 });
                 msgEl.textContent = 'Budget saved!';
                 msgEl.className = 'text-xs text-emerald-400';
-                await loadProjectExpenses('ceo');
+                if (typeof loadProjectExpenses === 'function') {
+                    await loadProjectExpenses('ceo');
+                } else {
+                    await ceoLoadExpenses();
+                }
                 setTimeout(toggleBudgetEdit, 1000);
             } catch (err) {
                 msgEl.textContent = err.message || 'Error saving budget';
                 msgEl.className = 'text-xs text-red-400';
+            }
+        }
+
+        async function ceoLoadExpenses(propertyId) {
+            const selectedId = propertyId || document.getElementById('ceoCapitalProperty')?.value || '';
+            const listEl = document.getElementById('ceoExpenseList');
+            const totalEl = document.getElementById('ceoExpenseTotal');
+            const breakdownEl = document.getElementById('ceoExpenseBreakdown');
+            if (!listEl) return;
+            try {
+                const statusFilter = document.getElementById('ceoExpenseStatusFilter')?.value || '';
+                const receiptOnly = document.getElementById('ceoExpenseReceiptOnly')?.checked ? '1' : '';
+                let qs = selectedId ? '?property_id=' + selectedId : '?';
+                if (statusFilter) qs += (qs.includes('?') && qs.length > 1 ? '&' : '&') + 'status=' + statusFilter;
+                if (receiptOnly) qs += '&receipt_only=1';
+                const data = await fetchData('/admin/api/project-expenses' + qs);
+                const expenses = data.expenses || [];
+                _ceoCachedExpenses = expenses;
+                const approvalTotals = data.approval_totals || {};
+                const el = (id) => document.getElementById(id);
+                if (el('capApprovedTotal')) el('capApprovedTotal').textContent = formatNGN(approvalTotals.approved || 0);
+                if (el('capPendingTotal')) el('capPendingTotal').textContent = formatNGN(approvalTotals.pending || 0);
+                if (el('capRejectedTotal')) el('capRejectedTotal').textContent = formatNGN(approvalTotals.rejected || 0);
+                if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? formatNGN(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
+                if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? formatNGN(data.budget_total) : '—';
+                if (totalEl) totalEl.textContent = formatNGN(data.total_amount || 0);
+                const parts = [];
+                if (data.budget_total != null) parts.push('Budget ' + formatNGN(data.budget_total));
+                if (data.budget_remaining != null) parts.push((data.over_budget ? 'Over by ' : 'Left ') + formatNGN(Math.abs(data.budget_remaining)));
+                if (approvalTotals.approved) parts.push('Approved ' + formatNGN(approvalTotals.approved));
+                if (approvalTotals.pending) parts.push('Pending ' + formatNGN(approvalTotals.pending));
+                if (approvalTotals.rejected) parts.push('Rejected ' + formatNGN(approvalTotals.rejected));
+                if (breakdownEl) breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
+                listEl.innerHTML = expenses.length ? expenses.slice(0, 20).map(exp => `
+                    <div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-white text-sm">${exp.item_name}</p>
+                                <p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} · ${exp.category} · ${exp.expense_date || ''}</p>
+                                ${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}
+                                ${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p>
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-semibold ${exp.status === 'approved' ? 'bg-emerald-900/60 text-emerald-300' : exp.status === 'rejected' ? 'bg-red-900/60 text-red-300' : 'bg-yellow-900/60 text-yellow-300'}">${(exp.status || 'pending').charAt(0).toUpperCase() + (exp.status || 'pending').slice(1)}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 mt-3 text-xs">
+                            <div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div>
+                            <div class="flex items-center gap-3">
+                                ${exp.status !== 'approved' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}
+                                ${exp.status !== 'rejected' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-red-400 hover:text-red-300 font-medium">Reject</button>` : ''}
+                                <button type="button" onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
+                                <button type="button" onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>
+                            </div>
+                        </div>
+                    </div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+            } catch (err) {
+                if (listEl) listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading expenses.</p>';
+            }
+        }
+
+        async function ceoApproveExpense(id, status) {
+            if (!confirm('Mark expense as ' + status + '?')) return;
+            try {
+                await fetchData('/admin/api/project-expenses/' + id + '/approve', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ status })
+                });
+                await ceoLoadExpenses();
+                await loadStats();
+            } catch (err) { alert(err.message || 'Error updating status'); }
+        }
+
+        async function ceoDeleteExpense(id) {
+            if (!confirm('Permanently remove this expense?')) return;
+            try {
+                await fetchData('/admin/api/project-expenses/' + id, { method: 'DELETE' });
+                await ceoLoadExpenses();
+                await loadStats();
+            } catch (err) { alert(err.message || 'Error deleting expense'); }
+        }
+
+        let _ceoCachedExpenses = [];
+
+        function ceoCopyEditExpense(id) {
+            const exp = _ceoCachedExpenses.find(e => e.id === id);
+            if (!exp) return;
+            document.getElementById('ceoExpenseEditId').value = exp.id;
+            document.getElementById('ceoExpenseDate').value = exp.expense_date || '';
+            document.getElementById('ceoExpenseCategory').value = exp.category || 'materials';
+            document.getElementById('ceoExpenseItem').value = exp.item_name || '';
+            document.getElementById('ceoExpensePayee').value = exp.payee_name || '';
+            document.getElementById('ceoExpenseAmount').value = exp.amount || '';
+            document.getElementById('ceoExpenseQuantity').value = exp.quantity ?? '';
+            document.getElementById('ceoExpenseUnitCost').value = exp.unit_cost ?? '';
+            document.getElementById('ceoExpenseNotes').value = exp.notes || '';
+            document.getElementById('ceoExpenseSubmitBtn').textContent = 'Save Changes';
+            document.getElementById('ceoExpenseCancelBtn').classList.remove('hidden');
+            document.getElementById('ceoExpenseForm')?.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function ceoCancelExpenseEdit() {
+            document.getElementById('ceoExpenseEditId').value = '';
+            document.getElementById('ceoExpenseForm')?.reset();
+            document.getElementById('ceoExpenseSubmitBtn').textContent = 'Save Expense';
+            document.getElementById('ceoExpenseCancelBtn').classList.add('hidden');
+        }
+
+        async function ceoUploadReceipt() {
+            const fileInput = document.getElementById('ceoExpenseReceipt');
+            if (!fileInput || !fileInput.files || !fileInput.files.length) return '';
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const response = await fetch('/admin/api/upload-expense-receipt', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'X-CSRF-Token': adminCsrfToken },
+                body: formData
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Receipt upload failed');
+            return result.filename || '';
+        }
+
+        async function ceoSubmitExpense(e) {
+            e.preventDefault();
+            const editId = document.getElementById('ceoExpenseEditId').value;
+            const msgEl = document.getElementById('ceoExpenseMsg');
+            const propertyId = document.getElementById('ceoCapitalProperty')?.value || '';
+            if (!propertyId) { msgEl.textContent = 'Select a project first.'; msgEl.className = 'text-sm text-red-400'; return; }
+            const payload = {
+                property_id: propertyId,
+                expense_date: document.getElementById('ceoExpenseDate').value,
+                category: document.getElementById('ceoExpenseCategory').value,
+                item_name: document.getElementById('ceoExpenseItem').value,
+                payee_name: document.getElementById('ceoExpensePayee').value,
+                amount: document.getElementById('ceoExpenseAmount').value,
+                quantity: document.getElementById('ceoExpenseQuantity').value,
+                unit_cost: document.getElementById('ceoExpenseUnitCost').value,
+                notes: document.getElementById('ceoExpenseNotes').value,
+            };
+            try {
+                const receiptPath = await ceoUploadReceipt();
+                if (receiptPath) payload.receipt_path = receiptPath;
+                const res = await fetchData(editId ? ('/admin/api/project-expenses/' + editId) : '/admin/api/project-expenses', {
+                    method: editId ? 'PUT' : 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                msgEl.textContent = res.message || 'Expense saved';
+                msgEl.className = 'text-sm text-emerald-400';
+                ceoCancelExpenseEdit();
+                await ceoLoadExpenses(propertyId);
+                await loadStats();
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving expense';
+                msgEl.className = 'text-sm text-red-400';
             }
         }
 
@@ -6004,6 +6171,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 e.preventDefault();
                 await submitConstructionUpdate('ceo');
             });
+            document.getElementById('ceoCapitalProperty')?.addEventListener('change', () => ceoLoadExpenses());
+            document.getElementById('ceoExpenseStatusFilter')?.addEventListener('change', () => ceoLoadExpenses());
+            document.getElementById('ceoExpenseReceiptOnly')?.addEventListener('change', () => ceoLoadExpenses());
+            document.getElementById('ceoExpenseForm')?.addEventListener('submit', ceoSubmitExpense);
+            loadCapitalPropertyOptions();
         });
 
         if ('serviceWorker' in navigator) {
