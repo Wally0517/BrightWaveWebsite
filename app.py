@@ -4237,14 +4237,23 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div class="bg-red-900 rounded-xl p-4"><p class="text-xs text-red-300 uppercase tracking-wide mb-1">Rejected</p><p id="capRejectedTotal" class="text-2xl font-bold text-white">₦0</p></div>
                 <div class="bg-cyan-900 rounded-xl p-4"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="capBudgetRemaining" class="text-2xl font-bold text-white">—</p></div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-                <label class="text-sm text-gray-400 flex-shrink-0">Project:</label>
-                <select id="ceoCapitalProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[220px]"></select>
-                <div class="flex items-center gap-4 sm:ml-3 text-xs text-gray-400">
-                    <span>Capital Budget: <span id="capBudgetTotal" class="text-white font-semibold">—</span></span>
-                    <span class="text-gray-600">|</span>
-                    <span class="text-gray-500">Approve / Reject buttons appear on each recorded expense card below</span>
+            <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+                    <label class="text-sm text-gray-400 flex-shrink-0">Project:</label>
+                    <select id="ceoCapitalProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[220px]"></select>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span class="text-xs text-gray-400">Capital Budget: <span id="capBudgetTotal" class="text-white font-semibold">—</span></span>
+                        <button type="button" onclick="toggleBudgetEdit()" class="text-xs text-amber-400 hover:text-amber-300 border border-amber-700/50 rounded px-2.5 py-1 transition-colors">Set / Edit Budget</button>
+                    </div>
                 </div>
+                <div id="budgetEditRow" class="hidden flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+                    <label class="text-xs text-gray-400 flex-shrink-0">New Capital Budget (₦):</label>
+                    <input type="number" id="budgetEditInput" step="100000" placeholder="e.g. 25000000" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-48">
+                    <button type="button" onclick="saveBudget()" class="bg-amber-700 hover:bg-amber-600 text-white text-xs font-medium py-2 px-4 rounded-lg">Save Budget</button>
+                    <button type="button" onclick="toggleBudgetEdit()" class="text-xs text-gray-400 hover:text-white py-2">Cancel</button>
+                    <span id="budgetEditMsg" class="text-xs"></span>
+                </div>
+                <p class="text-xs text-gray-600">Approve / Reject buttons appear on each expense card once recorded below.</p>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
                 <div class="bg-gray-800 rounded-xl p-5">
@@ -4667,14 +4676,29 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2">${prop.location}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
-                        <td class="py-2">
-                            <button onclick="deleteProperty(${prop.id})" class="text-red-400 hover:underline">Delete</button>
+                        <td class="py-2 flex items-center gap-3">
+                            <button onclick="editPropertyBudget(${prop.id}, ${prop.capital_budget || 0})" class="text-amber-400 hover:text-amber-300 text-xs">Edit Budget</button>
+                            <button onclick="deleteProperty(${prop.id})" class="text-red-400 hover:underline text-xs">Delete</button>
                         </td>
                     </tr>
                 `).join('');
             } catch (error) {
                 console.error('Error loading properties:', error);
             }
+        }
+
+        async function editPropertyBudget(propId, currentBudget) {
+            const amount = prompt('Set Capital Budget (₦) for this project:', currentBudget || '');
+            if (amount === null) return;
+            if (isNaN(amount) || Number(amount) < 0) { alert('Enter a valid amount'); return; }
+            try {
+                await fetchData('/admin/api/properties/' + propId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ capital_budget: Number(amount) })
+                });
+                loadProperties();
+            } catch (err) { alert(err.message || 'Error saving budget'); }
         }
 
         async function loadInquiries() {
@@ -5128,6 +5152,42 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 await loadProjectExpenses('ceo');
                 await loadProjectExpenses('mgr');
             } catch (e) {}
+        }
+
+        function toggleBudgetEdit() {
+            const row = document.getElementById('budgetEditRow');
+            const isHidden = row.classList.contains('hidden');
+            row.classList.toggle('hidden', !isHidden);
+            row.style.display = isHidden ? 'flex' : 'none';
+            if (isHidden) {
+                const current = document.getElementById('capBudgetTotal')?.textContent || '';
+                const num = current.replace(/[₦,]/g, '').trim();
+                if (num && !isNaN(num)) document.getElementById('budgetEditInput').value = num;
+                document.getElementById('budgetEditInput').focus();
+                document.getElementById('budgetEditMsg').textContent = '';
+            }
+        }
+
+        async function saveBudget() {
+            const propId = document.getElementById('ceoCapitalProperty')?.value;
+            const amount = document.getElementById('budgetEditInput')?.value;
+            const msgEl = document.getElementById('budgetEditMsg');
+            if (!propId) { msgEl.textContent = 'Select a project first.'; msgEl.className = 'text-xs text-red-400'; return; }
+            if (!amount || isNaN(amount) || Number(amount) < 0) { msgEl.textContent = 'Enter a valid amount.'; msgEl.className = 'text-xs text-red-400'; return; }
+            try {
+                await fetchData('/admin/api/properties/' + propId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ capital_budget: Number(amount) })
+                });
+                msgEl.textContent = 'Budget saved!';
+                msgEl.className = 'text-xs text-emerald-400';
+                await loadProjectExpenses('ceo');
+                setTimeout(toggleBudgetEdit, 1000);
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving budget';
+                msgEl.className = 'text-xs text-red-400';
+            }
         }
 
         function renderConstructionUpdates(items, listId, headlineId) {
