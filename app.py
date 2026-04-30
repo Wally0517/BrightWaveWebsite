@@ -6594,7 +6594,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <p class="font-semibold text-white text-sm">Have a question about your investment?</p>
                         <p class="text-xs text-gray-400 mt-0.5">The CEO is available to address any concerns or provide updates directly.</p>
                     </div>
-                    <a href="mailto:admin@brightwavehabitat.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-2 px-5 rounded-xl transition-colors flex items-center gap-2">
+                    <a href="mailto:brightwavehabitat@gmail.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-2 px-5 rounded-xl transition-colors flex items-center gap-2">
                         <i class="fas fa-envelope text-xs"></i> Contact CEO
                     </a>
                 </div>
