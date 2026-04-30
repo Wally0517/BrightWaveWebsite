@@ -4294,10 +4294,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <h2 class="text-xl font-semibold mb-2">Capital Calculation</h2>
             <p class="text-sm text-gray-400 mb-5">Track all project spend — materials, labour, logistics, permits, and more. CEO and accountant approvals count against committed capital.</p>
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="bg-emerald-900 rounded-xl p-4"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Approved Spend</p><p id="capApprovedTotal" class="text-2xl font-bold text-white">₦0</p></div>
-                <div class="bg-amber-900 rounded-xl p-4"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Pending Approval</p><p id="capPendingTotal" class="text-2xl font-bold text-white">₦0</p></div>
-                <div class="bg-red-900 rounded-xl p-4"><p class="text-xs text-red-300 uppercase tracking-wide mb-1">Rejected</p><p id="capRejectedTotal" class="text-2xl font-bold text-white">₦0</p></div>
-                <div class="bg-cyan-900 rounded-xl p-4"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="capBudgetRemaining" class="text-2xl font-bold text-white">—</p></div>
+                <div class="bg-emerald-900 rounded-xl p-3 overflow-hidden"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Approved Spend</p><p id="capApprovedTotal" class="text-lg font-bold text-white truncate">₦0</p></div>
+                <div class="bg-amber-900 rounded-xl p-3 overflow-hidden"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Pending Approval</p><p id="capPendingTotal" class="text-lg font-bold text-white truncate">₦0</p></div>
+                <div class="bg-red-900 rounded-xl p-3 overflow-hidden"><p class="text-xs text-red-300 uppercase tracking-wide mb-1 truncate">Rejected</p><p id="capRejectedTotal" class="text-lg font-bold text-white truncate">₦0</p></div>
+                <div class="bg-cyan-900 rounded-xl p-3 overflow-hidden"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1 truncate">Budget Remaining</p><p id="capBudgetRemaining" class="text-lg font-bold text-white truncate">—</p></div>
             </div>
             <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col gap-3">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
@@ -4566,6 +4566,13 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         function fmtNGN(v) { return '\u20a6' + Number(v || 0).toLocaleString('en-NG'); }
+        function fmtCompact(v) {
+            const n = Number(v || 0);
+            if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
+            if (n >= 1e6) return '\u20a6' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e3) return '\u20a6' + Math.round(n/1e3) + 'K';
+            return fmtNGN(v);
+        }
 
         async function loadStats() {
             try {
@@ -4584,88 +4591,88 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
                 // Business metrics row
                 document.getElementById('businessStats').innerHTML = `
-                    <div class="bg-teal-800/60 border border-teal-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-teal-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-users text-teal-300"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs text-teal-400 font-medium uppercase tracking-wide">Active Tenants</p>
-                            <p class="text-3xl font-bold text-white mt-0.5">${stats.active_tenants}</p>
-                            <p class="text-xs text-teal-300 mt-1">${stats.total_tenants} total recorded</p>
-                        </div>
-                    </div>
-                    <div class="bg-emerald-800/60 border border-emerald-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-emerald-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-money-bill-wave text-emerald-300"></i>
+                    <div class="bg-teal-800/60 border border-teal-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-teal-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-users text-teal-300 text-sm"></i>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide">This Month Revenue</p>
-                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.monthly_revenue)}</p>
-                            <p class="text-xs text-emerald-300 mt-1 break-all">All time: ${fmtNGN(stats.total_revenue)}</p>
+                            <p class="text-xs text-teal-400 font-medium uppercase tracking-wide truncate">Active Tenants</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5">${stats.active_tenants}</p>
+                            <p class="text-xs text-teal-300 mt-0.5 truncate">${stats.total_tenants} total recorded</p>
                         </div>
                     </div>
-                    <div class="bg-slate-700/80 border border-slate-600/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-building text-slate-300"></i>
+                    <div class="bg-emerald-800/60 border border-emerald-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-emerald-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-money-bill-wave text-emerald-300 text-sm"></i>
                         </div>
-                        <div>
-                            <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Properties</p>
-                            <p class="text-3xl font-bold text-white mt-0.5">${stats.total_properties}</p>
-                            <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active &bull; Apt:${stats.property_breakdown.hostels} Land:${stats.property_breakdown.land_plots} Res:${stats.property_breakdown.residential}</p>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide truncate">This Month Revenue</p>
+                            <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.monthly_revenue)}</p>
+                            <p class="text-xs text-emerald-300 mt-0.5 truncate">All time: ${fmtCompact(stats.total_revenue)}</p>
                         </div>
                     </div>
-                    <div class="bg-amber-800/60 border border-amber-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-amber-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-hammer text-amber-300"></i>
+                    <div class="bg-slate-700/80 border border-slate-600/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-building text-slate-300 text-sm"></i>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-xs text-amber-400 font-medium uppercase tracking-wide">Capital Spent</p>
-                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.approved_capital_spent)}</p>
-                            <p class="text-xs text-amber-300 mt-1 break-all">This month: ${fmtNGN(stats.monthly_capital_spent)} · All: ${fmtNGN(stats.total_capital_spent)}</p>
+                            <p class="text-xs text-slate-400 font-medium uppercase tracking-wide truncate">Properties</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5">${stats.total_properties}</p>
+                            <p class="text-xs text-slate-400 mt-0.5 truncate">${stats.active_properties} active &bull; Apt:${stats.property_breakdown.hostels} Land:${stats.property_breakdown.land_plots} Res:${stats.property_breakdown.residential}</p>
                         </div>
                     </div>
-                    <div class="bg-cyan-800/60 border border-cyan-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-cyan-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-scale-balanced text-cyan-300"></i>
+                    <div class="bg-amber-800/60 border border-amber-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-amber-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-hammer text-amber-300 text-sm"></i>
                         </div>
-                        <div class="min-w-0">
-                            <p class="text-xs text-cyan-400 font-medium uppercase tracking-wide">Budget Position</p>
-                            <p class="text-xl sm:text-2xl font-bold ${stats.capital_budget_remaining < 0 ? 'text-red-400' : 'text-white'} mt-0.5 break-all">${stats.total_capital_budget > 0 ? fmtNGN(Math.abs(stats.capital_budget_remaining)) + (stats.capital_budget_remaining < 0 ? ' over' : ' left') : '—'}</p>
-                            <p class="text-xs text-cyan-300 mt-1 break-all">Budgeted: ${fmtNGN(stats.total_capital_budget)} · Approved: ${fmtNGN(stats.approved_capital_spent)}</p>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-amber-400 font-medium uppercase tracking-wide truncate">Capital Spent</p>
+                            <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.approved_capital_spent)}</p>
+                            <p class="text-xs text-amber-300 mt-0.5 truncate">This month: ${fmtCompact(stats.monthly_capital_spent)} · All: ${fmtCompact(stats.total_capital_spent)}</p>
+                        </div>
+                    </div>
+                    <div class="bg-cyan-800/60 border border-cyan-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-cyan-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-scale-balanced text-cyan-300 text-sm"></i>
+                        </div>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-cyan-400 font-medium uppercase tracking-wide truncate">Budget Position</p>
+                            <p class="text-lg sm:text-xl font-bold ${stats.capital_budget_remaining < 0 ? 'text-red-400' : 'text-white'} mt-0.5 truncate">${stats.total_capital_budget > 0 ? fmtCompact(Math.abs(stats.capital_budget_remaining)) + (stats.capital_budget_remaining < 0 ? ' over' : ' left') : '—'}</p>
+                            <p class="text-xs text-cyan-300 mt-0.5 truncate">Budgeted: ${fmtCompact(stats.total_capital_budget)} · Approved: ${fmtCompact(stats.approved_capital_spent)}</p>
                         </div>
                     </div>
                 `;
 
                 // Website metrics row
                 document.getElementById('stats').innerHTML = `
-                    <div class="bg-green-800/60 border border-green-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-green-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-search text-green-300"></i>
+                    <div class="bg-green-800/60 border border-green-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-green-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-search text-green-300 text-sm"></i>
                         </div>
-                        <div>
-                            <p class="text-xs text-green-400 font-medium uppercase tracking-wide">Inquiries</p>
-                            <p class="text-3xl font-bold text-white mt-0.5">${stats.total_inquiries}</p>
-                            <p class="text-xs text-green-300 mt-1">${stats.new_inquiries} new</p>
-                        </div>
-                    </div>
-                    <div class="bg-blue-800/60 border border-blue-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-blue-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-envelope text-blue-300"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs text-blue-400 font-medium uppercase tracking-wide">Messages</p>
-                            <p class="text-3xl font-bold text-white mt-0.5">${stats.contact_messages}</p>
-                            <p class="text-xs text-blue-300 mt-1">${stats.new_messages} new</p>
+                        <div class="min-w-0">
+                            <p class="text-xs text-green-400 font-medium uppercase tracking-wide truncate">Inquiries</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5">${stats.total_inquiries}</p>
+                            <p class="text-xs text-green-300 mt-0.5">${stats.new_inquiries} new</p>
                         </div>
                     </div>
-                    <div class="bg-purple-800/60 border border-purple-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
-                        <div class="w-10 h-10 bg-purple-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-users text-purple-300"></i>
+                    <div class="bg-blue-800/60 border border-blue-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-blue-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-envelope text-blue-300 text-sm"></i>
                         </div>
-                        <div>
-                            <p class="text-xs text-purple-400 font-medium uppercase tracking-wide">Active Team</p>
-                            <p class="text-3xl font-bold text-white mt-0.5">${stats.active_team_members}</p>
-                            <p class="text-xs text-purple-300 mt-1">On About page</p>
+                        <div class="min-w-0">
+                            <p class="text-xs text-blue-400 font-medium uppercase tracking-wide truncate">Messages</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5">${stats.contact_messages}</p>
+                            <p class="text-xs text-blue-300 mt-0.5">${stats.new_messages} new</p>
+                        </div>
+                    </div>
+                    <div class="bg-purple-800/60 border border-purple-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-purple-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-users text-purple-300 text-sm"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-purple-400 font-medium uppercase tracking-wide truncate">Active Team</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5">${stats.active_team_members}</p>
+                            <p class="text-xs text-purple-300 mt-0.5">On About page</p>
                         </div>
                     </div>
                 `;
@@ -5278,12 +5285,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 _ceoCachedExpenses = expenses;
                 const approvalTotals = data.approval_totals || {};
                 const el = (id) => document.getElementById(id);
-                if (el('capApprovedTotal')) el('capApprovedTotal').textContent = formatNGN(approvalTotals.approved || 0);
-                if (el('capPendingTotal')) el('capPendingTotal').textContent = formatNGN(approvalTotals.pending || 0);
-                if (el('capRejectedTotal')) el('capRejectedTotal').textContent = formatNGN(approvalTotals.rejected || 0);
-                if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? formatNGN(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
-                if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? formatNGN(data.budget_total) : '—';
-                if (totalEl) totalEl.textContent = formatNGN(data.total_amount || 0);
+                if (el('capApprovedTotal')) el('capApprovedTotal').textContent = fmtCompact(approvalTotals.approved || 0);
+                if (el('capPendingTotal')) el('capPendingTotal').textContent = fmtCompact(approvalTotals.pending || 0);
+                if (el('capRejectedTotal')) el('capRejectedTotal').textContent = fmtCompact(approvalTotals.rejected || 0);
+                if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? fmtCompact(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
+                if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? fmtCompact(data.budget_total) : '—';
+                if (totalEl) totalEl.textContent = fmtCompact(data.total_amount || 0);
                 const parts = [];
                 if (data.budget_total != null) parts.push('Budget ' + formatNGN(data.budget_total));
                 if (data.budget_remaining != null) parts.push((data.over_budget ? 'Over by ' : 'Left ') + formatNGN(Math.abs(data.budget_remaining)));
@@ -6778,10 +6785,10 @@ ROLE_DASHBOARD_TEMPLATE = """
             <!-- OVERVIEW TAB -->
             <div id="mgrTabOverview">
                 <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                    <div class="bg-gray-800 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1">Properties</p><p id="mgr_properties" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                    <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="mgr_available_units" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                    <div class="bg-blue-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1">Open Inquiries</p><p id="mgr_inquiries" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                    <div class="bg-purple-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-purple-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="mgr_active_tenants" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                    <div class="bg-gray-800 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1 truncate">Properties</p><p id="mgr_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Available Units</p><p id="mgr_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    <div class="bg-blue-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1 truncate">Open Inquiries</p><p id="mgr_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    <div class="bg-purple-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-purple-300 uppercase tracking-wide mb-1 truncate">Active Tenants</p><p id="mgr_active_tenants" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
                 </div>
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
@@ -6951,14 +6958,14 @@ ROLE_DASHBOARD_TEMPLATE = """
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Total Revenue</p><p id="acc_total_revenue" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
-                <div class="bg-teal-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-teal-300 uppercase tracking-wide mb-1">This Month</p><p id="acc_monthly_revenue" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
-                <div class="bg-blue-900 rounded-xl p-4 sm:p-5 col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Total Revenue</p><p id="acc_total_revenue" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div class="bg-teal-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-teal-300 uppercase tracking-wide mb-1 truncate">This Month</p><p id="acc_monthly_revenue" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div class="bg-blue-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1 truncate">Active Tenants</p><p id="acc_tenants" class="text-xl sm:text-2xl font-bold text-white truncate">-</p></div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                <div class="bg-amber-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1">Capital Spent</p><p id="acc_capital_spent" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
-                <div class="bg-orange-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-orange-300 uppercase tracking-wide mb-1">Capital This Month</p><p id="acc_monthly_capital" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
-                <div class="bg-cyan-900 rounded-xl p-4 sm:p-5 col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="acc_budget_remaining" class="text-2xl sm:text-3xl font-bold text-white">-</p></div>
+                <div class="bg-amber-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Capital Spent</p><p id="acc_capital_spent" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div class="bg-orange-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-orange-300 uppercase tracking-wide mb-1 truncate">Capital This Month</p><p id="acc_monthly_capital" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div class="bg-cyan-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1 truncate">Budget Remaining</p><p id="acc_budget_remaining" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
@@ -7009,10 +7016,10 @@ ROLE_DASHBOARD_TEMPLATE = """
             {% elif r == 'REALTOR' %}
             <!-- REALTOR DASHBOARD -->
             <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1">Active Properties</p><p id="rel_properties" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                <div class="bg-emerald-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1">Available Units</p><p id="rel_available_units" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                <div class="bg-amber-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1">Open Leads</p><p id="rel_inquiries" class="text-2xl sm:text-3xl font-bold">-</p></div>
-                <div class="bg-green-900 rounded-xl p-4 sm:p-5"><p class="text-[11px] sm:text-xs text-green-300 uppercase tracking-wide mb-1">Total Leads</p><p id="rel_new" class="text-2xl sm:text-3xl font-bold">-</p></div>
+                <div class="bg-gray-800 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1 truncate">Active Properties</p><p id="rel_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Available Units</p><p id="rel_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                <div class="bg-amber-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Open Leads</p><p id="rel_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                <div class="bg-green-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-green-300 uppercase tracking-wide mb-1 truncate">Total Leads</p><p id="rel_new" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
             </div>
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
@@ -7058,6 +7065,13 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+        function fmtCompact(v) {
+            const n = Number(v || 0);
+            if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
+            if (n >= 1e6) return '₦' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e3) return '₦' + Math.round(n/1e3) + 'K';
+            return formatNGN(v);
+        }
 
         async function loadCapitalPropertyOptions() {
             try {
@@ -7321,11 +7335,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
                 if (prefix === 'ceo') {
                     const el = (id) => document.getElementById(id);
-                    if (el('capApprovedTotal')) el('capApprovedTotal').textContent = formatNGN(approvalTotals.approved || 0);
-                    if (el('capPendingTotal')) el('capPendingTotal').textContent = formatNGN(approvalTotals.pending || 0);
-                    if (el('capRejectedTotal')) el('capRejectedTotal').textContent = formatNGN(approvalTotals.rejected || 0);
-                    if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? formatNGN(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
-                    if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? formatNGN(data.budget_total) : '—';
+                    if (el('capApprovedTotal')) el('capApprovedTotal').textContent = fmtCompact(approvalTotals.approved || 0);
+                    if (el('capPendingTotal')) el('capPendingTotal').textContent = fmtCompact(approvalTotals.pending || 0);
+                    if (el('capRejectedTotal')) el('capRejectedTotal').textContent = fmtCompact(approvalTotals.rejected || 0);
+                    if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? fmtCompact(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
+                    if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? fmtCompact(data.budget_total) : '—';
                 }
                 listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
@@ -7770,15 +7784,15 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const expenseFilters = getExpenseFilters('acc');
                 const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
                 accountantPaymentsCache = payments;
-                document.getElementById('acc_total_revenue').textContent = formatNGN(stats.total_revenue || 0);
-                document.getElementById('acc_monthly_revenue').textContent = formatNGN(stats.monthly_revenue || 0);
+                document.getElementById('acc_total_revenue').textContent = fmtCompact(stats.total_revenue || 0);
+                document.getElementById('acc_monthly_revenue').textContent = fmtCompact(stats.monthly_revenue || 0);
                 document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
-                document.getElementById('acc_capital_spent').textContent = formatNGN(stats.approved_capital_spent || 0);
-                document.getElementById('acc_monthly_capital').textContent = formatNGN(stats.monthly_capital_spent || 0);
-                document.getElementById('acc_budget_remaining').textContent = formatNGN(stats.capital_budget_remaining || 0);
+                document.getElementById('acc_capital_spent').textContent = fmtCompact(stats.approved_capital_spent || 0);
+                document.getElementById('acc_monthly_capital').textContent = fmtCompact(stats.monthly_capital_spent || 0);
+                document.getElementById('acc_budget_remaining').textContent = fmtCompact(stats.capital_budget_remaining || 0);
                 const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
                 document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
-                document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Available Units</p><p class="text-2xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Occupied Units</p><p class="text-2xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Active Tenants</p><p class="text-2xl font-bold text-white mt-1">${tenants.length}</p></div>`;
+                document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Available Units</p><p class="text-xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Occupied Units</p><p class="text-xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Active Tenants</p><p class="text-xl font-bold text-white mt-1">${tenants.length}</p></div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
                 const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
                 if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
