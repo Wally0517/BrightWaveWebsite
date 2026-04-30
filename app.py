@@ -6274,13 +6274,93 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const ceoSig = document.getElementById('cvCeoSig')?.textContent || '';
             const ceoDate = document.getElementById('cvCeoDate')?.textContent || '';
             const status = document.getElementById('cvStatus')?.textContent || '';
-            const content = `${title}\n${'='.repeat(title.length)}\n\n${body}\n\n${'—'.repeat(40)}\nEmployee / Investor Signature: ${userSig}\n${userDate}\n\nCEO Signature (BrightWave): ${ceoSig}\n${ceoDate}\n\nStatus: ${status}`;
-            const blob = new Blob([content], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = title.replace(/[^a-z0-9]/gi, '_') + '.txt';
-            a.click();
-            URL.revokeObjectURL(a.href);
+            const refNum = 'BWH-' + Date.now().toString(36).toUpperCase().slice(-8);
+            const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
+            const stamp = `<svg xmlns="http://www.w3.org/2000/svg" width="130" height="130" viewBox="0 0 130 130">
+                <circle cx="65" cy="65" r="61" fill="none" stroke="#000" stroke-width="2.2"/>
+                <circle cx="65" cy="65" r="54" fill="none" stroke="#000" stroke-width="0.8"/>
+                <path id="ceo-top" d="M 11,65 A 54,54 0 0,1 119,65" fill="none"/>
+                <path id="ceo-bot" d="M 19,80 A 54,54 0 0,0 111,80" fill="none"/>
+                <text font-family="serif" font-size="9.5" fill="#000" font-weight="bold" letter-spacing="1.5">
+                    <textPath href="#ceo-top" startOffset="50%" text-anchor="middle">BRIGHTWAVE HABITAT ENTERPRISE</textPath>
+                </text>
+                <text font-family="serif" font-size="8" fill="#000" letter-spacing="1.2">
+                    <textPath href="#ceo-bot" startOffset="50%" text-anchor="middle">KWARA STATE · NIGERIA</textPath>
+                </text>
+                <text x="65" y="57" text-anchor="middle" font-family="serif" font-weight="bold" font-size="16" fill="#000">BW</text>
+                <text x="65" y="68" text-anchor="middle" font-family="serif" font-size="7.5" fill="#000" letter-spacing="1">HABITAT</text>
+                <line x1="38" y1="73" x2="92" y2="73" stroke="#000" stroke-width="0.7"/>
+                <text x="65" y="80" text-anchor="middle" font-family="serif" font-size="6" fill="#000" letter-spacing="0.5">OFFICIAL SEAL</text>
+            </svg>`;
+            const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
+@page{size:A4;margin:22mm 20mm 22mm 20mm}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+.hdr{border-bottom:2.5pt solid #000;padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
+.co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
+.co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
+.co-addr{font-size:8pt;color:#555;margin-top:4pt}
+.doc-title{text-align:center;margin:16pt 0 14pt}
+.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;border-bottom:1pt solid #000;padding-bottom:5pt;display:inline-block}
+.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;border:0.5pt solid #ccc;padding:7pt 10pt;background:#f8f8f8}
+.btext{white-space:pre-wrap;font-size:10.5pt;line-height:1.8;text-align:justify;margin-bottom:26pt}
+.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;border-bottom:0.5pt solid #000;padding-bottom:4pt;margin-bottom:14pt}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:28pt;margin-bottom:28pt}
+.sig-box{border-top:1.5pt solid #000;padding-top:9pt}
+.sig-lbl{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:4pt}
+.sig-name{font-size:14pt;font-style:italic;font-family:'Brush Script MT','Segoe Script',cursive;margin-bottom:3pt;min-height:22pt}
+.sig-date{font-size:8.5pt;color:#333}
+.stamp-wrap{text-align:center;margin-top:10pt}
+.stamp-wrap p{font-size:7.5pt;text-transform:uppercase;letter-spacing:1.8px;color:#555;margin-top:5pt}
+.status-badge{display:inline-block;border:0.8pt solid #888;padding:5pt 14pt;font-size:8.5pt;letter-spacing:1px;margin-top:10pt}
+.ftr{margin-top:28pt;border-top:0.8pt solid #ccc;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+@media print{.no-print{display:none}}
+</style></head><body>
+<div class="hdr">
+  <div>
+    <div class="co-name">BrightWave</div>
+    <div class="co-sub">Habitat Enterprise</div>
+    <div class="co-addr">Kwara State, Nigeria &nbsp;&middot;&nbsp; brightwavehabitat@gmail.com</div>
+  </div>
+  <div style="text-align:right;font-size:8pt;color:#555;line-height:1.9">
+    <div><strong>Ref:</strong> ${refNum}</div>
+    <div><strong>Issued:</strong> ${printDate}</div>
+  </div>
+</div>
+<div class="doc-title"><h1>${title}</h1></div>
+<div class="meta">
+  <span><strong>Document Reference:</strong> ${refNum}</span>
+  <span><strong>Date Issued:</strong> ${printDate}</span>
+  <span><strong>Jurisdiction:</strong> Kwara State, Nigeria</span>
+</div>
+<div class="btext">${safeBody}</div>
+<div class="sig-hd">Signatures &amp; Execution</div>
+<div class="sig-grid">
+  <div class="sig-box">
+    <div class="sig-lbl">Employee / Investor Signature</div>
+    <div class="sig-name">${userSig || '&nbsp;'}</div>
+    <div class="sig-date">${userDate || 'Date: ____________________________'}</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-lbl">Chief Executive Officer &middot; BrightWave Habitat Enterprise</div>
+    <div class="sig-name">${ceoSig || '&nbsp;'}</div>
+    <div class="sig-date">${ceoDate || 'Date: ____________________________'}</div>
+  </div>
+</div>
+<div class="stamp-wrap">
+  ${stamp}
+  <p>Official Company Seal</p>
+  <div><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
+</div>
+<div class="ftr">
+  <span>BrightWave Habitat Enterprise &nbsp;&middot;&nbsp; Kwara State, Nigeria</span>
+  <span>Ref: ${refNum} &nbsp;&middot;&nbsp; Generated ${printDate}</span>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+            const w = window.open('','_blank','width=820,height=1000');
+            if (w) { w.document.write(html); w.document.close(); }
         }
 
         async function deleteConstructionUpdate(id, source) {
@@ -8123,13 +8203,93 @@ ROLE_DASHBOARD_TEMPLATE = """
             const ceoSig = document.getElementById('cvCeoSig')?.textContent || '';
             const ceoDate = document.getElementById('cvCeoDate')?.textContent || '';
             const status = document.getElementById('cvStatus')?.textContent || '';
-            const content = `${title}\n${'='.repeat(title.length)}\n\n${body}\n\n${'—'.repeat(40)}\nEmployee / Investor Signature: ${userSig}\n${userDate}\n\nCEO Signature (BrightWave): ${ceoSig}\n${ceoDate}\n\nStatus: ${status}`;
-            const blob = new Blob([content], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = title.replace(/[^a-z0-9]/gi, '_') + '.txt';
-            a.click();
-            URL.revokeObjectURL(a.href);
+            const refNum = 'BWH-' + Date.now().toString(36).toUpperCase().slice(-8);
+            const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
+            const stamp = `<svg xmlns="http://www.w3.org/2000/svg" width="130" height="130" viewBox="0 0 130 130">
+                <circle cx="65" cy="65" r="61" fill="none" stroke="#000" stroke-width="2.2"/>
+                <circle cx="65" cy="65" r="54" fill="none" stroke="#000" stroke-width="0.8"/>
+                <path id="ceo-top" d="M 11,65 A 54,54 0 0,1 119,65" fill="none"/>
+                <path id="ceo-bot" d="M 19,80 A 54,54 0 0,0 111,80" fill="none"/>
+                <text font-family="serif" font-size="9.5" fill="#000" font-weight="bold" letter-spacing="1.5">
+                    <textPath href="#ceo-top" startOffset="50%" text-anchor="middle">BRIGHTWAVE HABITAT ENTERPRISE</textPath>
+                </text>
+                <text font-family="serif" font-size="8" fill="#000" letter-spacing="1.2">
+                    <textPath href="#ceo-bot" startOffset="50%" text-anchor="middle">KWARA STATE · NIGERIA</textPath>
+                </text>
+                <text x="65" y="57" text-anchor="middle" font-family="serif" font-weight="bold" font-size="16" fill="#000">BW</text>
+                <text x="65" y="68" text-anchor="middle" font-family="serif" font-size="7.5" fill="#000" letter-spacing="1">HABITAT</text>
+                <line x1="38" y1="73" x2="92" y2="73" stroke="#000" stroke-width="0.7"/>
+                <text x="65" y="80" text-anchor="middle" font-family="serif" font-size="6" fill="#000" letter-spacing="0.5">OFFICIAL SEAL</text>
+            </svg>`;
+            const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
+@page{size:A4;margin:22mm 20mm 22mm 20mm}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+.hdr{border-bottom:2.5pt solid #000;padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
+.co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
+.co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
+.co-addr{font-size:8pt;color:#555;margin-top:4pt}
+.doc-title{text-align:center;margin:16pt 0 14pt}
+.doc-title h1{font-size:14pt;text-transform:uppercase;letter-spacing:2.5px;border-bottom:1pt solid #000;padding-bottom:5pt;display:inline-block}
+.meta{display:flex;justify-content:space-between;font-size:8.5pt;color:#444;margin-bottom:16pt;border:0.5pt solid #ccc;padding:7pt 10pt;background:#f8f8f8}
+.btext{white-space:pre-wrap;font-size:10.5pt;line-height:1.8;text-align:justify;margin-bottom:26pt}
+.sig-hd{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.8px;border-bottom:0.5pt solid #000;padding-bottom:4pt;margin-bottom:14pt}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:28pt;margin-bottom:28pt}
+.sig-box{border-top:1.5pt solid #000;padding-top:9pt}
+.sig-lbl{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:4pt}
+.sig-name{font-size:14pt;font-style:italic;font-family:'Brush Script MT','Segoe Script',cursive;margin-bottom:3pt;min-height:22pt}
+.sig-date{font-size:8.5pt;color:#333}
+.stamp-wrap{text-align:center;margin-top:10pt}
+.stamp-wrap p{font-size:7.5pt;text-transform:uppercase;letter-spacing:1.8px;color:#555;margin-top:5pt}
+.status-badge{display:inline-block;border:0.8pt solid #888;padding:5pt 14pt;font-size:8.5pt;letter-spacing:1px;margin-top:10pt}
+.ftr{margin-top:28pt;border-top:0.8pt solid #ccc;padding-top:7pt;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+@media print{.no-print{display:none}}
+</style></head><body>
+<div class="hdr">
+  <div>
+    <div class="co-name">BrightWave</div>
+    <div class="co-sub">Habitat Enterprise</div>
+    <div class="co-addr">Kwara State, Nigeria &nbsp;&middot;&nbsp; brightwavehabitat@gmail.com</div>
+  </div>
+  <div style="text-align:right;font-size:8pt;color:#555;line-height:1.9">
+    <div><strong>Ref:</strong> ${refNum}</div>
+    <div><strong>Issued:</strong> ${printDate}</div>
+  </div>
+</div>
+<div class="doc-title"><h1>${title}</h1></div>
+<div class="meta">
+  <span><strong>Document Reference:</strong> ${refNum}</span>
+  <span><strong>Date Issued:</strong> ${printDate}</span>
+  <span><strong>Jurisdiction:</strong> Kwara State, Nigeria</span>
+</div>
+<div class="btext">${safeBody}</div>
+<div class="sig-hd">Signatures &amp; Execution</div>
+<div class="sig-grid">
+  <div class="sig-box">
+    <div class="sig-lbl">Employee / Investor Signature</div>
+    <div class="sig-name">${userSig || '&nbsp;'}</div>
+    <div class="sig-date">${userDate || 'Date: ____________________________'}</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-lbl">Chief Executive Officer &middot; BrightWave Habitat Enterprise</div>
+    <div class="sig-name">${ceoSig || '&nbsp;'}</div>
+    <div class="sig-date">${ceoDate || 'Date: ____________________________'}</div>
+  </div>
+</div>
+<div class="stamp-wrap">
+  ${stamp}
+  <p>Official Company Seal</p>
+  <div><span class="status-badge">${status || 'EXECUTED AGREEMENT'}</span></div>
+</div>
+<div class="ftr">
+  <span>BrightWave Habitat Enterprise &nbsp;&middot;&nbsp; Kwara State, Nigeria</span>
+  <span>Ref: ${refNum} &nbsp;&middot;&nbsp; Generated ${printDate}</span>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+            const w = window.open('','_blank','width=820,height=1000');
+            if (w) { w.document.write(html); w.document.close(); }
         }
 
         if ('serviceWorker' in navigator) {
