@@ -572,7 +572,7 @@ def serialize_vendor_contact(vendor):
 
 
 def expense_can_be_approved_by(admin):
-    return bool(admin and admin_has_any_role(admin, 'CEO', 'ACCOUNTANT'))
+    return bool(admin and admin_has_any_role(admin, 'CEO'))
 
 
 def add_years_safe(base_date, years):
@@ -3919,7 +3919,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 p-4 rounded-lg">
                 <h3 class="font-semibold mb-3 text-slate-300">All Accounts</h3>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="w-full text-sm min-w-[720px]">
                         <thead>
                             <tr class="border-b border-gray-600">
                                 <th class="py-2 text-left">Name</th>
@@ -4009,7 +4009,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 p-4 rounded-lg">
                 <h3 class="font-semibold mb-3 text-slate-300">All Investors</h3>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table class="w-full text-sm min-w-[800px]">
                         <thead>
                             <tr class="border-b border-gray-600">
                                 <th class="py-2 text-left">Investor</th>
@@ -4465,7 +4465,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         <section class="mb-8 hidden" id="propertiesTableSection">
             <h2 class="text-xl font-semibold mb-4">Properties</h2>
             <div class="bg-gray-800 p-4 rounded-lg">
-                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[400px]">
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[640px]">
                     <thead>
                         <tr class="border-b border-gray-600">
                             <th class="py-2 text-left">Title</th>
@@ -6756,15 +6756,23 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             <!-- No profile state -->
             <div id="investorNoProfile" class="hidden">
-                <div class="bg-gradient-to-br from-slate-800 to-gray-900 border border-slate-600/50 rounded-2xl p-8 sm:p-12 text-center max-w-lg mx-auto">
-                    <div class="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-5">
-                        <i class="fas fa-chart-line text-slate-400 text-2xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">Your investment profile is being set up</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed mb-6">The CEO will link your investment details shortly. Once that's done, you'll see your full return schedule, construction progress, and distribution timeline right here.</p>
-                    <div class="flex items-center justify-center gap-2 text-xs text-gray-500">
-                        <img src="/assets/images/brightwave-logo.png" alt="" class="w-5 h-5 rounded-full opacity-60">
-                        BrightWave Habitat Enterprise · Kwara State, Nigeria
+                <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 border border-slate-600/50 rounded-2xl p-8 sm:p-14 text-center max-w-lg mx-auto relative overflow-hidden">
+                    <div class="absolute -top-12 -right-12 w-48 h-48 bg-emerald-500/5 rounded-full pointer-events-none"></div>
+                    <div class="absolute -bottom-10 -left-10 w-36 h-36 bg-blue-500/5 rounded-full pointer-events-none"></div>
+                    <div class="relative">
+                        <div class="w-20 h-20 bg-gradient-to-br from-emerald-900/60 to-slate-800 border border-emerald-700/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                            <i class="fas fa-chart-line text-emerald-400 text-3xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3">Your portfolio is being set up</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed mb-2">Your investment details are being configured by the BrightWave team. Once linked, you'll see your full return schedule, construction progress, and distribution timeline here.</p>
+                        <p class="text-gray-500 text-xs mb-8">This usually takes less than 24 hours after your agreement is signed.</p>
+                        <a href="mailto:brightwavehabitat@gmail.com" class="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
+                            <i class="fas fa-envelope text-xs"></i> Contact BrightWave
+                        </a>
+                        <div class="flex items-center justify-center gap-2 text-xs text-gray-600 mt-8">
+                            <img src="/assets/images/brightwave-logo.png" alt="" class="w-5 h-5 rounded-full opacity-50 object-cover">
+                            BrightWave Habitat Enterprise · Kwara State, Nigeria
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6965,7 +6973,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
                 <div class="bg-amber-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Capital Spent</p><p id="acc_capital_spent" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
                 <div class="bg-orange-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-orange-300 uppercase tracking-wide mb-1 truncate">Capital This Month</p><p id="acc_monthly_capital" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
-                <div class="bg-cyan-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1 truncate">Budget Remaining</p><p id="acc_budget_remaining" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div id="acc_budget_card" class="bg-cyan-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1 truncate" id="acc_budget_label">Budget Remaining</p><p id="acc_budget_remaining" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
@@ -7187,7 +7195,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function canApproveExpenses() {
-            return ALL_ROLES.includes('CEO') || ALL_ROLES.includes('ACCOUNTANT');
+            return ALL_ROLES.includes('CEO');
         }
 
         function getExpenseStatusMeta(status) {
@@ -7762,18 +7770,33 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Apartment');
                 const statusClasses = { available: 'bg-emerald-900/50 text-emerald-300', occupied: 'bg-blue-900/50 text-blue-300', reserved: 'bg-amber-900/50 text-amber-300', maintenance: 'bg-red-900/50 text-red-300' };
                 const unitTableEl = document.getElementById('mgr_unitsTable');
-                if (unitTableEl) unitTableEl.innerHTML = phase1Units.map(u => `
-                    <tr class="border-b border-gray-700">
+                if (unitTableEl) unitTableEl.innerHTML = (phase1Units.map(u => `
+                    <tr class="border-b border-gray-700" id="unitRow_${u.id}">
                         <td class="py-2 pr-3 font-medium text-white">${u.unit_code}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[u.status] || 'bg-gray-700 text-gray-300'}">${u.status}</span></td>
                         <td class="py-2 pr-3 text-xs text-gray-300">${u.monthly_rent ? formatNGN(u.monthly_rent) : '—'}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400">${u.notes || '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[140px] truncate">${u.notes || '—'}</td>
                         <td class="py-2">
-                            <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
-                                ${['available','occupied','reserved','maintenance'].map(s => `<option value="${s}" ${u.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
-                            </select>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                    ${['available','occupied','reserved','maintenance'].map(s => `<option value="${s}" ${u.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                                </select>
+                                <button type="button" onclick="openUnitEdit(${u.id}, ${u.monthly_rent || 0}, \`${(u.notes || '').replace(/`/g,'')}\`)" class="text-xs text-blue-400 hover:text-blue-300 font-medium">Edit</button>
+                            </div>
                         </td>
-                    </tr>`).join('') || '<tr><td colspan="5" class="text-gray-500 py-3 text-center text-xs">No units found</td></tr>';
+                    </tr>
+                    <tr id="unitEditRow_${u.id}" class="hidden bg-gray-700/30">
+                        <td colspan="5" class="py-3 px-2">
+                            <div class="flex items-end gap-3 flex-wrap">
+                                <div><label class="block text-[11px] text-gray-400 mb-1">Yearly Rent (₦)</label><input type="number" id="unitRent_${u.id}" value="${u.monthly_rent || ''}" placeholder="0" class="w-32 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white"></div>
+                                <div class="flex-1 min-w-[140px]"><label class="block text-[11px] text-gray-400 mb-1">Notes</label><input type="text" id="unitNotes_${u.id}" value="${(u.notes || '').replace(/"/g,'&quot;')}" placeholder="Optional notes" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white"></div>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="saveMgrUnitDetails(${u.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium">Save</button>
+                                    <button type="button" onclick="closeUnitEdit(${u.id})" class="text-xs bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded-lg">Cancel</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`).join('')) || '<tr><td colspan="5" class="text-gray-500 py-3 text-center text-xs">No units found</td></tr>';
                 populateManagerUnitSelect(phase1Units);
                 renderTenantCards('mgr_tenantsList', tenants.filter(t => t.status === 'active'));
             } catch (e) { console.error('Manager dashboard error', e); }
@@ -7789,7 +7812,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
                 document.getElementById('acc_capital_spent').textContent = fmtCompact(stats.approved_capital_spent || 0);
                 document.getElementById('acc_monthly_capital').textContent = fmtCompact(stats.monthly_capital_spent || 0);
-                document.getElementById('acc_budget_remaining').textContent = fmtCompact(stats.capital_budget_remaining || 0);
+                const budgetVal = stats.capital_budget_remaining || 0;
+                const isOverBudget = budgetVal < 0;
+                document.getElementById('acc_budget_remaining').textContent = fmtCompact(Math.abs(budgetVal)) + (isOverBudget ? ' over' : ' left');
+                document.getElementById('acc_budget_remaining').className = `text-lg sm:text-xl font-bold truncate ${isOverBudget ? 'text-red-400' : 'text-white'}`;
+                document.getElementById('acc_budget_label').textContent = isOverBudget ? 'Over Budget' : 'Budget Remaining';
+                document.getElementById('acc_budget_card').className = `${isOverBudget ? 'bg-red-900/80 border border-red-700/40' : 'bg-cyan-900'} rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1`;
                 const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
                 document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
                 document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Available Units</p><p class="text-xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Occupied Units</p><p class="text-xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Active Tenants</p><p class="text-xl font-bold text-white mt-1">${tenants.length}</p></div>`;
@@ -7802,10 +7830,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                     .slice(0, 4)
                     .map(([category, amount]) => `${category}: ${formatNGN(amount)}`)
                     .join('<br>');
-                document.getElementById('accExpenseBreakdown').innerHTML = expenseCategorySummary || 'No capital entries yet';
-                document.getElementById('accExpenseList').innerHTML = (expensesData.expenses || []).length
-                    ? expensesData.expenses.slice(0, 12).map(exp => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.property_title || 'Unassigned project'} · ${exp.category} · ${exp.expense_date || ''}</p><p class="text-xs text-gray-500 mt-1">${exp.payee_name || 'No supplier / worker name recorded'}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="mt-3 text-xs text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div></div>`).join('')
-                    : '<p class="text-gray-400 py-6 text-center text-sm">No project expenses recorded yet</p>';
                 const approvalTotals = expensesData.approval_totals || {};
                 const approvalSummary = [`Approved: ${formatNGN(approvalTotals.approved || 0)}`, `Pending: ${formatNGN(approvalTotals.pending || 0)}`, `Rejected: ${formatNGN(approvalTotals.rejected || 0)}`].join('<br>');
                 document.getElementById('accExpenseBreakdown').innerHTML = `${approvalSummary}${expenseCategorySummary ? '<br>' + expenseCategorySummary : ''}`;
@@ -8163,6 +8187,26 @@ ROLE_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 alert('Error updating unit status.');
             }
+        }
+
+        function openUnitEdit(unitId, rent, notes) {
+            document.querySelectorAll('[id^="unitEditRow_"]').forEach(r => r.classList.add('hidden'));
+            document.getElementById('unitEditRow_' + unitId)?.classList.remove('hidden');
+        }
+        function closeUnitEdit(unitId) {
+            document.getElementById('unitEditRow_' + unitId)?.classList.add('hidden');
+        }
+        async function saveMgrUnitDetails(unitId) {
+            const rent = document.getElementById('unitRent_' + unitId)?.value;
+            const notes = document.getElementById('unitNotes_' + unitId)?.value || '';
+            try {
+                await fetchData('/admin/api/units/' + unitId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ monthly_rent: rent !== '' ? Number(rent) : null, notes })
+                });
+                await loadManagerDashboard();
+            } catch (e) { alert('Error saving unit details.'); }
         }
 
         async function fetchContractForRole(role) {
