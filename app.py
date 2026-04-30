@@ -3674,6 +3674,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <button onclick="showSection('constructionSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-hard-hat w-5 text-center flex-shrink-0"></i><span class="sb-label">Construction</span>
             </button>
+            <button onclick="showSection('capitalSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-calculator w-5 text-center flex-shrink-0"></i><span class="sb-label">Capital Calculation</span>
+            </button>
             <button onclick="showSection('contentSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-globe w-5 text-center flex-shrink-0"></i><span class="sb-label">Website</span>
             </button>
@@ -4214,12 +4217,28 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 </div>
                 <div id="ceoConstructionList" class="space-y-3"></div>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4 mt-4">
+        </section>
+
+        <section id="capitalSection" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-2">Capital Calculation</h2>
+            <p class="text-sm text-gray-400 mb-5">Track all project spend — materials, labour, logistics, permits, and more. CEO and accountant approvals count against committed capital.</p>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-emerald-900 rounded-xl p-4"><p class="text-xs text-emerald-300 uppercase tracking-wide mb-1">Approved Spend</p><p id="capApprovedTotal" class="text-2xl font-bold text-white">₦0</p></div>
+                <div class="bg-amber-900 rounded-xl p-4"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Pending Approval</p><p id="capPendingTotal" class="text-2xl font-bold text-white">₦0</p></div>
+                <div class="bg-red-900 rounded-xl p-4"><p class="text-xs text-red-300 uppercase tracking-wide mb-1">Rejected</p><p id="capRejectedTotal" class="text-2xl font-bold text-white">₦0</p></div>
+                <div class="bg-cyan-900 rounded-xl p-4"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="capBudgetRemaining" class="text-2xl font-bold text-white">—</p></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <label class="text-sm text-gray-400 flex-shrink-0">Project:</label>
+                <select id="ceoCapitalProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[220px]"></select>
+                <p class="text-xs text-gray-500 sm:ml-2">Budget totals update when you select a project.</p>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
                 <div class="bg-gray-800 rounded-xl p-5">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
-                            <h3 class="font-semibold text-slate-300">Project Expense Ledger</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">Track materials, labour, logistics, and other capital spend per project.</p>
+                            <h3 class="font-semibold text-slate-300">Record Expense</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Cement, iron rods, bricklayer wages, diesel, permits...</p>
                         </div>
                         <div class="text-right">
                             <p class="text-xs text-gray-500 uppercase tracking-wide">Total Recorded</p>
@@ -4243,7 +4262,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 </div>
                 <div class="bg-gray-800 rounded-xl p-5">
                     <div class="flex items-center justify-between gap-3 mb-4">
-                        <h3 class="font-semibold text-slate-300">Recent Project Expenses</h3>
+                        <h3 class="font-semibold text-slate-300">Recorded Expenses</h3>
                         <div id="ceoExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap mb-4">
@@ -5024,7 +5043,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
-            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -5040,6 +5059,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'tenantsSection') loadTenants();
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
+            if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
             if (sectionId === 'contractsSection') loadContracts();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
@@ -5078,6 +5098,22 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     mgrSel.value = mgrCurrent && props.some(p => String(p.id) === mgrCurrent) ? mgrCurrent : (props[0] ? String(props[0].id) : '');
                 }
                 loadConstructionUpdates(ceoSel?.value || mgrSel?.value || '');
+            } catch (e) {}
+        }
+
+        async function loadCapitalPropertyOptions() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                ['ceoCapitalProperty', 'mgrCapitalProperty'].forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    const cur = sel.value;
+                    sel.innerHTML = options;
+                    sel.value = cur && props.some(p => String(p.id) === cur) ? cur : (props[0] ? String(props[0].id) : '');
+                });
+                await loadProjectExpenses('ceo');
+                await loadProjectExpenses('mgr');
             } catch (e) {}
         }
 
@@ -6248,6 +6284,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabUnits" onclick="showMgrTab('mgrTabUnits')">Units &amp; Tenants</button>
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabCapital" onclick="showMgrTab('mgrTabCapital')">Capital Calc</button>
             </div>
             </div>
 
@@ -6373,12 +6410,21 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                     <div id="mgrConstructionList" class="space-y-3"></div>
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4 mt-4">
+            </div>
+
+            <!-- CAPITAL CALC TAB -->
+            <div id="mgrTabCapital" class="hidden">
+                <p class="text-sm text-gray-400 mb-4">Record all project spend below — entries go to the CEO and accountant for approval.</p>
+                <div class="bg-gray-800 rounded-xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label class="text-sm text-gray-400 flex-shrink-0">Project:</label>
+                    <select id="mgrCapitalProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm w-full sm:w-auto sm:min-w-[220px]"></select>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
                     <div class="bg-gray-800 rounded-xl p-5">
                         <div class="flex items-center justify-between gap-3 mb-4">
                             <div>
-                                <h3 class="font-semibold text-slate-300">Project Expense Ledger</h3>
-                                <p class="text-xs text-gray-500 mt-0.5">Record daily project spending instead of keeping it in phone notes.</p>
+                                <h3 class="font-semibold text-slate-300">Record Expense</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Blocks, plumber wages, electrical fittings, diesel...</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide">Total Recorded</p>
@@ -6397,12 +6443,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="mgrExpenseReceipt" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                             <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="mgrExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="mgrExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('mgr')">Cancel Edit</button><span id="mgrExpenseMsg" class="text-sm"></span></div>
-                            <p class="sm:col-span-2 text-[11px] text-gray-500">Manager entries stay pending until approved by the CEO or accountant.</p>
+                            <p class="sm:col-span-2 text-[11px] text-gray-500">Your entries stay pending until approved by the CEO or accountant.</p>
                         </form>
                     </div>
                     <div class="bg-gray-800 rounded-xl p-5">
                         <div class="flex items-center justify-between gap-3 mb-4">
-                            <h3 class="font-semibold text-slate-300">Recent Project Expenses</h3>
+                            <h3 class="font-semibold text-slate-300">Recorded Expenses</h3>
                             <div id="mgrExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap mb-4">
@@ -6734,7 +6780,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const totalEl = document.getElementById(prefix + 'ExpenseTotal');
             const breakdownEl = document.getElementById(prefix + 'ExpenseBreakdown');
             if (!listEl || !totalEl || !breakdownEl) return;
-            const selectedId = propertyId || document.getElementById(prefix + 'ConstructionProperty')?.value || '';
+            const selectedId = propertyId || document.getElementById(prefix + 'CapitalProperty')?.value || '';
             const filters = getExpenseFilters(prefix);
             try {
                 const data = await fetchData('/admin/api/project-expenses' + buildExpenseQuery(selectedId, filters));
@@ -6755,6 +6801,13 @@ ROLE_DASHBOARD_TEMPLATE = """
                 if (approvalTotals.rejected) approvalBits.push(`Rejected ${formatNGN(approvalTotals.rejected)}`);
                 const parts = [...budgetParts, ...approvalBits, ...categoryBits];
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
+                if (prefix === 'ceo') {
+                    const el = (id) => document.getElementById(id);
+                    if (el('capApprovedTotal')) el('capApprovedTotal').textContent = formatNGN(approvalTotals.approved || 0);
+                    if (el('capPendingTotal')) el('capPendingTotal').textContent = formatNGN(approvalTotals.pending || 0);
+                    if (el('capRejectedTotal')) el('capRejectedTotal').textContent = formatNGN(approvalTotals.rejected || 0);
+                    if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? formatNGN(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
+                }
                 listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
                 listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => renderExpenseCard(prefix, exp)).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
@@ -6767,7 +6820,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const prefix = source === 'mgr' ? 'mgr' : 'ceo';
             const editId = document.getElementById(prefix + 'ExpenseEditId').value;
             const msgEl = document.getElementById(prefix + 'ExpenseMsg');
-            const propertyId = document.getElementById(prefix + 'ConstructionProperty')?.value || '';
+            const propertyId = document.getElementById(prefix + 'CapitalProperty')?.value || '';
             if (!propertyId) {
                 msgEl.textContent = 'Select a project first.';
                 msgEl.className = 'text-sm text-red-400';
@@ -7340,8 +7393,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const updates = await fetchData('/admin/api/construction-updates' + query);
                 renderConstructionUpdates(updates, 'ceoConstructionList', 'ceoConstructionHeadline');
                 renderConstructionUpdates(updates, 'mgrConstructionList', 'mgrConstructionProgress');
-                await loadProjectExpenses('ceo', ceoSel?.value || selectedId);
-                await loadProjectExpenses('mgr', mgrSel?.value || selectedId);
             } catch (e) {
                 const ceoList = document.getElementById('ceoConstructionList');
                 const mgrList = document.getElementById('mgrConstructionList');
@@ -7389,6 +7440,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 e.preventDefault();
                 await submitProjectExpense('mgr');
             });
+            document.getElementById('ceoCapitalProperty')?.addEventListener('change', () => loadProjectExpenses('ceo'));
+            document.getElementById('mgrCapitalProperty')?.addEventListener('change', () => loadProjectExpenses('mgr'));
             document.getElementById('ceoExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('ceo'));
             document.getElementById('ceoExpenseReceiptOnly')?.addEventListener('change', () => loadProjectExpenses('ceo'));
             document.getElementById('mgrExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('mgr'));
@@ -7449,7 +7502,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function showMgrTab(tabId) {
-            const tabs = ['mgrTabOverview', 'mgrTabUnits', 'mgrTabInquiries', 'mgrTabConstruction'];
+            const tabs = ['mgrTabOverview', 'mgrTabUnits', 'mgrTabInquiries', 'mgrTabConstruction', 'mgrTabCapital'];
             tabs.forEach(t => {
                 const el = document.getElementById(t);
                 if (el) el.classList.toggle('hidden', t !== tabId);
@@ -7467,6 +7520,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const mgrSel = document.getElementById('mgrConstructionProperty');
                 loadConstructionUpdates(mgrSel?.value || '');
             }
+            if (tabId === 'mgrTabCapital') { loadCapitalPropertyOptions(); }
         }
 
         async function updateMgrUnitStatus(unitId, newStatus) {
