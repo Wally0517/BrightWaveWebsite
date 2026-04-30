@@ -17,7 +17,7 @@ from collections import defaultdict
 from functools import wraps
 import json
 import threading
-from sqlalchemy import case
+from sqlalchemy import case, inspect, text
 from sqlalchemy.exc import IntegrityError
 
 logging.basicConfig(level=logging.INFO)
@@ -89,11 +89,15 @@ limiter = Limiter(
 # ========== FILE UPLOAD CONFIGURATION ==========
 UPLOAD_FOLDER = 'assets/images/properties'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+EXPENSE_RECEIPT_FOLDER = 'assets/uploads/expense-receipts'
+ALLOWED_RECEIPT_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['EXPENSE_RECEIPT_FOLDER'] = EXPENSE_RECEIPT_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(EXPENSE_RECEIPT_FOLDER, exist_ok=True)
 
 # ========== DATABASE MODELS ==========
 class Admin(db.Model):
@@ -126,6 +130,7 @@ class Property(db.Model):
     construction_status = db.Column(db.String(30), nullable=True)
     completion_date = db.Column(db.Date, nullable=True)
     featured = db.Column(db.Boolean, default=False)
+    capital_budget = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -240,6 +245,41 @@ class ConstructionUpdate(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     property = db.relationship('Property', backref='construction_updates')
 
+
+class ProjectExpense(db.Model):
+    __tablename__ = 'project_expense'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
+    expense_date = db.Column(db.Date, nullable=False, default=date_type.today)
+    category = db.Column(db.String(30), nullable=False, default='materials')
+    item_name = db.Column(db.String(160), nullable=False)
+    payee_name = db.Column(db.String(160), nullable=True)
+    quantity = db.Column(db.Float, nullable=True)
+    unit_cost = db.Column(db.Float, nullable=True)
+    amount = db.Column(db.Float, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    receipt_path = db.Column(db.String(255), nullable=True)
+    approval_status = db.Column(db.String(30), nullable=False, default='pending')
+    approval_note = db.Column(db.Text, nullable=True)
+    approved_by = db.Column(db.String(80), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    recorded_by = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='expenses')
+
+
+class VendorContact(db.Model):
+    __tablename__ = 'vendor_contact'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), unique=True, nullable=False)
+    contact_type = db.Column(db.String(30), nullable=False, default='supplier')
+    phone = db.Column(db.String(40), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Tenant(db.Model):
     __tablename__ = 'tenant'
     id = db.Column(db.Integer, primary_key=True)
@@ -347,9 +387,14 @@ DEFAULT_TEAM_MEMBERS = [
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def allowed_receipt_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_RECEIPT_EXTENSIONS
+
 def ensure_cms_baseline():
     """Create CMS tables and seed defaults lazily for existing deployments."""
     db.create_all()
+    ensure_runtime_schema_updates()
     changes_made = False
 
     try:
@@ -372,6 +417,35 @@ def ensure_cms_baseline():
     except Exception:
         db.session.rollback()
         raise
+
+
+def ensure_runtime_schema_updates():
+    inspector = inspect(db.engine)
+    dialect = db.engine.dialect.name
+    text_type = 'TEXT'
+    string_type = 'VARCHAR'
+    timestamp_type = 'TIMESTAMP' if dialect == 'postgresql' else 'DATETIME'
+    float_type = 'DOUBLE PRECISION' if dialect == 'postgresql' else 'REAL'
+
+    property_columns = {column['name'] for column in inspector.get_columns('property')} if inspector.has_table('property') else set()
+    if 'capital_budget' not in property_columns:
+        db.session.execute(text(f'ALTER TABLE property ADD COLUMN capital_budget {float_type}'))
+
+    expense_columns = {column['name'] for column in inspector.get_columns('project_expense')} if inspector.has_table('project_expense') else set()
+    if expense_columns:
+        if 'receipt_path' not in expense_columns:
+            db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN receipt_path {string_type}(255)'))
+        if 'approval_status' not in expense_columns:
+            db.session.execute(text("ALTER TABLE project_expense ADD COLUMN approval_status VARCHAR(30) DEFAULT 'pending'"))
+        if 'approval_note' not in expense_columns:
+            db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN approval_note {text_type}'))
+        if 'approved_by' not in expense_columns:
+            db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN approved_by {string_type}(80)'))
+        if 'approved_at' not in expense_columns:
+            db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN approved_at {timestamp_type}'))
+        db.session.execute(text("UPDATE project_expense SET approval_status = 'pending' WHERE approval_status IS NULL OR approval_status = ''"))
+
+    db.session.commit()
 
 def get_site_content():
     ensure_cms_baseline()
@@ -425,6 +499,113 @@ def serialize_construction_update(update):
         'updated_at': update.updated_at.isoformat() if update.updated_at else None,
     }
 
+
+def serialize_payment_record(payment):
+    return {
+        'id': payment.id,
+        'tenant_id': payment.tenant_id,
+        'tenant_name': payment.tenant_name or '',
+        'amount': payment.amount,
+        'payment_date': payment.payment_date.isoformat() if payment.payment_date else '',
+        'payment_type': payment.payment_type,
+        'description': payment.description or '',
+        'recorded_by': payment.recorded_by or '',
+        'created_at': payment.created_at.strftime('%Y-%m-%d %H:%M') if payment.created_at else '',
+    }
+
+
+def serialize_project_expense(expense):
+    return {
+        'id': expense.id,
+        'property_id': expense.property_id,
+        'property_title': expense.property.title if expense.property else '',
+        'expense_date': expense.expense_date.isoformat() if expense.expense_date else '',
+        'category': expense.category,
+        'item_name': expense.item_name,
+        'payee_name': expense.payee_name or '',
+        'quantity': expense.quantity,
+        'unit_cost': expense.unit_cost,
+        'amount': expense.amount,
+        'notes': expense.notes or '',
+        'receipt_path': expense.receipt_path or '',
+        'approval_status': expense.approval_status or 'pending',
+        'approval_note': expense.approval_note or '',
+        'approved_by': expense.approved_by or '',
+        'approved_at': expense.approved_at.strftime('%Y-%m-%d %H:%M') if expense.approved_at else '',
+        'recorded_by': expense.recorded_by or '',
+        'created_at': expense.created_at.strftime('%Y-%m-%d %H:%M') if expense.created_at else '',
+        'updated_at': expense.updated_at.strftime('%Y-%m-%d %H:%M') if expense.updated_at else '',
+    }
+
+
+def serialize_vendor_contact(vendor):
+    return {
+        'id': vendor.id,
+        'name': vendor.name,
+        'contact_type': vendor.contact_type,
+        'phone': vendor.phone or '',
+        'notes': vendor.notes or '',
+        'is_active': vendor.is_active,
+    }
+
+
+def expense_can_be_approved_by(admin):
+    return bool(admin and admin_has_any_role(admin, 'CEO', 'ACCOUNTANT'))
+
+
+def add_years_safe(base_date, years):
+    if not base_date:
+        return None
+    try:
+        return base_date.replace(year=base_date.year + years)
+    except ValueError:
+        return base_date.replace(month=2, day=28, year=base_date.year + years)
+
+
+def build_debt_distribution_schedule(amount, roi_rate, term_years, expected_completion_date=None):
+    amount = float(amount or 0)
+    roi_rate = float(roi_rate or 0)
+    term_years = int(term_years or 0)
+    if amount <= 0 or term_years <= 0:
+        return {
+            'distribution_model': 'annual_principal_plus_roi',
+            'annual_principal_component': 0.0,
+            'annual_roi_amount': 0.0,
+            'projected_total_roi': 0.0,
+            'projected_total_payout': 0.0,
+            'schedule': [],
+        }
+
+    annual_principal_component = round(amount / term_years, 2)
+    annual_roi_amount = round(amount * roi_rate / 100, 2)
+    remaining_principal = round(amount, 2)
+    schedule = []
+
+    for year in range(1, term_years + 1):
+        opening_principal = remaining_principal
+        principal_component = annual_principal_component if year < term_years else round(remaining_principal, 2)
+        total_payout = round(principal_component + annual_roi_amount, 2)
+        remaining_principal = round(max(remaining_principal - principal_component, 0), 2)
+        due_date = add_years_safe(expected_completion_date, year) if expected_completion_date else None
+        schedule.append({
+            'year': year,
+            'opening_principal': round(opening_principal, 2),
+            'principal_component': round(principal_component, 2),
+            'roi_component': annual_roi_amount,
+            'total_payout': total_payout,
+            'remaining_principal': remaining_principal,
+            'due_date': due_date.isoformat() if due_date else None,
+        })
+
+    return {
+        'distribution_model': 'annual_principal_plus_roi',
+        'annual_principal_component': annual_principal_component,
+        'annual_roi_amount': annual_roi_amount,
+        'projected_total_roi': round(annual_roi_amount * term_years, 2),
+        'projected_total_payout': round(sum(item['total_payout'] for item in schedule), 2),
+        'schedule': schedule,
+    }
+
 def create_admin_user():
     """Create an admin user only when bootstrap credentials are supplied."""
     username = os.environ.get('ADMIN_BOOTSTRAP_USERNAME')
@@ -474,7 +655,7 @@ def init_sample_data():
         amenities=['Private Bathroom','Private Kitchen','24/7 Security','Solar Power','CCTV','Water Supply','Parking Space'],
         images=['images/phase1/phase1-main-entrance.jpg', 'images/phase1/phase1-aerial-topview.jpg'],
         construction_status='completed', completion_date=datetime(2026, 3, 25).date(),
-        featured=True, status='active'
+        featured=True, status='active', capital_budget=25000000
     )
 
     phase2 = Property(
@@ -486,7 +667,7 @@ def init_sample_data():
         amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Recreation facilities','Study Areas','Common Spaces'],
         images=['images/hostels/brightwave-phase2-render.jpg'],
         construction_status='planning', completion_date=datetime(2027, 6, 30).date(),
-        featured=False, status='active'
+        featured=False, status='active', capital_budget=60000000
     )
 
     phase3 = Property(
@@ -498,7 +679,7 @@ def init_sample_data():
         amenities=['Self-contained rooms','24/7 Security & CCTV','Solar power backup','Gym','Library','Recreation facilities'],
         images=['images/hostels/brightwave-phase3-concept.jpg'],
         construction_status='pending', completion_date=datetime(2028, 12, 31).date(),
-        featured=False, status='active'
+        featured=False, status='active', capital_budget=95000000
     )
 
     # --- Lands ---
@@ -1013,8 +1194,9 @@ The specific investment amount, type (Debt or Equity), return rate, investment t
 
 DEBT INVESTMENT TERMS:
 — The Investor lends capital to the Company at the agreed annual interest rate for the agreed investment term (typically 3, 5, or 10 years as confirmed in the Investor's profile).
-— Interest distributions are paid annually, commencing after project completion and first revenue generation.
-— Principal is returned in full at the end of the agreed investment term.
+— Distributions are paid annually, commencing after project completion and first revenue generation.
+— Each annual debt distribution combines a fixed principal repayment portion and the agreed annual ROI amount, based on the Investor's confirmed term and profile.
+— The annual principal repayment portion is calculated by dividing the invested principal across the agreed investment term, unless a different structure is confirmed in writing by the CEO.
 — The annual return rate for founding investors in the current phase is 3.5% per annum. This rate reflects the early-stage nature of the business and ensures long-term sustainability for both the Company and its investors. The CEO reserves the right to revise the rate upward in future investment rounds as the Company scales and revenues increase, with any revision to be confirmed in writing prior to the signing of any new agreement.
 — The Investor may not demand early repayment of principal except by separate written agreement with the CEO.
 
@@ -1630,12 +1812,28 @@ def admin_stats():
             PaymentRecord.payment_date >= month_start
         ).scalar() or 0
         total_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).scalar() or 0
+        monthly_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
+            ProjectExpense.expense_date >= month_start
+        ).scalar() or 0
+        total_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).scalar() or 0
+        approved_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
+            ProjectExpense.approval_status == 'approved'
+        ).scalar() or 0
+        pending_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
+            ProjectExpense.approval_status == 'pending'
+        ).scalar() or 0
+        rejected_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
+            ProjectExpense.approval_status == 'rejected'
+        ).scalar() or 0
+        total_capital_budget = db.session.query(sqlfunc.sum(Property.capital_budget)).scalar() or 0
+        capital_budget_remaining = total_capital_budget - approved_capital_spent
 
         # Recent data
         recent_inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).limit(5).all()
         recent_messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(5).all()
         recent_payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(5).all()
         recent_tenants = Tenant.query.order_by(Tenant.created_at.desc()).limit(5).all()
+        recent_expenses = ProjectExpense.query.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).limit(5).all()
 
         return jsonify({
             'total_properties': total_properties,
@@ -1657,6 +1855,13 @@ def admin_stats():
             'occupied_units': occupied_units,
             'monthly_revenue': monthly_revenue,
             'total_revenue': total_revenue,
+            'monthly_capital_spent': monthly_capital_spent,
+            'total_capital_spent': total_capital_spent,
+            'approved_capital_spent': approved_capital_spent,
+            'pending_capital_spent': pending_capital_spent,
+            'rejected_capital_spent': rejected_capital_spent,
+            'total_capital_budget': total_capital_budget,
+            'capital_budget_remaining': capital_budget_remaining,
             'recent_activity': {
                 'inquiries': [{
                     'id': inq.id,
@@ -1683,7 +1888,15 @@ def admin_stats():
                     'property_name': t.property_name or '',
                     'status': t.status,
                     'created_at': t.created_at.strftime('%Y-%m-%d')
-                } for t in recent_tenants]
+                } for t in recent_tenants],
+                'expenses': [{
+                    'id': e.id,
+                    'property_title': e.property.title if e.property else '',
+                    'item_name': e.item_name,
+                    'category': e.category,
+                    'amount': e.amount,
+                    'expense_date': e.expense_date.strftime('%Y-%m-%d') if e.expense_date else ''
+                } for e in recent_expenses]
             }
         })
     except Exception as e:
@@ -1797,6 +2010,29 @@ def upload_image():
         return jsonify({"success": False, "message": "Invalid file type"}), 400
     except Exception as e:
         logger.error(f"Error uploading image: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/upload-expense-receipt', methods=['POST'])
+@login_required
+def upload_expense_receipt():
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+        if 'file' not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "message": "No file selected"}), 400
+        if file and allowed_receipt_file(file.filename):
+            filename = secure_filename(f"{int(time())}_{file.filename}")
+            file_path = os.path.join(app.config['EXPENSE_RECEIPT_FOLDER'], filename)
+            file.save(file_path)
+            return jsonify({"success": True, "filename": f"uploads/expense-receipts/{filename}"})
+        return jsonify({"success": False, "message": "Invalid receipt file type"}), 400
+    except Exception as e:
+        logger.error(f"Error uploading expense receipt: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== ADMIN AUTHENTICATION ==========
@@ -2053,6 +2289,7 @@ def admin_properties():
                 'images': prop.images or [],
                 'status': prop.status,
                 'construction_status': prop.construction_status,
+                'capital_budget': prop.capital_budget,
                 'completion_date': prop.completion_date.isoformat() if prop.completion_date else None,
                 'featured': prop.featured,
                 'created_at': prop.created_at.isoformat()
@@ -2091,6 +2328,7 @@ def admin_properties():
                 images=data.get('images', []),
                 status=data.get('status', 'active'),
                 construction_status=data.get('construction_status'),
+                capital_budget=float(data['capital_budget']) if data.get('capital_budget') not in (None, '') else None,
                 completion_date=completion_date,
                 featured=data.get('featured', False)
             )
@@ -2136,6 +2374,7 @@ def admin_property_detail(property_id):
             property.images = data.get('images', [])
             property.status = data.get('status', 'active')
             property.construction_status = data.get('construction_status')
+            property.capital_budget = float(data['capital_budget']) if data.get('capital_budget') not in (None, '') else None
             property.completion_date = completion_date
             property.featured = data.get('featured', False)
             property.updated_at = datetime.utcnow()
@@ -2279,6 +2518,202 @@ def admin_construction_update_detail(update_id):
         return jsonify({"success": True, "message": "Construction update saved", "update": serialize_construction_update(update)})
     except Exception as e:
         logger.error(f"Error updating construction update {update_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/project-expenses', methods=['GET', 'POST'])
+@login_required
+def admin_project_expenses():
+    try:
+        admin = get_current_admin()
+        if request.method == 'GET':
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+            property_id = request.args.get('property_id', type=int)
+            approval_status = (request.args.get('approval_status') or '').strip().lower()
+            has_receipt = (request.args.get('has_receipt') or '').strip().lower()
+            summary_query = ProjectExpense.query
+            if property_id:
+                summary_query = summary_query.filter_by(property_id=property_id)
+            query = summary_query
+            if approval_status in {'pending', 'approved', 'rejected'}:
+                query = query.filter_by(approval_status=approval_status)
+            if has_receipt in {'1', 'true', 'yes'}:
+                query = query.filter(ProjectExpense.receipt_path.isnot(None), ProjectExpense.receipt_path != '')
+            expenses = query.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).all()
+            total_amount = round(sum(exp.amount or 0 for exp in expenses), 2)
+            by_category = {}
+            for exp in expenses:
+                by_category[exp.category] = round(by_category.get(exp.category, 0) + (exp.amount or 0), 2)
+            approval_totals = {'pending': 0.0, 'approved': 0.0, 'rejected': 0.0}
+            for exp in summary_query.all():
+                key = exp.approval_status or 'pending'
+                if key in approval_totals:
+                    approval_totals[key] = round(approval_totals[key] + (exp.amount or 0), 2)
+            budget_total = None
+            budget_remaining = None
+            over_budget = False
+            if property_id:
+                prop = Property.query.get(property_id)
+                if prop and prop.capital_budget is not None:
+                    budget_total = round(prop.capital_budget, 2)
+                    budget_remaining = round(budget_total - approval_totals['approved'], 2)
+                    over_budget = budget_remaining < 0
+            return jsonify({
+                'expenses': [serialize_project_expense(expense) for expense in expenses],
+                'total_amount': total_amount,
+                'by_category': by_category,
+                'approval_totals': approval_totals,
+                'budget_total': budget_total,
+                'budget_remaining': budget_remaining,
+                'over_budget': over_budget,
+            })
+
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+
+        data = request.get_json() or {}
+        property_id = data.get('property_id')
+        item_name = (data.get('item_name') or '').strip()
+        amount = data.get('amount')
+        if not property_id or not item_name or amount in (None, ''):
+            return jsonify({"success": False, "message": "property_id, item_name, and amount are required"}), 400
+
+        prop = Property.query.get_or_404(int(property_id))
+        payee_name = (data.get('payee_name') or '').strip() or None
+        expense = ProjectExpense(
+            property_id=prop.id,
+            expense_date=date_type.fromisoformat(data['expense_date']) if data.get('expense_date') else date_type.today(),
+            category=(data.get('category') or 'materials').strip() or 'materials',
+            item_name=item_name,
+            payee_name=payee_name,
+            quantity=float(data['quantity']) if data.get('quantity') not in (None, '') else None,
+            unit_cost=float(data['unit_cost']) if data.get('unit_cost') not in (None, '') else None,
+            amount=float(amount),
+            notes=(data.get('notes') or '').strip() or None,
+            receipt_path=(data.get('receipt_path') or '').strip() or None,
+            approval_status='approved' if expense_can_be_approved_by(admin) else 'pending',
+            approved_by=(admin.display_name or admin.username) if expense_can_be_approved_by(admin) else None,
+            approved_at=datetime.utcnow() if expense_can_be_approved_by(admin) else None,
+            recorded_by=admin.display_name or admin.username,
+        )
+        db.session.add(expense)
+        if payee_name:
+            existing_vendor = VendorContact.query.filter_by(name=payee_name).first()
+            if not existing_vendor:
+                db.session.add(VendorContact(
+                    name=payee_name,
+                    contact_type='worker' if expense.category == 'labour' else 'supplier',
+                    is_active=True,
+                ))
+        db.session.commit()
+        return jsonify({"success": True, "message": "Project expense recorded", "expense": serialize_project_expense(expense)})
+    except Exception as e:
+        logger.error(f"Error managing project expenses: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/project-expenses/<int:expense_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_project_expense_detail(expense_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+
+        expense = ProjectExpense.query.get_or_404(expense_id)
+        if request.method == 'DELETE':
+            db.session.delete(expense)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Project expense removed"})
+
+        data = request.get_json() or {}
+        if 'property_id' in data and data['property_id']:
+            expense.property_id = int(data['property_id'])
+        if 'expense_date' in data:
+            expense.expense_date = date_type.fromisoformat(data['expense_date']) if data['expense_date'] else expense.expense_date
+        if 'category' in data:
+            expense.category = (data['category'] or 'materials').strip() or 'materials'
+        if 'item_name' in data and (data['item_name'] or '').strip():
+            expense.item_name = data['item_name'].strip()
+        if 'payee_name' in data:
+            expense.payee_name = (data['payee_name'] or '').strip() or None
+        if 'quantity' in data:
+            expense.quantity = float(data['quantity']) if data['quantity'] not in (None, '') else None
+        if 'unit_cost' in data:
+            expense.unit_cost = float(data['unit_cost']) if data['unit_cost'] not in (None, '') else None
+        if 'amount' in data and data['amount'] not in (None, ''):
+            expense.amount = float(data['amount'])
+        if 'notes' in data:
+            expense.notes = (data['notes'] or '').strip() or None
+        if 'receipt_path' in data:
+            expense.receipt_path = (data['receipt_path'] or '').strip() or None
+        requested_status = (data.get('approval_status') or '').strip().lower()
+        if requested_status:
+            if requested_status not in {'pending', 'approved', 'rejected'}:
+                return jsonify({"success": False, "message": "Invalid approval_status"}), 400
+            if not expense_can_be_approved_by(admin):
+                return jsonify({"success": False, "message": "Only CEO or Accountant can change approval status"}), 403
+            expense.approval_status = requested_status
+            expense.approval_note = (data.get('approval_note') or '').strip() or None
+            if requested_status == 'approved':
+                expense.approved_by = admin.display_name or admin.username
+                expense.approved_at = datetime.utcnow()
+            else:
+                expense.approved_by = None
+                expense.approved_at = None
+        elif not expense_can_be_approved_by(admin):
+            expense.approval_status = 'pending'
+            expense.approval_note = None
+            expense.approved_by = None
+            expense.approved_at = None
+        expense.recorded_by = admin.display_name or admin.username
+        if expense.payee_name:
+            existing_vendor = VendorContact.query.filter_by(name=expense.payee_name).first()
+            if not existing_vendor:
+                db.session.add(VendorContact(
+                    name=expense.payee_name,
+                    contact_type='worker' if expense.category == 'labour' else 'supplier',
+                    is_active=True,
+                ))
+        expense.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True, "message": "Project expense updated", "expense": serialize_project_expense(expense)})
+    except Exception as e:
+        logger.error(f"Error updating project expense {expense_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/vendors', methods=['GET', 'POST'])
+@login_required
+def admin_vendors():
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+        if request.method == 'GET':
+            vendors = VendorContact.query.filter_by(is_active=True).order_by(VendorContact.name.asc()).all()
+            return jsonify([serialize_vendor_contact(vendor) for vendor in vendors])
+
+        data = request.get_json() or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({"success": False, "message": "Vendor name is required"}), 400
+        existing = VendorContact.query.filter_by(name=name).first()
+        if existing:
+            return jsonify({"success": True, "message": "Vendor already exists", "vendor": serialize_vendor_contact(existing)})
+        vendor = VendorContact(
+            name=name,
+            contact_type=(data.get('contact_type') or 'supplier').strip() or 'supplier',
+            phone=(data.get('phone') or '').strip() or None,
+            notes=(data.get('notes') or '').strip() or None,
+            is_active=True,
+        )
+        db.session.add(vendor)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Vendor saved", "vendor": serialize_vendor_contact(vendor)})
+    except Exception as e:
+        logger.error(f"Error managing vendors: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/inquiries', methods=['GET'])
@@ -2724,26 +3159,14 @@ def admin_tenant_detail(tenant_id):
 @login_required
 def admin_payments():
     try:
-        if request.method == 'GET':
-            admin = get_current_admin()
-            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
-                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
-            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
-            return jsonify([{
-                'id': p.id,
-                'tenant_id': p.tenant_id,
-                'tenant_name': p.tenant_name or '',
-                'amount': p.amount,
-                'payment_date': p.payment_date.isoformat() if p.payment_date else '',
-                'payment_type': p.payment_type,
-                'description': p.description or '',
-                'recorded_by': p.recorded_by or '',
-                'created_at': p.created_at.strftime('%Y-%m-%d %H:%M'),
-            } for p in payments])
-
-        _pay_admin = get_current_admin()
-        if not _pay_admin or not admin_has_any_role(_pay_admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+
+        if request.method == 'GET':
+            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
+            return jsonify([serialize_payment_record(p) for p in payments])
+
         data = request.get_json() or {}
         if not data.get('amount'):
             return jsonify({"success": False, "message": "Amount is required"}), 400
@@ -2753,7 +3176,6 @@ def admin_payments():
             t = Tenant.query.get(int(tenant_id))
             if t:
                 tenant_name = t.name
-        admin = get_current_admin()
         payment = PaymentRecord(
             tenant_id=int(tenant_id) if tenant_id else None,
             tenant_name=tenant_name or None,
@@ -2768,6 +3190,50 @@ def admin_payments():
         return jsonify({"success": True, "message": "Payment recorded", "id": payment.id})
     except Exception as e:
         logger.error(f"Error managing payments: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payments/<int:payment_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_payment_detail(payment_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+
+        payment = PaymentRecord.query.get_or_404(payment_id)
+        if request.method == 'DELETE':
+            db.session.delete(payment)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Payment removed"})
+
+        data = request.get_json() or {}
+        if 'amount' in data:
+            payment.amount = float(data['amount'])
+        if 'payment_date' in data and data['payment_date']:
+            payment.payment_date = date_type.fromisoformat(data['payment_date'])
+        if 'payment_type' in data:
+            payment.payment_type = (data['payment_type'] or 'rent').strip() or 'rent'
+        if 'description' in data:
+            payment.description = (data['description'] or '').strip() or None
+
+        tenant_id = data.get('tenant_id')
+        tenant_name = (data.get('tenant_name') or '').strip()
+        if tenant_id:
+            tenant = Tenant.query.get(int(tenant_id))
+            payment.tenant_id = int(tenant_id)
+            payment.tenant_name = tenant.name if tenant else (tenant_name or payment.tenant_name)
+        elif 'tenant_id' in data:
+            payment.tenant_id = None
+            payment.tenant_name = tenant_name or None
+        elif tenant_name:
+            payment.tenant_name = tenant_name
+
+        payment.recorded_by = admin.display_name or admin.username
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment updated", "payment": serialize_payment_record(payment)})
+    except Exception as e:
+        logger.error(f"Error updating payment {payment_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== INVESTOR PROFILE API ==========
@@ -2887,6 +3353,12 @@ def my_investment():
                 property_id=project_property.id,
                 is_public=True
             ).order_by(ConstructionUpdate.progress_percentage.asc(), ConstructionUpdate.created_at.asc()).all()
+        debt_schedule = build_debt_distribution_schedule(
+            profile.investment_amount,
+            profile.roi_rate,
+            profile.investment_term_years,
+            profile.expected_completion_date,
+        ) if profile.investment_type == 'DEBT' else None
         return jsonify({
             'investment_type': profile.investment_type,
             'investment_amount': profile.investment_amount,
@@ -2901,6 +3373,12 @@ def my_investment():
             'project_property_id': project_property.id if project_property else None,
             'project_property_title': project_property.title if project_property else '',
             'construction_updates': [serialize_construction_update(update) for update in updates],
+            'distribution_model': debt_schedule['distribution_model'] if debt_schedule else 'equity_variable',
+            'annual_principal_component': debt_schedule['annual_principal_component'] if debt_schedule else None,
+            'annual_roi_amount': debt_schedule['annual_roi_amount'] if debt_schedule else None,
+            'projected_total_roi': debt_schedule['projected_total_roi'] if debt_schedule else None,
+            'projected_total_payout': debt_schedule['projected_total_payout'] if debt_schedule else None,
+            'payout_schedule': debt_schedule['schedule'] if debt_schedule else [],
         })
     except Exception as e:
         logger.error(f"Error fetching investment: {str(e)}")
@@ -3674,6 +4152,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="planning">Planning</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Capital Budget (₦)</label>
+                        <input type="number" id="capital_budget" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
                     <div class="md:col-span-2 flex items-center space-x-4">
                         <label class="flex items-center">
                             <input type="checkbox" id="featured" class="mr-2">
@@ -3731,6 +4213,45 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <span id="ceoConstructionHeadline" class="text-sm text-emerald-400 font-medium">0%</span>
                 </div>
                 <div id="ceoConstructionList" class="space-y-3"></div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4 mt-4">
+                <div class="bg-gray-800 rounded-xl p-5">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="font-semibold text-slate-300">Project Expense Ledger</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Track materials, labour, logistics, and other capital spend per project.</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide">Total Recorded</p>
+                            <p id="ceoExpenseTotal" class="text-lg font-bold text-amber-300">₦0</p>
+                        </div>
+                    </div>
+                    <form id="ceoExpenseForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="hidden" id="ceoExpenseEditId">
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Expense Date *</label><input type="date" id="ceoExpenseDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="ceoExpenseCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="ceoExpenseItem" placeholder="Cement, iron rods, bricklayer wages, diesel..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="ceoExpensePayee" placeholder="Supplier or worker name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="ceoExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="ceoExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="ceoExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="ceoExpenseReceipt" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="ceoExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="ceoExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="ceoExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('ceo')">Cancel Edit</button><span id="ceoExpenseMsg" class="text-sm"></span></div>
+                        <p class="sm:col-span-2 text-[11px] text-gray-500">CEO and accountant approvals determine what counts against committed capital.</p>
+                    </form>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-5">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-slate-300">Recent Project Expenses</h3>
+                        <div id="ceoExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap mb-4">
+                        <select id="ceoExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                        <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="ceoExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
+                    </div>
+                    <div id="ceoExpenseList" class="space-y-3"></div>
+                </div>
             </div>
         </section>
 
@@ -3847,6 +4368,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <th class="py-2 text-left">Type</th>
                             <th class="py-2 text-left">Location</th>
                             <th class="py-2 text-left">Status</th>
+                            <th class="py-2 text-left">Budget</th>
                             <th class="py-2 text-left">Actions</th>
                         </tr>
                     </thead>
@@ -3988,6 +4510,26 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <p class="text-xs text-slate-400 mt-1">${stats.active_properties} active &bull; H:${stats.property_breakdown.hostels} L:${stats.property_breakdown.land_plots} R:${stats.property_breakdown.residential}</p>
                         </div>
                     </div>
+                    <div class="bg-amber-800/60 border border-amber-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-amber-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-hammer text-amber-300"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-amber-400 font-medium uppercase tracking-wide">Capital Spent</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.monthly_capital_spent)}</p>
+                            <p class="text-xs text-amber-300 mt-1 break-all">All time: ${fmtNGN(stats.total_capital_spent)}</p>
+                        </div>
+                    </div>
+                    <div class="bg-cyan-800/60 border border-cyan-700/40 p-5 rounded-xl flex items-start gap-4 shadow">
+                        <div class="w-10 h-10 bg-cyan-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-scale-balanced text-cyan-300"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-cyan-400 font-medium uppercase tracking-wide">Budget Position</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-0.5 break-all">${fmtNGN(stats.capital_budget_remaining)}</p>
+                            <p class="text-xs text-cyan-300 mt-1 break-all">Budgeted: ${fmtNGN(stats.total_capital_budget)}</p>
+                        </div>
+                    </div>
                 `;
 
                 // Website metrics row
@@ -4092,6 +4634,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         }">${prop.property_type}</span></td>
                         <td class="py-2">${prop.location}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
+                        <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
                         <td class="py-2">
                             <button onclick="deleteProperty(${prop.id})" class="text-red-400 hover:underline">Delete</button>
                         </td>
@@ -4372,6 +4915,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 price: parseFloat(document.getElementById('price').value) || null,
                 price_type: document.getElementById('price_type').value || null,
                 construction_status: document.getElementById('construction_status').value || null,
+                capital_budget: parseFloat(document.getElementById('capital_budget').value) || null,
                 featured: document.getElementById('featured').checked
             };
 
@@ -4882,8 +5426,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const investors = await fetchData('/admin/api/investors');
                 document.getElementById('investorsTable').innerHTML = investors.map(p => {
                     const annualReturn = p.investment_type === 'DEBT' ? (p.investment_amount * p.roi_rate / 100) : null;
+                    const annualPrincipal = p.investment_type === 'DEBT' && p.investment_term_years
+                        ? (p.investment_amount / p.investment_term_years)
+                        : null;
                     const display = p.investment_type === 'DEBT'
-                        ? `${p.roi_rate}% p.a = ${formatNGN(annualReturn)}/yr`
+                        ? `${formatNGN(annualPrincipal || 0)} principal + ${formatNGN(annualReturn || 0)} ROI / yr`
                         : `${p.equity_percentage || '?'}% equity`;
                     return `
                         <tr class="border-b border-gray-700 hover:bg-gray-750">
@@ -5826,6 +6373,45 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                     <div id="mgrConstructionList" class="space-y-3"></div>
                 </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4 mt-4">
+                    <div class="bg-gray-800 rounded-xl p-5">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h3 class="font-semibold text-slate-300">Project Expense Ledger</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Record daily project spending instead of keeping it in phone notes.</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Total Recorded</p>
+                                <p id="mgrExpenseTotal" class="text-lg font-bold text-amber-300">₦0</p>
+                            </div>
+                        </div>
+                        <form id="mgrExpenseForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input type="hidden" id="mgrExpenseEditId">
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Expense Date *</label><input type="date" id="mgrExpenseDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Category *</label><select id="mgrExpenseCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="other">Other</option></select></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Item / Purchase *</label><input type="text" id="mgrExpenseItem" placeholder="Blocks, plumber wages, electrical fittings..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Paid To / Supplier</label><input list="expensePayeeOptions" type="text" id="mgrExpensePayee" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount (₦) *</label><input type="number" id="mgrExpenseAmount" step="100" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Quantity</label><input type="number" id="mgrExpenseQuantity" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Cost (₦)</label><input type="number" id="mgrExpenseUnitCost" step="0.01" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Receipt / Proof</label><input type="file" id="mgrExpenseReceipt" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-gray-500"><p class="text-[11px] text-gray-500 mt-1">Optional. Upload invoice, receipt, transfer slip, or proof of payment.</p></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrExpenseNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                            <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="mgrExpenseSubmitBtn" class="bg-amber-700 hover:bg-amber-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Expense</button><button type="button" id="mgrExpenseCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="cancelExpenseEdit('mgr')">Cancel Edit</button><span id="mgrExpenseMsg" class="text-sm"></span></div>
+                            <p class="sm:col-span-2 text-[11px] text-gray-500">Manager entries stay pending until approved by the CEO or accountant.</p>
+                        </form>
+                    </div>
+                    <div class="bg-gray-800 rounded-xl p-5">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h3 class="font-semibold text-slate-300">Recent Project Expenses</h3>
+                            <div id="mgrExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap mb-4">
+                            <select id="mgrExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                            <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="mgrExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
+                        </div>
+                        <div id="mgrExpenseList" class="space-y-3"></div>
+                    </div>
+                </div>
             </div>
 
             {% elif r == 'ACCOUNTANT' %}
@@ -5835,17 +6421,23 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="bg-teal-900 rounded-xl p-5"><p class="text-xs text-teal-300 uppercase tracking-wide mb-1">Revenue This Month</p><p id="acc_monthly_revenue" class="text-3xl font-bold text-white">-</p></div>
                 <div class="bg-blue-900 rounded-xl p-5"><p class="text-xs text-blue-300 uppercase tracking-wide mb-1">Active Tenants</p><p id="acc_tenants" class="text-3xl font-bold text-white">-</p></div>
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-amber-900 rounded-xl p-5"><p class="text-xs text-amber-300 uppercase tracking-wide mb-1">Capital Spent (All Time)</p><p id="acc_capital_spent" class="text-3xl font-bold text-white">-</p></div>
+                <div class="bg-orange-900 rounded-xl p-5"><p class="text-xs text-orange-300 uppercase tracking-wide mb-1">Capital Spent This Month</p><p id="acc_monthly_capital" class="text-3xl font-bold text-white">-</p></div>
+                <div class="bg-cyan-900 rounded-xl p-5"><p class="text-xs text-cyan-300 uppercase tracking-wide mb-1">Budget Remaining</p><p id="acc_budget_remaining" class="text-3xl font-bold text-white">-</p></div>
+            </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
                 <div class="bg-gray-800 rounded-xl p-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Record Payment</h3>
                     <form id="accountantPaymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="hidden" id="accPaymentEditId">
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Tenant</label><select id="accPaymentTenant" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Fallback Tenant Name</label><input id="accPaymentTenantName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount *</label><input id="accPaymentAmount" type="number" step="100" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input id="accPaymentDate" type="date" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input id="accPaymentDesc" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><span id="accPaymentMsg" class="text-sm"></span></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="accPaymentSubmit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><button type="button" id="accPaymentCancel" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="accPaymentMsg" class="text-sm"></span></div>
                     </form>
                 </div>
                 <div class="bg-gray-800 rounded-xl p-6">
@@ -5856,6 +6448,18 @@ ROLE_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 rounded-xl p-6">
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Occupancy Snapshot</h3>
                 <div id="accUnitsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Recent Project Expenses</h3>
+                    <div id="accExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap mb-4">
+                    <select id="accExpensePropertyFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All projects</option></select>
+                    <select id="accExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="accExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
+                </div>
+                <div id="accExpenseList" class="space-y-3"></div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
@@ -5947,6 +6551,258 @@ ROLE_DASHBOARD_TEMPLATE = """
             else if (role === 'MANAGER') { loadManagerDashboard(); loadRoleDocument('MANAGER'); }
             else if (role === 'ACCOUNTANT') { loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
             else if (role === 'REALTOR') { loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
+        }
+
+        let accountantPaymentsCache = [];
+
+        function resetAccountantPaymentForm() {
+            document.getElementById('accountantPaymentForm')?.reset();
+            document.getElementById('accPaymentEditId').value = '';
+            document.getElementById('accPaymentSubmit').textContent = 'Record Payment';
+            document.getElementById('accPaymentCancel').classList.add('hidden');
+        }
+
+        function startAccountantPaymentEdit(paymentId) {
+            const payment = accountantPaymentsCache.find(item => item.id === paymentId);
+            if (!payment) return;
+            document.getElementById('accPaymentEditId').value = payment.id;
+            document.getElementById('accPaymentTenant').value = payment.tenant_id || '';
+            document.getElementById('accPaymentTenantName').value = payment.tenant_name || '';
+            document.getElementById('accPaymentAmount').value = payment.amount || '';
+            document.getElementById('accPaymentDate').value = payment.payment_date || '';
+            document.getElementById('accPaymentType').value = payment.payment_type || 'rent';
+            document.getElementById('accPaymentDesc').value = payment.description || '';
+            document.getElementById('accPaymentSubmit').textContent = 'Save Changes';
+            document.getElementById('accPaymentCancel').classList.remove('hidden');
+        }
+
+        async function deleteAccountantPayment(paymentId) {
+            if (!confirm('Remove this payment record?')) return;
+            try {
+                await fetchData('/admin/api/payments/' + paymentId, { method: 'DELETE' });
+                resetAccountantPaymentForm();
+                await loadAccountantDashboard();
+            } catch (err) {
+                const msgEl = document.getElementById('accPaymentMsg');
+                msgEl.textContent = err.message || 'Error removing payment';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        const expenseCache = { ceo: [], mgr: [], acc: [] };
+        let vendorOptionsCache = [];
+
+        async function loadVendorOptions() {
+            try {
+                vendorOptionsCache = await fetchData('/admin/api/vendors');
+                let datalist = document.getElementById('expensePayeeOptions');
+                if (!datalist) {
+                    datalist = document.createElement('datalist');
+                    datalist.id = 'expensePayeeOptions';
+                    document.body.appendChild(datalist);
+                }
+                datalist.innerHTML = vendorOptionsCache.map(v => `<option value="${v.name}">${v.contact_type}</option>`).join('');
+            } catch (e) {}
+        }
+
+        async function uploadExpenseReceipt(source) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const fileInput = document.getElementById(prefix + 'ExpenseReceipt');
+            if (!fileInput || !fileInput.files || !fileInput.files.length) return '';
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const response = await fetch('/admin/api/upload-expense-receipt', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'X-CSRF-Token': adminCsrfToken },
+                body: formData
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Receipt upload failed');
+            }
+            return result.filename || '';
+        }
+
+        function canApproveExpenses() {
+            return ALL_ROLES.includes('CEO') || ALL_ROLES.includes('ACCOUNTANT');
+        }
+
+        function getExpenseStatusMeta(status) {
+            const normalized = status || 'pending';
+            if (normalized === 'approved') return { label: 'Approved', className: 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/70' };
+            if (normalized === 'rejected') return { label: 'Rejected', className: 'bg-rose-900/60 text-rose-300 border border-rose-700/70' };
+            return { label: 'Pending Approval', className: 'bg-amber-900/60 text-amber-300 border border-amber-700/70' };
+        }
+
+        function buildExpenseQuery(propertyId, filters = {}) {
+            const params = new URLSearchParams();
+            if (propertyId) params.set('property_id', propertyId);
+            if (filters.status) params.set('approval_status', filters.status);
+            if (filters.receiptsOnly) params.set('has_receipt', 'true');
+            const query = params.toString();
+            return query ? ('?' + query) : '';
+        }
+
+        function getExpenseFilters(source) {
+            const prefix = source === 'mgr' ? 'mgr' : (source === 'acc' ? 'acc' : 'ceo');
+            return {
+                status: document.getElementById(prefix + 'ExpenseStatusFilter')?.value || '',
+                receiptsOnly: !!document.getElementById(prefix + 'ExpenseReceiptOnly')?.checked,
+                propertyId: prefix === 'acc' ? (document.getElementById('accExpensePropertyFilter')?.value || '') : (document.getElementById(prefix + 'ConstructionProperty')?.value || ''),
+            };
+        }
+
+        function renderExpenseCard(source, exp) {
+            const prefix = source === 'mgr' ? 'mgr' : (source === 'acc' ? 'acc' : 'ceo');
+            const statusMeta = getExpenseStatusMeta(exp.approval_status);
+            const statusActions = canApproveExpenses()
+                ? `<div class="flex items-center gap-3">${exp.approval_status !== 'approved' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'approved', '${prefix}')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}${exp.approval_status !== 'rejected' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'rejected', '${prefix}')" class="text-rose-400 hover:text-rose-300 font-medium">Reject</button>` : ''}${exp.approval_status !== 'pending' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'pending', '${prefix}')" class="text-amber-400 hover:text-amber-300 font-medium">Mark Pending</button>` : ''}</div>`
+                : '';
+            const managementActions = prefix !== 'acc'
+                ? `<button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>`
+                : '';
+            return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span></div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${managementActions}${statusActions}</div></div></div>`;
+        }
+
+        function cancelExpenseEdit(source) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            document.getElementById(prefix + 'ExpenseEditId').value = '';
+            document.getElementById(prefix + 'ExpenseForm')?.reset();
+            document.getElementById(prefix + 'ExpenseSubmitBtn').textContent = 'Save Expense';
+            document.getElementById(prefix + 'ExpenseCancelBtn').classList.add('hidden');
+        }
+
+        function editProjectExpense(source, expenseId) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const expense = (expenseCache[prefix] || []).find(item => item.id === expenseId);
+            if (!expense) return;
+            document.getElementById(prefix + 'ExpenseEditId').value = expense.id;
+            document.getElementById(prefix + 'ExpenseDate').value = expense.expense_date || '';
+            document.getElementById(prefix + 'ExpenseCategory').value = expense.category || 'materials';
+            document.getElementById(prefix + 'ExpenseItem').value = expense.item_name || '';
+            document.getElementById(prefix + 'ExpensePayee').value = expense.payee_name || '';
+            document.getElementById(prefix + 'ExpenseAmount').value = expense.amount || '';
+            document.getElementById(prefix + 'ExpenseQuantity').value = expense.quantity ?? '';
+            document.getElementById(prefix + 'ExpenseUnitCost').value = expense.unit_cost ?? '';
+            document.getElementById(prefix + 'ExpenseNotes').value = expense.notes || '';
+            document.getElementById(prefix + 'ExpenseSubmitBtn').textContent = 'Save Changes';
+            document.getElementById(prefix + 'ExpenseCancelBtn').classList.remove('hidden');
+        }
+
+        async function deleteProjectExpense(source, expenseId) {
+            if (!confirm('Remove this expense record?')) return;
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            try {
+                await fetchData('/admin/api/project-expenses/' + expenseId, { method: 'DELETE' });
+                cancelExpenseEdit(prefix);
+                const propertyId = document.getElementById(prefix + 'ConstructionProperty')?.value || '';
+                await loadProjectExpenses(prefix, propertyId);
+                if (prefix === 'mgr') await loadManagerDashboard();
+                else await loadStats();
+            } catch (err) {
+                const msgEl = document.getElementById(prefix + 'ExpenseMsg');
+                msgEl.textContent = err.message || 'Error removing expense';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function setExpenseApprovalStatus(expenseId, nextStatus, source) {
+            const approvalNote = nextStatus === 'rejected' ? (prompt('Optional rejection note for this expense:', '') || '') : '';
+            try {
+                await fetchData('/admin/api/project-expenses/' + expenseId, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ approval_status: nextStatus, approval_note: approvalNote })
+                });
+                if (source === 'acc') {
+                    await loadAccountantDashboard();
+                    return;
+                }
+                const propertyId = document.getElementById((source === 'mgr' ? 'mgr' : 'ceo') + 'ConstructionProperty')?.value || '';
+                await loadProjectExpenses(source, propertyId);
+                if (source === 'mgr') await loadManagerDashboard();
+                else await loadStats();
+            } catch (err) {
+                alert(err.message || 'Error updating approval status');
+            }
+        }
+
+        async function loadProjectExpenses(source, propertyId) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const listEl = document.getElementById(prefix + 'ExpenseList');
+            const totalEl = document.getElementById(prefix + 'ExpenseTotal');
+            const breakdownEl = document.getElementById(prefix + 'ExpenseBreakdown');
+            if (!listEl || !totalEl || !breakdownEl) return;
+            const selectedId = propertyId || document.getElementById(prefix + 'ConstructionProperty')?.value || '';
+            const filters = getExpenseFilters(prefix);
+            try {
+                const data = await fetchData('/admin/api/project-expenses' + buildExpenseQuery(selectedId, filters));
+                expenseCache[prefix] = data.expenses || [];
+                totalEl.textContent = formatNGN(data.total_amount || 0);
+                const categoryBits = Object.entries(data.by_category || {}).map(([k, v]) => `${k}: ${formatNGN(v)}`);
+                const budgetParts = [];
+                if (data.budget_total !== null && data.budget_total !== undefined) {
+                    budgetParts.push(`Budget ${formatNGN(data.budget_total)}`);
+                }
+                if (data.budget_remaining !== null && data.budget_remaining !== undefined) {
+                    budgetParts.push(`${data.over_budget ? 'Over by' : 'Left'} ${formatNGN(Math.abs(data.budget_remaining))}`);
+                }
+                const approvalTotals = data.approval_totals || {};
+                const approvalBits = [];
+                if (approvalTotals.approved) approvalBits.push(`Approved ${formatNGN(approvalTotals.approved)}`);
+                if (approvalTotals.pending) approvalBits.push(`Pending ${formatNGN(approvalTotals.pending)}`);
+                if (approvalTotals.rejected) approvalBits.push(`Rejected ${formatNGN(approvalTotals.rejected)}`);
+                const parts = [...budgetParts, ...approvalBits, ...categoryBits];
+                breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
+                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+                breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
+                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => renderExpenseCard(prefix, exp)).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+            } catch (err) {
+                listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading project expenses.</p>';
+            }
+        }
+
+        async function submitProjectExpense(source) {
+            const prefix = source === 'mgr' ? 'mgr' : 'ceo';
+            const editId = document.getElementById(prefix + 'ExpenseEditId').value;
+            const msgEl = document.getElementById(prefix + 'ExpenseMsg');
+            const propertyId = document.getElementById(prefix + 'ConstructionProperty')?.value || '';
+            if (!propertyId) {
+                msgEl.textContent = 'Select a project first.';
+                msgEl.className = 'text-sm text-red-400';
+                return;
+            }
+            const payload = {
+                property_id: propertyId,
+                expense_date: document.getElementById(prefix + 'ExpenseDate').value,
+                category: document.getElementById(prefix + 'ExpenseCategory').value,
+                item_name: document.getElementById(prefix + 'ExpenseItem').value,
+                payee_name: document.getElementById(prefix + 'ExpensePayee').value,
+                amount: document.getElementById(prefix + 'ExpenseAmount').value,
+                quantity: document.getElementById(prefix + 'ExpenseQuantity').value,
+                unit_cost: document.getElementById(prefix + 'ExpenseUnitCost').value,
+                notes: document.getElementById(prefix + 'ExpenseNotes').value,
+            };
+            try {
+                const receiptPath = await uploadExpenseReceipt(source);
+                if (receiptPath) payload.receipt_path = receiptPath;
+                const res = await fetchData(editId ? ('/admin/api/project-expenses/' + editId) : '/admin/api/project-expenses', {
+                    method: editId ? 'PUT' : 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                msgEl.textContent = res.message || 'Expense saved';
+                msgEl.className = 'text-sm text-emerald-400';
+                cancelExpenseEdit(prefix);
+                await loadVendorOptions();
+                await loadProjectExpenses(prefix, propertyId);
+                if (prefix === 'mgr') await loadManagerDashboard();
+                else await loadStats();
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving expense';
+                msgEl.className = 'text-sm text-red-400';
+            }
         }
 
         // Contract overlay is always shown with signature section visible (scroll gate removed — server validates signature)
@@ -6104,6 +6960,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const equity = profile.equity_percentage || 0;
                 const distributed = profile.total_distributed || 0;
                 const termYears = profile.investment_term_years || 4;
+                const annualPrincipal = profile.annual_principal_component || 0;
+                const annualRoiAmount = profile.annual_roi_amount || 0;
+                const payoutSchedule = profile.payout_schedule || [];
                 const updates = (profile.construction_updates || []).sort((a, b) => (a.progress_percentage || 0) - (b.progress_percentage || 0));
                 const latestProgress = updates.length ? updates[updates.length - 1].progress_percentage : 0;
 
@@ -6127,11 +6986,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('invHeroProgress').textContent = latestProgress + '%';
 
                 if (type === 'DEBT') {
-                    const annualReturn = amount * roi / 100;
-                    const totalInterest = annualReturn * termYears;
-                    document.getElementById('invHeroReturn').textContent = formatNGN(amount + totalInterest);
+                    document.getElementById('invHeroReturn').textContent = formatNGN(profile.projected_total_payout || 0);
                     document.getElementById('invHeroReturnNote').textContent =
-                        roi + '% × ' + termYears + ' yr' + (termYears !== 1 ? 's' : '') + ' + principal';
+                        formatNGN(annualPrincipal) + ' principal + ' + formatNGN(annualRoiAmount) + ' ROI each year';
                 } else {
                     document.getElementById('invHeroReturn').textContent = equity + '% ownership';
                     document.getElementById('invHeroReturnNote').textContent = 'Proportional to project revenue';
@@ -6145,25 +7002,21 @@ ROLE_DASHBOARD_TEMPLATE = """
                 roiTagEl.textContent = type === 'DEBT' ? roi + '% p.a.' : 'Equity · ' + equity + '%';
 
                 const scheduleEl = document.getElementById('invReturnSchedule');
-                const completion = profile.expected_completion_date ? new Date(profile.expected_completion_date) : null;
                 const now = new Date();
-                if (type === 'DEBT' && completion) {
-                    const annualReturn = amount * roi / 100;
-                    scheduleEl.innerHTML = Array.from({length: termYears}, (_, i) => i + 1).map(yr => {
-                        const payDate = new Date(completion);
-                        payDate.setFullYear(payDate.getFullYear() + yr);
-                        const isFinal = yr === termYears;
-                        const isPast = now > payDate;
-                        const payout = isFinal ? annualReturn + amount : annualReturn;
+                if (type === 'DEBT' && payoutSchedule.length) {
+                    scheduleEl.innerHTML = payoutSchedule.map(item => {
+                        const payDate = item.due_date ? new Date(item.due_date) : null;
+                        const isPast = payDate ? now > payDate : false;
                         const statusClass = isPast ? 'text-emerald-400' : 'text-amber-400';
                         const statusLabel = isPast ? 'Due' : 'Scheduled';
+                        const subline = `${formatNGN(item.principal_component)} principal + ${formatNGN(item.roi_component)} ROI`;
                         return `<div class="flex items-center justify-between gap-3 py-3 border-b border-gray-700/60 last:border-0">
                             <div class="min-w-0">
-                                <p class="text-sm text-white font-medium">Year ${yr} — ${payDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'})}</p>
-                                ${isFinal ? '<p class="text-xs text-emerald-400 mt-0.5">Includes principal repayment</p>' : ''}
+                                <p class="text-sm text-white font-medium">Year ${item.year} — ${payDate ? payDate.toLocaleDateString('en-GB', {month:'short', year:'numeric'}) : 'TBC'}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${subline}</p>
                             </div>
                             <div class="text-right flex-shrink-0">
-                                <p class="font-bold text-white text-sm">${formatNGN(payout)}</p>
+                                <p class="font-bold text-white text-sm">${formatNGN(item.total_payout)}</p>
                                 <span class="text-xs font-semibold ${statusClass}">${statusLabel}</span>
                             </div>
                         </div>`;
@@ -6181,6 +7034,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                     ['Amount Invested', formatNGN(amount)],
                     ['Annual Return Rate', type === 'DEBT' ? roi + '% per annum' : 'N/A'],
                     ['Investment Term', termYears + ' year' + (termYears !== 1 ? 's' : '')],
+                    ['Annual Principal Return', type === 'DEBT' ? formatNGN(annualPrincipal) : 'N/A'],
+                    ['Annual ROI Cashflow', type === 'DEBT' ? formatNGN(annualRoiAmount) : 'N/A'],
                     ['Investment Date', profile.investment_date || 'Pending'],
                     ['Expected Completion', profile.expected_completion_date || 'TBC'],
                     ['Project', profile.project_property_title || 'BrightWave Phase 1'],
@@ -6258,17 +7113,44 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         async function loadAccountantDashboard() {
             try {
-                const [stats, payments, tenants] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active')]);
+                const expenseFilters = getExpenseFilters('acc');
+                const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
+                accountantPaymentsCache = payments;
                 document.getElementById('acc_total_revenue').textContent = formatNGN(stats.total_revenue || 0);
                 document.getElementById('acc_monthly_revenue').textContent = formatNGN(stats.monthly_revenue || 0);
                 document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
+                document.getElementById('acc_capital_spent').textContent = formatNGN(stats.total_capital_spent || 0);
+                document.getElementById('acc_monthly_capital').textContent = formatNGN(stats.monthly_capital_spent || 0);
+                document.getElementById('acc_budget_remaining').textContent = formatNGN(stats.capital_budget_remaining || 0);
                 const typeColors = { rent: 'bg-blue-900/50 text-blue-300', deposit: 'bg-purple-900/50 text-purple-300', fee: 'bg-amber-900/50 text-amber-300', other: 'bg-gray-700 text-gray-300' };
-                document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center gap-3 flex-wrap text-xs"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
+                document.getElementById('acc_paymentsContainer').innerHTML = payments.length ? payments.slice(0, 20).map(p => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No payments recorded yet</p>';
                 document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Available Units</p><p class="text-2xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Occupied Units</p><p class="text-2xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><p class="text-xs text-gray-500 uppercase tracking-wide">Active Tenants</p><p class="text-2xl font-bold text-white mt-1">${tenants.length}</p></div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
+                const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
                 if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
+                if (expensePropertySelect) expensePropertySelect.innerHTML = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}" ${String(expenseFilters.propertyId || '') === String(p.id) ? 'selected' : ''}>${p.title}</option>`).join('');
+                const expenseCategorySummary = Object.entries(expensesData.by_category || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 4)
+                    .map(([category, amount]) => `${category}: ${formatNGN(amount)}`)
+                    .join('<br>');
+                document.getElementById('accExpenseBreakdown').innerHTML = expenseCategorySummary || 'No capital entries yet';
+                document.getElementById('accExpenseList').innerHTML = (expensesData.expenses || []).length
+                    ? expensesData.expenses.slice(0, 12).map(exp => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.property_title || 'Unassigned project'} · ${exp.category} · ${exp.expense_date || ''}</p><p class="text-xs text-gray-500 mt-1">${exp.payee_name || 'No supplier / worker name recorded'}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="mt-3 text-xs text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div></div>`).join('')
+                    : '<p class="text-gray-400 py-6 text-center text-sm">No project expenses recorded yet</p>';
+                const approvalTotals = expensesData.approval_totals || {};
+                const approvalSummary = [`Approved: ${formatNGN(approvalTotals.approved || 0)}`, `Pending: ${formatNGN(approvalTotals.pending || 0)}`, `Rejected: ${formatNGN(approvalTotals.rejected || 0)}`].join('<br>');
+                document.getElementById('accExpenseBreakdown').innerHTML = `${approvalSummary}${expenseCategorySummary ? '<br>' + expenseCategorySummary : ''}`;
+                expenseCache.acc = expensesData.expenses || [];
+                document.getElementById('accExpenseList').innerHTML = expenseCache.acc.length
+                    ? expenseCache.acc.slice(0, 12).map(exp => renderExpenseCard('acc', exp)).join('')
+                    : '<p class="text-gray-400 py-6 text-center text-sm">No project expenses recorded yet</p>';
             } catch (e) {
                 document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
+                const expenseList = document.getElementById('accExpenseList');
+                const expenseBreakdown = document.getElementById('accExpenseBreakdown');
+                if (expenseList) expenseList.innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading project expenses</p>';
+                if (expenseBreakdown) expenseBreakdown.textContent = 'Unavailable';
             }
         }
 
@@ -6335,16 +7217,21 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('accountantPaymentForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const msgEl = document.getElementById('accPaymentMsg');
+                const editId = document.getElementById('accPaymentEditId').value;
                 try {
-                    const res = await fetchData('/admin/api/payments', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tenant_id: document.getElementById('accPaymentTenant').value || null, tenant_name: document.getElementById('accPaymentTenantName').value, amount: document.getElementById('accPaymentAmount').value, payment_date: document.getElementById('accPaymentDate').value, payment_type: document.getElementById('accPaymentType').value, description: document.getElementById('accPaymentDesc').value }) });
+                    const res = await fetchData(editId ? ('/admin/api/payments/' + editId) : '/admin/api/payments', { method: editId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tenant_id: document.getElementById('accPaymentTenant').value || null, tenant_name: document.getElementById('accPaymentTenantName').value, amount: document.getElementById('accPaymentAmount').value, payment_date: document.getElementById('accPaymentDate').value, payment_type: document.getElementById('accPaymentType').value, description: document.getElementById('accPaymentDesc').value }) });
                     msgEl.textContent = res.message || 'Payment recorded';
                     msgEl.className = 'text-sm text-emerald-400';
-                    document.getElementById('accountantPaymentForm').reset();
+                    resetAccountantPaymentForm();
                     await loadAccountantDashboard();
                 } catch (err) {
                     msgEl.textContent = err.message || 'Error recording payment';
                     msgEl.className = 'text-sm text-red-400';
                 }
+            });
+            document.getElementById('accPaymentCancel')?.addEventListener('click', () => {
+                resetAccountantPaymentForm();
+                document.getElementById('accPaymentMsg').textContent = '';
             });
             document.getElementById('managerConstructionForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -6453,6 +7340,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const updates = await fetchData('/admin/api/construction-updates' + query);
                 renderConstructionUpdates(updates, 'ceoConstructionList', 'ceoConstructionHeadline');
                 renderConstructionUpdates(updates, 'mgrConstructionList', 'mgrConstructionProgress');
+                await loadProjectExpenses('ceo', ceoSel?.value || selectedId);
+                await loadProjectExpenses('mgr', mgrSel?.value || selectedId);
             } catch (e) {
                 const ceoList = document.getElementById('ceoConstructionList');
                 const mgrList = document.getElementById('mgrConstructionList');
@@ -6492,6 +7381,21 @@ ROLE_DASHBOARD_TEMPLATE = """
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('ceoConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
             document.getElementById('mgrConstructionProperty')?.addEventListener('change', (e) => loadConstructionUpdates(e.target.value));
+            document.getElementById('ceoExpenseForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitProjectExpense('ceo');
+            });
+            document.getElementById('mgrExpenseForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitProjectExpense('mgr');
+            });
+            document.getElementById('ceoExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('ceo'));
+            document.getElementById('ceoExpenseReceiptOnly')?.addEventListener('change', () => loadProjectExpenses('ceo'));
+            document.getElementById('mgrExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('mgr'));
+            document.getElementById('mgrExpenseReceiptOnly')?.addEventListener('change', () => loadProjectExpenses('mgr'));
+            document.getElementById('accExpensePropertyFilter')?.addEventListener('change', () => loadAccountantDashboard());
+            document.getElementById('accExpenseStatusFilter')?.addEventListener('change', () => loadAccountantDashboard());
+            document.getElementById('accExpenseReceiptOnly')?.addEventListener('change', () => loadAccountantDashboard());
         });
 
         async function deleteConstructionUpdate(id, source) {
