@@ -4820,7 +4820,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="">-- Select property first --</option>
                         </select>
                     </div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent (₦)</label><input type="number" id="tnRent" step="100" placeholder="Auto-fills from unit or unit type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent (₦)</label><input type="number" id="tnRent" step="1000" placeholder="Auto-fills from unit type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input type="date" id="tnLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input type="date" id="tnLeaseEnd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label>
@@ -8139,8 +8139,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const units = await fetchData('/admin/api/units?property_id=' + propId);
                 const opts = units.map(u => {
-                    const label = u.unit_code + (u.monthly_rent ? ' — ₦' + Number(u.monthly_rent).toLocaleString() + '/mo' : '') + (u.status !== 'available' ? ' (' + u.status + ')' : '');
-                    return `<option value="${u.unit_code}" data-rent="${u.monthly_rent || ''}" data-status="${u.status}">${label}</option>`;
+                    // Price comes from Unit Type now, so only show room number + status (if not available)
+                    const label = u.unit_code + (u.status !== 'available' ? ' (' + u.status + ')' : '');
+                    return `<option value="${u.unit_code}" data-status="${u.status}">${label}</option>`;
                 });
                 unitSel.innerHTML = '<option value="">-- Select unit --</option>' + opts.join('');
                 unitSel.disabled = false;
@@ -8149,12 +8150,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         function tnOnUnitChange() {
-            const unitSel = document.getElementById('tnUnit');
-            const rentEl = document.getElementById('tnRent');
-            const opt = unitSel.selectedOptions[0];
-            if (opt && opt.dataset.rent && rentEl) {
-                rentEl.value = opt.dataset.rent;
-            }
+            // Rent now flows from Unit Type only — no auto-fill on physical unit selection
         }
 
         function parsePaymentMeta(desc) {
@@ -9111,9 +9107,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><select id="mgrTenantProperty" onchange="populateManagerUnitSelect(window._mgrAllUnits||[], this.value)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">Select property</option></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><select id="mgrTenantProperty" onchange="populateManagerUnitSelect(window._mgrAllUnits||[], this.value); mgrTnUtRefreshForProperty();" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">Select property</option></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type <span class="text-gray-500">(optional)</span></label><select id="mgrTenantUnitType" onchange="mgrTnOnUnitTypeChange()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">-- Select unit type --</option></select></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent</label><input id="mgrTenantRent" type="number" step="1000" placeholder="Auto-fills from unit type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input id="mgrTenantLeaseEnd" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrTenantNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
@@ -9435,7 +9432,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm min-w-[520px]">
-                        <thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400 pr-3">Tenant</th><th class="py-2 text-left text-gray-400 pr-3">Unit</th><th class="py-2 text-left text-gray-400 pr-3">Yearly Rent</th><th class="py-2 text-left text-gray-400 pr-3">Lease Start</th><th class="py-2 text-left text-gray-400">Lease End</th></tr></thead>
+                        <thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400 pr-3">Tenant</th><th class="py-2 text-left text-gray-400 pr-3">Unit Type</th><th class="py-2 text-left text-gray-400 pr-3">Unit</th><th class="py-2 text-left text-gray-400 pr-3">Yearly Rent</th><th class="py-2 text-left text-gray-400 pr-3">Lease Start</th><th class="py-2 text-left text-gray-400">Lease End</th></tr></thead>
                         <tbody id="accRentRollBody"></tbody>
                     </table>
                 </div>
@@ -10108,6 +10105,28 @@ ROLE_DASHBOARD_TEMPLATE = """
             select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${unit.unit_code}">${unit.unit_code} · ${unit.property_title} · ${unit.status}</option>`).join('');
         }
 
+        // Manager Unit Type cascade (mirrors CEO behaviour)
+        async function mgrTnUtRefreshForProperty() {
+            const propSel = document.getElementById('mgrTenantProperty');
+            const utSel = document.getElementById('mgrTenantUnitType');
+            if (!propSel || !utSel) return;
+            const propId = propSel.value;
+            if (!window._mgrUnitTypesCache) {
+                try { window._mgrUnitTypesCache = await fetchData('/admin/api/unit-types'); }
+                catch (e) { window._mgrUnitTypesCache = []; }
+            }
+            const filtered = propId ? window._mgrUnitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
+            utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + formatNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+        }
+
+        function mgrTnOnUnitTypeChange() {
+            const sel = document.getElementById('mgrTenantUnitType');
+            const price = sel?.selectedOptions[0]?.dataset.price;
+            const rentEl = document.getElementById('mgrTenantRent');
+            if (price && rentEl && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
+        }
+
         let roleTenantMap = {};
 
         function renderTenantCards(targetId, tenants) {
@@ -10118,7 +10137,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = '<p class="text-gray-400 py-4 text-center text-sm">No tenants yet</p>';
                 return;
             }
-            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div></div>`).join('');
+            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-2"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-600/40"><div><p class="text-gray-500">Unit Type</p><p class="text-gray-300 truncate">${t.unit_type_name || '—'}</p></div><div><p class="text-gray-500">Yearly Rent</p><p class="text-emerald-400 font-semibold">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</p></div><div><p class="text-gray-500">Lease</p><p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → ' + t.lease_end : ''}</p></div></div></div>`).join('');
         }
 
         function editRoleTenant(id) {
@@ -10143,6 +10162,11 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
             if (unitSelect) unitSelect.value = tenant.unit_number || '';
             document.getElementById('mgrTenantRent').value = tenant.monthly_rent || '';
+            // Populate unit type dropdown then set current value
+            mgrTnUtRefreshForProperty().then(() => {
+                const utSel = document.getElementById('mgrTenantUnitType');
+                if (utSel && tenant.unit_type_id) utSel.value = tenant.unit_type_id;
+            });
             document.getElementById('mgrTenantLeaseStart').value = tenant.lease_start || '';
             document.getElementById('mgrTenantLeaseEnd').value = tenant.lease_end || '';
             document.getElementById('mgrTenantNotes').value = tenant.notes || '';
@@ -10791,7 +10815,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const activeTenants = tenants.filter(t => t.status === 'active');
                 if (rrBody) {
                     if (!activeTenants.length) {
-                        rrBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-6 text-sm">No active tenants yet</td></tr>';
+                        rrBody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-6 text-sm">No active tenants yet</td></tr>';
                     } else {
                         const totalExpectedAnnual = activeTenants.reduce((s, t) => s + (parseFloat(t.monthly_rent) || 0), 0);
                         rrBody.innerHTML = activeTenants.map(t => {
@@ -10799,6 +10823,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             const isExpiringSoon = leaseEndDate && (leaseEndDate - new Date()) < 60 * 24 * 60 * 60 * 1000;
                             return `<tr class="border-b border-gray-700/60">
                                 <td class="py-2.5 pr-3 font-medium text-white text-sm">${t.name}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_type_name || '—'}</td>
                                 <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_number || '—'}</td>
                                 <td class="py-2.5 pr-3 text-sm text-emerald-300 font-medium">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</td>
                                 <td class="py-2.5 pr-3 text-xs text-gray-400">${t.lease_start || '—'}</td>
@@ -11085,6 +11110,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     email: document.getElementById('mgrTenantEmail').value,
                     phone: document.getElementById('mgrTenantPhone').value,
                     property_name: propName,
+                    unit_type_id: document.getElementById('mgrTenantUnitType')?.value || null,
                     unit_number: document.getElementById('mgrTenantUnit').value,
                     monthly_rent: document.getElementById('mgrTenantRent').value,
                     lease_start: document.getElementById('mgrTenantLeaseStart').value,
