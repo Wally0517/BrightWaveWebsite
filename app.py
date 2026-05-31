@@ -283,6 +283,19 @@ class VendorContact(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class PropertyUnitType(db.Model):
+    __tablename__ = 'property_unit_type'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    annual_price = db.Column(db.Float, default=0.0)
+    total_count = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='unit_types')
+
 class Tenant(db.Model):
     __tablename__ = 'tenant'
     id = db.Column(db.Integer, primary_key=True)
@@ -291,12 +304,14 @@ class Tenant(db.Model):
     phone = db.Column(db.String(30), nullable=True)
     property_name = db.Column(db.String(150), nullable=True)
     unit_number = db.Column(db.String(30), nullable=True)
+    unit_type_id = db.Column(db.Integer, db.ForeignKey('property_unit_type.id'), nullable=True)
     lease_start = db.Column(db.Date, nullable=True)
     lease_end = db.Column(db.Date, nullable=True)
-    monthly_rent = db.Column(db.Float, default=0.0)
+    monthly_rent = db.Column(db.Float, default=0.0)  # actually annual; field name kept for back-compat
     status = db.Column(db.String(20), default='active')
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    unit_type = db.relationship('PropertyUnitType', backref='tenants', foreign_keys=[unit_type_id])
 
 class PaymentRecord(db.Model):
     __tablename__ = 'payment_record'
@@ -906,9 +921,95 @@ def seed_contract_templates():
             db.session.add(ct)
     db.session.commit()
 
+def ensure_unit_type_migrations():
+    """Add new columns/tables to existing DB when the schema has evolved."""
+    from sqlalchemy import inspect, text
+    insp = inspect(db.engine)
+
+    def has_column(table, column):
+        try:
+            return any(c['name'] == column for c in insp.get_columns(table))
+        except Exception:
+            return False
+
+    pending = []
+    if insp.has_table('tenant') and not has_column('tenant', 'unit_type_id'):
+        pending.append('ALTER TABLE tenant ADD COLUMN unit_type_id INTEGER')
+
+    for stmt in pending:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(stmt))
+        except Exception as e:
+            logger.warning(f"Unit-type migration skipped ({stmt}): {e}")
+
+
+def seed_default_unit_types():
+    """Seed initial unit types for hostel properties (idempotent — only runs when empty)."""
+    if PropertyUnitType.query.first():
+        return
+
+    # Match by phase keyword so it works whether the property is titled "Hostel" or "Apartment"
+    phase_seeds = {
+        1: [
+            {
+                'name': 'Self-Contained Room (Ensuite)',
+                'description': 'Ensuite apartment-style room with private bathroom and kitchen.',
+                'annual_price': 0.0,
+                'total_count': 10,
+            },
+        ],
+        2: [
+            {
+                'name': 'Self-Contained Room (Ensuite)',
+                'description': 'Single room with private ensuite bathroom.',
+                'annual_price': 0.0,
+                'total_count': 0,
+            },
+            {
+                'name': 'Room + Parlour Apartment (Ensuite)',
+                'description': 'Self-contained apartment with separate parlour and ensuite.',
+                'annual_price': 0.0,
+                'total_count': 0,
+            },
+        ],
+        3: [
+            {
+                'name': 'Self-Contained Room (Ensuite)',
+                'description': 'Single room with private ensuite bathroom.',
+                'annual_price': 0.0,
+                'total_count': 0,
+            },
+            {
+                'name': 'Room + Parlour Apartment (Ensuite)',
+                'description': 'Self-contained apartment with separate parlour and ensuite.',
+                'annual_price': 0.0,
+                'total_count': 0,
+            },
+        ],
+    }
+
+    created = False
+    for phase, types in phase_seeds.items():
+        phase_token = f'Phase {phase}'
+        prop = Property.query.filter(Property.title.like(f'%{phase_token}%')).first()
+        if not prop:
+            continue
+        for t in types:
+            db.session.add(PropertyUnitType(property_id=prop.id, **t))
+            created = True
+    if created:
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"seed_default_unit_types commit failed: {e}")
+
+
 def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     """Run one-time database initialization outside the web worker startup path."""
     db.create_all()
+    ensure_unit_type_migrations()
     ensure_cms_baseline()
     seed_contract_templates()
     if include_sample_data:
@@ -917,6 +1018,7 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     seed_default_construction_updates()
     reconcile_property_catalog()
     sync_property_units_from_tenants()
+    seed_default_unit_types()
     if bootstrap_admin:
         create_admin_user()
 
@@ -3119,6 +3221,115 @@ def admin_account_detail(account_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # ========== TENANT API ==========
+# ========== PROPERTY UNIT TYPE API ==========
+def _serialize_unit_type(ut):
+    occupied = Tenant.query.filter_by(unit_type_id=ut.id, status='active').count()
+    return {
+        'id': ut.id,
+        'property_id': ut.property_id,
+        'property_title': ut.property.title if ut.property else '',
+        'name': ut.name,
+        'description': ut.description or '',
+        'annual_price': ut.annual_price or 0,
+        'total_count': ut.total_count or 0,
+        'occupied_count': occupied,
+        'available_count': max(0, (ut.total_count or 0) - occupied),
+        'is_active': ut.is_active,
+        'updated_at': ut.updated_at.isoformat() if ut.updated_at else None,
+    }
+
+
+@app.route('/admin/api/unit-types', methods=['GET', 'POST'])
+@login_required
+def admin_unit_types():
+    try:
+        if request.method == 'GET':
+            prop_id = request.args.get('property_id', type=int)
+            q = PropertyUnitType.query
+            if prop_id:
+                q = q.filter_by(property_id=prop_id)
+            unit_types = q.order_by(PropertyUnitType.property_id.asc(), PropertyUnitType.name.asc()).all()
+            return jsonify([_serialize_unit_type(ut) for ut in unit_types])
+
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
+        data = request.get_json() or {}
+        if not data.get('property_id') or not data.get('name'):
+            return jsonify({"success": False, "message": "property_id and name are required"}), 400
+        prop = Property.query.get(int(data['property_id']))
+        if not prop:
+            return jsonify({"success": False, "message": "Property not found"}), 404
+        try:
+            annual_price = float(data.get('annual_price') or 0)
+            total_count = int(data.get('total_count') or 0)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid annual_price or total_count"}), 400
+        ut = PropertyUnitType(
+            property_id=prop.id,
+            name=data['name'].strip(),
+            description=(data.get('description') or '').strip() or None,
+            annual_price=annual_price,
+            total_count=total_count,
+            is_active=bool(data.get('is_active', True)),
+        )
+        db.session.add(ut)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Unit type added", "id": ut.id})
+    except Exception as e:
+        logger.error(f"Error managing unit types: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/unit-types/<int:unit_type_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_unit_type_detail(unit_type_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "CEO or Manager access required"}), 403
+        ut = PropertyUnitType.query.get_or_404(unit_type_id)
+
+        if request.method == 'DELETE':
+            in_use = Tenant.query.filter_by(unit_type_id=ut.id, status='active').count()
+            if in_use:
+                return jsonify({
+                    "success": False,
+                    "message": f"Cannot delete: {in_use} active tenant(s) assigned. Reassign them first."
+                }), 409
+            db.session.delete(ut)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Unit type deleted"})
+
+        data = request.get_json() or {}
+        if 'property_id' in data and data['property_id']:
+            prop = Property.query.get(int(data['property_id']))
+            if not prop:
+                return jsonify({"success": False, "message": "Property not found"}), 404
+            ut.property_id = prop.id
+        if 'name' in data:
+            ut.name = (data['name'] or '').strip() or ut.name
+        if 'description' in data:
+            ut.description = (data['description'] or '').strip() or None
+        if data.get('annual_price') is not None:
+            try:
+                ut.annual_price = float(data['annual_price'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid annual_price"}), 400
+        if data.get('total_count') is not None:
+            try:
+                ut.total_count = int(data['total_count'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid total_count"}), 400
+        if 'is_active' in data:
+            ut.is_active = bool(data['is_active'])
+        db.session.commit()
+        return jsonify({"success": True, "message": "Unit type updated"})
+    except Exception as e:
+        logger.error(f"Error on unit type {unit_type_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
 @app.route('/admin/api/tenants', methods=['GET', 'POST'])
 @login_required
 def admin_tenants():
@@ -3139,6 +3350,8 @@ def admin_tenants():
                 'phone': t.phone or '',
                 'property_name': t.property_name or '',
                 'unit_number': t.unit_number or '',
+                'unit_type_id': t.unit_type_id,
+                'unit_type_name': t.unit_type.name if t.unit_type else '',
                 'lease_start': t.lease_start.isoformat() if t.lease_start else '',
                 'lease_end': t.lease_end.isoformat() if t.lease_end else '',
                 'monthly_rent': t.monthly_rent or 0,
@@ -3153,15 +3366,28 @@ def admin_tenants():
         data = request.get_json() or {}
         if not data.get('name'):
             return jsonify({"success": False, "message": "Tenant name is required"}), 400
+
+        # When unit_type is selected, derive property_name + rent default
+        unit_type_id = data.get('unit_type_id') or None
+        property_name = (data.get('property_name') or '').strip() or None
+        rent_val = data.get('monthly_rent')
+        if unit_type_id:
+            ut = PropertyUnitType.query.get(int(unit_type_id))
+            if ut:
+                property_name = property_name or (ut.property.title if ut.property else None)
+                if rent_val in (None, '', 0, '0'):
+                    rent_val = ut.annual_price
+
         tenant = Tenant(
             name=data['name'].strip(),
             email=(data.get('email') or '').strip() or None,
             phone=(data.get('phone') or '').strip() or None,
-            property_name=(data.get('property_name') or '').strip() or None,
+            property_name=property_name,
             unit_number=(data.get('unit_number') or '').strip() or None,
+            unit_type_id=int(unit_type_id) if unit_type_id else None,
             lease_start=date_type.fromisoformat(data['lease_start']) if data.get('lease_start') else None,
             lease_end=date_type.fromisoformat(data['lease_end']) if data.get('lease_end') else None,
-            monthly_rent=float(data.get('monthly_rent') or 0),
+            monthly_rent=float(rent_val or 0),
             status=data.get('status', 'active'),
             notes=(data.get('notes') or '').strip() or None,
         )
@@ -3197,6 +3423,13 @@ def admin_tenant_detail(tenant_id):
         for field in ['name', 'email', 'phone', 'property_name', 'unit_number', 'status', 'notes']:
             if field in data:
                 setattr(tenant, field, (data[field] or '').strip() or None if field != 'status' else data[field])
+        if 'unit_type_id' in data:
+            new_id = data['unit_type_id']
+            tenant.unit_type_id = int(new_id) if new_id else None
+            if new_id:
+                ut = PropertyUnitType.query.get(int(new_id))
+                if ut and not tenant.property_name:
+                    tenant.property_name = ut.property.title if ut.property else tenant.property_name
         if data.get('monthly_rent') is not None:
             tenant.monthly_rent = float(data['monthly_rent'])
         if data.get('lease_start'):
@@ -3724,6 +3957,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <button onclick="showSection('tenantsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-home w-5 text-center flex-shrink-0"></i><span class="sb-label">Tenants</span>
             </button>
+            <button onclick="showSection('unitTypesSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-th-large w-5 text-center flex-shrink-0"></i><span class="sb-label">Unit Types</span>
+            </button>
             <button onclick="showSection('paymentsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-money-bill-wave w-5 text-center flex-shrink-0"></i><span class="sb-label">Payments</span>
             </button>
@@ -4110,7 +4346,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input type="text" id="tnName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input type="email" id="tnEmail" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input type="text" id="tnPhone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input type="text" id="tnProperty" placeholder="e.g. BrightWave Hostel Phase 1" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
+                        <select id="tnProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">-- Select property --</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type</label>
+                        <select id="tnUnitType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">-- Select unit type --</option>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-1">Selecting a type auto-fills the yearly rent.</p>
+                    </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label><input type="text" id="tnUnit" placeholder="e.g. Room 12" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent (₦)</label><input type="number" id="tnRent" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input type="date" id="tnLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -4137,6 +4383,127 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div id="tenantsContainer" class="space-y-3"></div>
             </div>
         </section>
+
+        <!-- UNIT TYPES SECTION -->
+        <section id="unitTypesSection" class="mb-8 hidden">
+            <div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                <div>
+                    <h2 class="text-xl font-semibold">Unit Types</h2>
+                    <p class="text-xs text-gray-400 mt-1">Define what each property offers and the yearly price per type. Tenants get auto-priced when assigned to a type.</p>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="font-semibold mb-3 text-slate-300">Add Unit Type</h3>
+                <form id="addUnitTypeForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property *</label>
+                        <select id="utProperty" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">-- Select property --</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type Name *</label>
+                        <input type="text" id="utName" required placeholder="e.g. Self-Contained Room (Ensuite)"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Price (₦)</label>
+                        <input type="number" id="utPrice" step="1000" min="0"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
+                        <input type="number" id="utCount" min="0"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Description</label>
+                        <input type="text" id="utDesc" placeholder="e.g. Ensuite room with private bathroom and kitchen"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="flex items-end gap-3">
+                        <button type="submit" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Add Unit Type</button>
+                        <span id="utMsg" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+            <div id="unitTypesContainer" class="space-y-4"></div>
+        </section>
+
+        <!-- EDIT UNIT TYPE MODAL -->
+        <div id="utEditModal" class="fixed inset-0 z-50 bg-black/70 hidden items-center justify-center p-4" style="display:none;">
+            <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-5 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-white">Edit Unit Type</h3>
+                    <button type="button" onclick="closeUtEdit()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="utEditForm" class="space-y-3">
+                    <input type="hidden" id="utEditId">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
+                        <select id="utEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Name</label>
+                        <input type="text" id="utEditName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label>
+                        <input type="text" id="utEditDesc" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Price (₦)</label>
+                            <input type="number" id="utEditPrice" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        </div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
+                            <input type="number" id="utEditCount" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        </div>
+                    </div>
+                    <p id="utEditMsg" class="text-sm hidden"></p>
+                    <div class="flex gap-3 pt-1">
+                        <button type="submit" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save</button>
+                        <button type="button" onclick="closeUtEdit()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- EDIT TENANT MODAL -->
+        <div id="tenantEditModal" class="fixed inset-0 z-50 bg-black/70 hidden items-center justify-center p-4" style="display:none;">
+            <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl p-5 border border-gray-700 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-white">Edit Tenant</h3>
+                    <button type="button" onclick="closeTenantEdit()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="tenantEditForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input type="hidden" id="tnEditId">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Full Name</label>
+                        <input type="text" id="tnEditName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label>
+                        <input type="email" id="tnEditEmail" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label>
+                        <input type="text" id="tnEditPhone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
+                        <select id="tnEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type</label>
+                        <select id="tnEditUnitType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label>
+                        <input type="text" id="tnEditUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent (₦)</label>
+                        <input type="number" id="tnEditRent" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label>
+                        <select id="tnEditStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="active">Active</option><option value="vacated">Vacated</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label>
+                        <input type="date" id="tnEditLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label>
+                        <input type="date" id="tnEditLeaseEnd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label>
+                        <textarea id="tnEditNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
+                    <p id="tnEditMsg" class="text-sm hidden md:col-span-2"></p>
+                    <div class="md:col-span-2 flex gap-3 pt-1">
+                        <button type="submit" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Changes</button>
+                        <button type="button" onclick="closeTenantEdit()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- PAYMENTS SECTION -->
         <section id="paymentsSection" class="mb-8 hidden">
@@ -5162,7 +5529,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId) {
-            const sections = ['overviewSection','tenantsSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -5175,7 +5542,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); loadResetRequests(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); loadInvestorPropertyDropdowns(); }
-            if (sectionId === 'tenantsSection') loadTenants();
+            if (sectionId === 'tenantsSection') { loadTenants(); loadPropertiesForTenantForm(); }
+            if (sectionId === 'unitTypesSection') { loadPropertiesForUnitTypeForm(); loadUnitTypes(); }
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
             if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
@@ -5969,10 +6337,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
                             <div>
                                 <p class="text-gray-500 mb-1">Property</p>
                                 <p class="text-gray-300">${t.property_name || '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Unit Type</p>
+                                <p class="text-gray-300">${t.unit_type_name || '—'}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Unit / Room</p>
@@ -5988,8 +6360,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                         </div>
                         <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
-                            <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
-                            <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
+                            <button onclick='openTenantEdit(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30 transition-colors"><i class="fas fa-pen mr-1"></i>Edit</button>
+                            <div class="flex gap-2">
+                                <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
+                                <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
+                            </div>
                         </div>
                     </div>`).join('') : '<p class="text-gray-400 py-6 text-center text-sm">No tenants found</p>';
             } catch (e) {
@@ -6010,6 +6385,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             e.preventDefault();
             const msgEl = document.getElementById('tenantMsg');
             try {
+                const propSel = document.getElementById('tnProperty');
+                const propertyName = propSel.options[propSel.selectedIndex]?.dataset.title || '';
                 const res = await fetchData('/admin/api/tenants', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
@@ -6017,7 +6394,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('tnName').value,
                         email: document.getElementById('tnEmail').value,
                         phone: document.getElementById('tnPhone').value,
-                        property_name: document.getElementById('tnProperty').value,
+                        property_name: propertyName,
+                        unit_type_id: document.getElementById('tnUnitType').value || null,
                         unit_number: document.getElementById('tnUnit').value,
                         monthly_rent: document.getElementById('tnRent').value,
                         lease_start: document.getElementById('tnLeaseStart').value,
@@ -6034,6 +6412,273 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (err) {
                 msgEl.textContent = err.message || 'Error adding tenant';
                 msgEl.className = 'text-sm text-red-400';
+            }
+        });
+
+        // ===== PROPERTIES + UNIT TYPES (shared cache) =====
+        let _propertiesCache = [];
+        let _unitTypesCache = [];
+
+        async function fetchPropertiesAndCache() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                _propertiesCache = props.filter(p => p.status === 'active');
+            } catch (e) { _propertiesCache = []; }
+        }
+
+        async function fetchUnitTypesAndCache() {
+            try { _unitTypesCache = await fetchData('/admin/api/unit-types'); }
+            catch (e) { _unitTypesCache = []; }
+        }
+
+        function fillPropertyOptions(selectEl, includeBlank = '-- Select property --') {
+            if (!selectEl) return;
+            const current = selectEl.value;
+            selectEl.innerHTML = `<option value="">${includeBlank}</option>` +
+                _propertiesCache.map(p => `<option value="${p.id}" data-title="${(p.title||'').replace(/"/g,'&quot;')}">${p.title}</option>`).join('');
+            if (current) selectEl.value = current;
+        }
+
+        function fillUnitTypeOptionsForProperty(selectEl, propertyId, includeBlank = '-- Select unit type --') {
+            if (!selectEl) return;
+            const current = selectEl.value;
+            const filtered = propertyId ? _unitTypesCache.filter(u => String(u.property_id) === String(propertyId)) : [];
+            selectEl.innerHTML = `<option value="">${includeBlank}</option>` +
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — '+fmtNGN(u.annual_price)+'/yr' : ''}</option>`).join('');
+            if (current) selectEl.value = current;
+        }
+
+        async function loadPropertiesForTenantForm() {
+            await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
+            fillPropertyOptions(document.getElementById('tnProperty'));
+            fillUnitTypeOptionsForProperty(document.getElementById('tnUnitType'), document.getElementById('tnProperty').value);
+        }
+
+        async function loadPropertiesForUnitTypeForm() {
+            await fetchPropertiesAndCache();
+            fillPropertyOptions(document.getElementById('utProperty'));
+        }
+
+        document.getElementById('tnProperty')?.addEventListener('change', (e) => {
+            fillUnitTypeOptionsForProperty(document.getElementById('tnUnitType'), e.target.value);
+        });
+
+        document.getElementById('tnUnitType')?.addEventListener('change', (e) => {
+            const price = e.target.options[e.target.selectedIndex]?.dataset.price;
+            const rentEl = document.getElementById('tnRent');
+            if (price && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
+        });
+
+        document.getElementById('tnEditProperty')?.addEventListener('change', (e) => {
+            fillUnitTypeOptionsForProperty(document.getElementById('tnEditUnitType'), e.target.value);
+        });
+
+        document.getElementById('tnEditUnitType')?.addEventListener('change', (e) => {
+            const price = e.target.options[e.target.selectedIndex]?.dataset.price;
+            const rentEl = document.getElementById('tnEditRent');
+            if (price && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
+        });
+
+        // ===== UNIT TYPES =====
+        async function loadUnitTypes() {
+            try {
+                await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
+                const container = document.getElementById('unitTypesContainer');
+                if (!_unitTypesCache.length) {
+                    container.innerHTML = '<div class="bg-gray-800 p-6 rounded-lg text-gray-400 text-center text-sm">No unit types yet. Add one above to start.</div>';
+                    return;
+                }
+                const grouped = {};
+                _unitTypesCache.forEach(u => {
+                    (grouped[u.property_title || 'Unassigned'] = grouped[u.property_title || 'Unassigned'] || []).push(u);
+                });
+                container.innerHTML = Object.entries(grouped).map(([propTitle, items]) => `
+                    <div class="bg-gray-800 p-4 rounded-lg">
+                        <h3 class="font-semibold text-slate-200 mb-3 flex items-center gap-2"><i class="fas fa-building text-gray-400"></i>${propTitle}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${items.map(u => `
+                                <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
+                                    <div class="flex items-start justify-between gap-3 mb-2">
+                                        <p class="font-semibold text-white text-sm">${u.name}</p>
+                                        <p class="text-emerald-400 font-bold text-sm flex-shrink-0">${u.annual_price ? fmtNGN(u.annual_price) : '\u20a60'}<span class="text-[10px] text-gray-400 font-normal">/yr</span></p>
+                                    </div>
+                                    ${u.description ? `<p class="text-xs text-gray-400 mb-3">${u.description}</p>` : ''}
+                                    <div class="flex items-center gap-3 text-xs mb-3">
+                                        <span class="px-2 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">${u.occupied_count}/${u.total_count} occupied</span>
+                                        <span class="text-gray-500">${u.available_count} available</span>
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-2 border-t border-gray-600/50">
+                                        <button onclick='openUtEdit(${JSON.stringify(u).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30"><i class="fas fa-pen mr-1"></i>Edit</button>
+                                        <button onclick="deleteUnitType(${u.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30"><i class="fas fa-trash mr-1"></i>Delete</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`).join('');
+            } catch (e) {
+                document.getElementById('unitTypesContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading unit types</p>';
+            }
+        }
+
+        document.getElementById('addUnitTypeForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('utMsg');
+            try {
+                const res = await fetchData('/admin/api/unit-types', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        property_id: document.getElementById('utProperty').value,
+                        name: document.getElementById('utName').value,
+                        description: document.getElementById('utDesc').value,
+                        annual_price: document.getElementById('utPrice').value || 0,
+                        total_count: document.getElementById('utCount').value || 0,
+                    })
+                });
+                msgEl.textContent = res.message;
+                msgEl.className = 'text-sm text-green-400';
+                document.getElementById('addUnitTypeForm').reset();
+                loadUnitTypes();
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error adding unit type';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        });
+
+        function openUtEdit(u) {
+            document.getElementById('utEditId').value = u.id;
+            fillPropertyOptions(document.getElementById('utEditProperty'));
+            document.getElementById('utEditProperty').value = u.property_id;
+            document.getElementById('utEditName').value = u.name || '';
+            document.getElementById('utEditDesc').value = u.description || '';
+            document.getElementById('utEditPrice').value = u.annual_price || 0;
+            document.getElementById('utEditCount').value = u.total_count || 0;
+            document.getElementById('utEditMsg').classList.add('hidden');
+            const modal = document.getElementById('utEditModal');
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+
+        function closeUtEdit() {
+            const modal = document.getElementById('utEditModal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+
+        document.getElementById('utEditForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('utEditMsg');
+            msgEl.classList.remove('hidden');
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-xs text-gray-400';
+            try {
+                const id = document.getElementById('utEditId').value;
+                const res = await fetchData('/admin/api/unit-types/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        property_id: document.getElementById('utEditProperty').value,
+                        name: document.getElementById('utEditName').value,
+                        description: document.getElementById('utEditDesc').value,
+                        annual_price: document.getElementById('utEditPrice').value || 0,
+                        total_count: document.getElementById('utEditCount').value || 0,
+                    })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-xs text-emerald-400';
+                loadUnitTypes();
+                setTimeout(closeUtEdit, 900);
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving';
+                msgEl.className = 'text-xs text-red-400';
+            }
+        });
+
+        async function deleteUnitType(id) {
+            if (!confirm('Delete this unit type? This cannot be undone.')) return;
+            try {
+                await fetchData('/admin/api/unit-types/' + id, { method: 'DELETE' });
+                loadUnitTypes();
+            } catch (e) { alert(e.message || 'Error deleting unit type'); }
+        }
+
+        // ===== TENANT EDIT =====
+        function openTenantEdit(t) {
+            (async () => {
+                await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
+                fillPropertyOptions(document.getElementById('tnEditProperty'));
+
+                let matchedPropId = '';
+                if (t.unit_type_id) {
+                    const ut = _unitTypesCache.find(u => String(u.id) === String(t.unit_type_id));
+                    if (ut) matchedPropId = String(ut.property_id);
+                }
+                if (!matchedPropId && t.property_name) {
+                    const p = _propertiesCache.find(p => p.title === t.property_name);
+                    if (p) matchedPropId = String(p.id);
+                }
+                document.getElementById('tnEditProperty').value = matchedPropId;
+                fillUnitTypeOptionsForProperty(document.getElementById('tnEditUnitType'), matchedPropId);
+
+                document.getElementById('tnEditId').value = t.id;
+                document.getElementById('tnEditName').value = t.name || '';
+                document.getElementById('tnEditEmail').value = t.email || '';
+                document.getElementById('tnEditPhone').value = t.phone || '';
+                document.getElementById('tnEditUnitType').value = t.unit_type_id || '';
+                document.getElementById('tnEditUnit').value = t.unit_number || '';
+                document.getElementById('tnEditRent').value = t.monthly_rent || 0;
+                document.getElementById('tnEditStatus').value = t.status || 'active';
+                document.getElementById('tnEditLeaseStart').value = t.lease_start || '';
+                document.getElementById('tnEditLeaseEnd').value = t.lease_end || '';
+                document.getElementById('tnEditNotes').value = t.notes || '';
+                document.getElementById('tnEditMsg').classList.add('hidden');
+                const modal = document.getElementById('tenantEditModal');
+                modal.style.display = 'flex';
+                modal.classList.remove('hidden');
+            })();
+        }
+
+        function closeTenantEdit() {
+            const modal = document.getElementById('tenantEditModal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+
+        document.getElementById('tenantEditForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('tnEditMsg');
+            msgEl.classList.remove('hidden');
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-xs text-gray-400 md:col-span-2';
+            try {
+                const id = document.getElementById('tnEditId').value;
+                const propSel = document.getElementById('tnEditProperty');
+                const propertyName = propSel.options[propSel.selectedIndex]?.dataset.title || '';
+                const res = await fetchData('/admin/api/tenants/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        name: document.getElementById('tnEditName').value,
+                        email: document.getElementById('tnEditEmail').value,
+                        phone: document.getElementById('tnEditPhone').value,
+                        property_name: propertyName,
+                        unit_type_id: document.getElementById('tnEditUnitType').value || null,
+                        unit_number: document.getElementById('tnEditUnit').value,
+                        monthly_rent: document.getElementById('tnEditRent').value || 0,
+                        status: document.getElementById('tnEditStatus').value,
+                        lease_start: document.getElementById('tnEditLeaseStart').value,
+                        lease_end: document.getElementById('tnEditLeaseEnd').value,
+                        notes: document.getElementById('tnEditNotes').value,
+                    })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-xs text-emerald-400 md:col-span-2';
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+                setTimeout(closeTenantEdit, 900);
+            } catch (err) {
+                msgEl.textContent = err.message || 'Error saving';
+                msgEl.className = 'text-xs text-red-400 md:col-span-2';
             }
         });
 
