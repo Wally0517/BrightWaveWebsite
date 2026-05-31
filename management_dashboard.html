@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/assets/images/brightwave-logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root { --sb: 240px; --hh: 60px; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -198,6 +199,17 @@
   <!-- Stat cards -->
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1rem" id="ovCards">
     <div class="sc" style="grid-column:span 2"><p style="color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Loading…</p></div>
+  </div>
+  <!-- Charts row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="ovCharts">
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:.4rem"><i class="fa-solid fa-chart-bar" style="color:#2dd4bf;font-size:.8rem"></i>Revenue vs Spend</span></div>
+      <div style="padding:.75rem;height:180px;position:relative"><canvas id="mgmtRevenueChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:.4rem"><i class="fa-solid fa-circle-dot" style="color:#c084fc;font-size:.8rem"></i>Tenant Status</span></div>
+      <div style="padding:.75rem;height:180px;position:relative;display:flex;align-items:center;justify-content:center"><canvas id="mgmtTenantDonut"></canvas></div>
+    </div>
   </div>
   <!-- Recent tables -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem" id="ovTables">
@@ -612,6 +624,53 @@ async function loadOverview() {
   $('ovTenT').querySelector('tbody').innerHTML = d.recent_tenants.length
     ? d.recent_tenants.map(t => `<tr><td style="font-weight:500">${esc(t.full_name)}</td><td style="color:#94a3b8">${esc(t.unit_number||'—')}</td><td>${badge(t.status)}</td><td style="color:#94a3b8;font-size:.78rem">${fmtD(t.move_in_date)}</td></tr>`).join('')
     : '<tr class="empty-row"><td colspan="4">No tenants yet</td></tr>';
+
+  // Charts
+  if (typeof Chart !== 'undefined') {
+    const trend = d.monthly_trend || [];
+    const rCtx = $('mgmtRevenueChart');
+    if (rCtx) {
+      if (window._mgmtRevChart) window._mgmtRevChart.destroy();
+      window._mgmtRevChart = new Chart(rCtx, {
+        type: 'bar',
+        data: {
+          labels: trend.map(m => m.month),
+          datasets: [
+            { label: 'Revenue', data: trend.map(m => m.revenue), backgroundColor: 'rgba(45,212,191,0.7)', borderColor: '#2dd4bf', borderWidth: 1, borderRadius: 4 },
+            { label: 'Capital', data: trend.map(m => m.capital), backgroundColor: 'rgba(251,146,60,0.6)', borderColor: '#fb923c', borderWidth: 1, borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+            y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'K':v }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          }
+        }
+      });
+    }
+    const ts = d.tenant_status || {};
+    const tCtx = $('mgmtTenantDonut');
+    if (tCtx) {
+      if (window._mgmtTenantChart) window._mgmtTenantChart.destroy();
+      const tot = (ts.active||0)+(ts.reserved||0)+(ts.vacated||0);
+      window._mgmtTenantChart = new Chart(tCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Active','Reserved','Vacated'],
+          datasets: [{ data: [ts.active||0,ts.reserved||0,ts.vacated||0], backgroundColor: ['rgba(45,212,191,0.8)','rgba(250,204,21,0.8)','rgba(100,116,139,0.7)'], borderWidth: 0, hoverOffset: 4 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 10, boxWidth: 10 } },
+            tooltip: { callbacks: { label: ctx => ctx.label+': '+ctx.raw+(tot?' ('+Math.round(ctx.raw/tot*100)+'%)':'') } }
+          }
+        }
+      });
+    }
+  }
 }
 
 // ── Tenants ────────────────────────────────────────────────────────

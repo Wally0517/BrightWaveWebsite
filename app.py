@@ -91,13 +91,20 @@ UPLOAD_FOLDER = 'assets/images/properties'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 EXPENSE_RECEIPT_FOLDER = 'assets/uploads/expense-receipts'
 ALLOWED_RECEIPT_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
+HERO_BG_FOLDER = 'assets/images/site'
+VIDEO_FOLDER = 'assets/videos/site'
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov', 'ogg', 'm4v'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['EXPENSE_RECEIPT_FOLDER'] = EXPENSE_RECEIPT_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['HERO_BG_FOLDER'] = HERO_BG_FOLDER
+app.config['VIDEO_FOLDER'] = VIDEO_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB (for video uploads)
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(EXPENSE_RECEIPT_FOLDER, exist_ok=True)
+os.makedirs(HERO_BG_FOLDER, exist_ok=True)
+os.makedirs(VIDEO_FOLDER, exist_ok=True)
 
 # ========== DATABASE MODELS ==========
 class Admin(db.Model):
@@ -168,6 +175,7 @@ class SiteContent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     slug = db.Column(db.String(120), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=False)
+    draft_value = db.Column(db.Text, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class TeamMember(db.Model):
@@ -267,6 +275,7 @@ class ProjectExpense(db.Model):
     approved_by = db.Column(db.String(80), nullable=True)
     approved_at = db.Column(db.DateTime, nullable=True)
     recorded_by = db.Column(db.String(80), nullable=True)
+    is_paid = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     property = db.relationship('Property', backref='expenses')
@@ -282,6 +291,22 @@ class VendorContact(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class MaintenanceRecord(db.Model):
+    __tablename__ = 'maintenance_record'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
+    maintenance_date = db.Column(db.Date, nullable=False, default=date_type.today)
+    title = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(40), nullable=False, default='general')
+    description = db.Column(db.Text, nullable=True)
+    vendor_name = db.Column(db.String(160), nullable=True)
+    cost = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='completed')
+    recorded_by = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    property = db.relationship('Property', backref='maintenance_records')
 
 class PropertyUnitType(db.Model):
     __tablename__ = 'property_unit_type'
@@ -307,7 +332,7 @@ class Tenant(db.Model):
     unit_type_id = db.Column(db.Integer, db.ForeignKey('property_unit_type.id'), nullable=True)
     lease_start = db.Column(db.Date, nullable=True)
     lease_end = db.Column(db.Date, nullable=True)
-    monthly_rent = db.Column(db.Float, default=0.0)  # actually annual; field name kept for back-compat
+    monthly_rent = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='active')
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -350,6 +375,24 @@ DEFAULT_SITE_CONTENT = {
     'home.hero_title': 'Property opportunities in Nigeria, presented with real proof and clear process.',
     'home.hero_subtitle': 'BrightWave Habitat Enterprise serves clients looking for live student accommodation, credible land opportunities, family homes, and long-term estate projects, starting with an active flagship already operating in Malete, Kwara State.',
     'home.about_intro': 'BrightWave Habitat Enterprise is a Nigerian property business focused on student accommodation, land opportunities, residential homes, and estate growth, with BrightWave Hostel Phase 1 in Malete as the first live proof of delivery.',
+    'home.hero_bg_path': '',
+    'home.video_url': '',
+    'home.video_section_title': 'See BrightWave in Action',
+    'home.video_section_enabled': 'false',
+    'home.announcement_text': '',
+    'home.announcement_enabled': 'false',
+    'home.services_heading': 'Our Services',
+    'home.services_lead': 'BrightWave operates across student accommodation, land transactions, homes, and estate development, with each offer presented according to its real stage and readiness.',
+    'site.contact_email': 'brightwavehabitat@gmail.com',
+    'site.contact_phone': '+234 803 766 9462',
+    'site.contact_address': 'Malete, Kwara State, Nigeria',
+    'site.footer_company_desc': 'Building trusted property opportunities across Nigeria with clarity, credibility, and a focus on real delivery.',
+    'site.wa_number_hostel': '2348037669462',
+    'site.wa_number_land': '2349038402914',
+    'site.wa_number_home': '2349075381905',
+    'site.social_facebook': 'https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr',
+    'site.social_twitter': 'https://x.com/brightwave__?s=21',
+    'site.social_instagram': 'https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr',
     'about.hero_subtitle': 'A focused Nigerian property company building credibility through real delivery, clear communication, and a premium standard of presentation.',
     'about.intro_body': 'BrightWave Habitat Enterprise is a Nigerian real estate business founded to compete at the top end of trust and presentation. We serve students, families, and investors through student hostels, land opportunities, residential homes, and estate development, with Phase 1 in Malete as the first live proof of our standard.',
     'about.team_heading': 'Meet the Active Team',
@@ -462,6 +505,8 @@ def ensure_runtime_schema_updates():
         if 'approved_at' not in expense_columns:
             db.session.execute(text(f'ALTER TABLE project_expense ADD COLUMN approved_at {timestamp_type}'))
         db.session.execute(text("UPDATE project_expense SET approval_status = 'pending' WHERE approval_status IS NULL OR approval_status = ''"))
+        if 'is_paid' not in expense_columns:
+            db.session.execute(text('ALTER TABLE project_expense ADD COLUMN is_paid BOOLEAN NOT NULL DEFAULT 0'))
 
     investor_columns = {column['name'] for column in inspector.get_columns('investor_profile')} if inspector.has_table('investor_profile') else set()
     if investor_columns and 'property_id' not in investor_columns:
@@ -486,6 +531,13 @@ def ensure_runtime_schema_updates():
             AND capital_budget IS NOT NULL
             AND id NOT IN (SELECT DISTINCT property_id FROM project_expense WHERE property_id IS NOT NULL)
         """))
+
+    if not inspector.has_table('maintenance_record'):
+        db.create_all()
+
+    content_columns = {column['name'] for column in inspector.get_columns('site_content')} if inspector.has_table('site_content') else set()
+    if content_columns and 'draft_value' not in content_columns:
+        db.session.execute(text('ALTER TABLE site_content ADD COLUMN draft_value TEXT'))
 
     db.session.commit()
 
@@ -575,6 +627,7 @@ def serialize_project_expense(expense):
         'approved_by': expense.approved_by or '',
         'approved_at': expense.approved_at.strftime('%Y-%m-%d %H:%M') if expense.approved_at else '',
         'recorded_by': expense.recorded_by or '',
+        'is_paid': bool(expense.is_paid),
         'created_at': expense.created_at.strftime('%Y-%m-%d %H:%M') if expense.created_at else '',
         'updated_at': expense.updated_at.strftime('%Y-%m-%d %H:%M') if expense.updated_at else '',
     }
@@ -945,11 +998,10 @@ def ensure_unit_type_migrations():
 
 
 def seed_default_unit_types():
-    """Seed initial unit types for hostel properties (idempotent — only runs when empty)."""
+    """Seed initial unit types for hostel/apartment properties (idempotent — runs only on empty)."""
     if PropertyUnitType.query.first():
         return
 
-    # Match by phase keyword so it works whether the property is titled "Hostel" or "Apartment"
     phase_seeds = {
         1: [
             {
@@ -1517,6 +1569,35 @@ def apple_touch_icon():
     resp.headers['ETag'] = 'brightwave-icon-v3'
     return resp
 
+@app.route('/favicon.ico')
+def favicon_ico():
+    if os.path.exists('favicon-32x32.png'):
+        resp = make_response(send_from_directory('.', 'favicon-32x32.png', mimetype='image/x-icon'))
+    else:
+        resp = make_response(send_from_directory('assets/images', 'icon-192.png', mimetype='image/x-icon'))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
+@app.route('/favicon-32x32.png')
+def favicon_32():
+    if os.path.exists('favicon-32x32.png'):
+        resp = make_response(send_from_directory('.', 'favicon-32x32.png', mimetype='image/png'))
+    else:
+        resp = make_response(send_from_directory('assets/images', 'icon-192.png', mimetype='image/png'))
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
+@app.route('/favicon-16x16.png')
+def favicon_16():
+    if os.path.exists('favicon-16x16.png'):
+        resp = make_response(send_from_directory('.', 'favicon-16x16.png', mimetype='image/png'))
+    else:
+        resp = make_response(send_from_directory('assets/images', 'icon-192.png', mimetype='image/png'))
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
 @app.route('/manifest.json')
 def pwa_manifest():
     manifest = {
@@ -1616,6 +1697,11 @@ self.addEventListener('fetch', event => {
 def get_public_site_content():
     try:
         ensure_runtime_state()
+        if request.args.get('preview') == '1' and session.get('admin_id'):
+            return jsonify({
+                item.slug: item.draft_value if item.draft_value is not None else item.value
+                for item in SiteContent.query.order_by(SiteContent.slug.asc()).all()
+            })
         return jsonify(get_site_content())
     except Exception as e:
         logger.error(f"Error fetching site content: {str(e)}")
@@ -1908,13 +1994,19 @@ def handle_property_inquiry():
 @app.route('/admin/api/stats')
 @login_required
 def admin_stats():
-    """Get enhanced dashboard statistics"""
+    """Get enhanced dashboard statistics, optionally filtered by property_id"""
     try:
         admin = get_current_admin()
         if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR'):
             return jsonify({"success": False, "message": "Access restricted to management roles"}), 403
         from sqlalchemy import func as sqlfunc
         ensure_cms_baseline()
+
+        filter_prop_id = request.args.get('property_id', type=int)
+        filter_prop = Property.query.get(filter_prop_id) if filter_prop_id else None
+        filter_prop_title = filter_prop.title if filter_prop else None
+
+        # --- Property-level counts (always portfolio-wide) ---
         total_properties = Property.query.count()
         active_properties = Property.query.filter_by(status='active').count()
         hostels = Property.query.filter_by(property_type='hostel').count()
@@ -1927,45 +2019,107 @@ def admin_stats():
         contact_messages = ContactMessage.query.count()
         new_messages = ContactMessage.query.filter_by(status='new').count()
 
-        # Tenant stats
-        active_tenants = Tenant.query.filter_by(status='active').count()
-        total_tenants = Tenant.query.count()
-        total_units = PropertyUnit.query.count()
-        available_units = PropertyUnit.query.filter_by(status='available').count()
-        occupied_units = PropertyUnit.query.filter_by(status='occupied').count()
+        # --- Tenant/unit stats (filterable by property) ---
+        tenant_q = Tenant.query
+        if filter_prop_title:
+            tenant_q = tenant_q.filter(Tenant.property_name.ilike(f'%{filter_prop_title}%'))
+        active_tenants = tenant_q.filter_by(status='active').count()
+        total_tenants = tenant_q.count()
+        reserved_tenants = tenant_q.filter_by(status='reserved').count()
+        vacated_tenants = tenant_q.filter_by(status='vacated').count()
 
-        # Revenue stats
+        unit_q = PropertyUnit.query
+        if filter_prop_id:
+            unit_q = unit_q.filter_by(property_id=filter_prop_id)
+        total_units = unit_q.count()
+        available_units = unit_q.filter_by(status='available').count()
+        occupied_units = unit_q.filter_by(status='occupied').count()
+
+        # --- Revenue stats (filterable via tenant property_name join) ---
         now = datetime.utcnow()
         month_start = date_type(now.year, now.month, 1)
-        monthly_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).filter(
-            PaymentRecord.payment_date >= month_start
-        ).scalar() or 0
-        total_revenue = db.session.query(sqlfunc.sum(PaymentRecord.amount)).scalar() or 0
-        monthly_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.expense_date >= month_start,
-            ProjectExpense.approval_status == 'approved'
-        ).scalar() or 0
-        total_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.approval_status == 'approved'
-        ).scalar() or 0
-        approved_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.approval_status == 'approved'
-        ).scalar() or 0
-        pending_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.approval_status == 'pending'
-        ).scalar() or 0
-        rejected_capital_spent = db.session.query(sqlfunc.sum(ProjectExpense.amount)).filter(
-            ProjectExpense.approval_status == 'rejected'
-        ).scalar() or 0
-        total_capital_budget = db.session.query(sqlfunc.sum(Property.capital_budget)).scalar() or 0
+
+        def _rev_q(extra_filters=None):
+            q = db.session.query(sqlfunc.sum(PaymentRecord.amount))
+            if filter_prop_title:
+                q = q.join(Tenant, PaymentRecord.tenant_id == Tenant.id).filter(
+                    Tenant.property_name.ilike(f'%{filter_prop_title}%')
+                )
+            if extra_filters:
+                for f in extra_filters:
+                    q = q.filter(f)
+            return q.scalar() or 0
+
+        monthly_revenue = _rev_q([PaymentRecord.payment_date >= month_start])
+        total_revenue = _rev_q()
+
+        # --- Capital/expense stats (filterable by property_id) ---
+        def _exp_q(approval=None, extra_filters=None):
+            q = db.session.query(sqlfunc.sum(ProjectExpense.amount))
+            if filter_prop_id:
+                q = q.filter(ProjectExpense.property_id == filter_prop_id)
+            if approval:
+                q = q.filter(ProjectExpense.approval_status == approval)
+            if extra_filters:
+                for f in extra_filters:
+                    q = q.filter(f)
+            return q.scalar() or 0
+
+        # total_capital_spent = approved only — only sanctioned spending counts
+        approved_capital_spent = _exp_q('approved')
+        total_capital_spent = approved_capital_spent
+        monthly_capital_spent = _exp_q('approved', extra_filters=[ProjectExpense.expense_date >= month_start])
+        pending_capital_spent = _exp_q('pending')
+        rejected_capital_spent = _exp_q('rejected')
+
+        if filter_prop:
+            total_capital_budget = filter_prop.capital_budget or 0
+        else:
+            total_capital_budget = db.session.query(sqlfunc.sum(Property.capital_budget)).scalar() or 0
         capital_budget_remaining = total_capital_budget - approved_capital_spent
 
-        # Recent data
+        # --- Monthly trend (last 24 months, filterable) ---
+        from calendar import monthrange as _mrange
+        monthly_trend = []
+        for _i in range(23, -1, -1):
+            _mo = now.replace(day=1) - timedelta(days=_i * 28)
+            _yr, _mo_n = _mo.year, _mo.month
+            _ms = date_type(_yr, _mo_n, 1)
+            _me = date_type(_yr, _mo_n, _mrange(_yr, _mo_n)[1])
+            _rev = _rev_q([PaymentRecord.payment_date >= _ms, PaymentRecord.payment_date <= _me])
+            _cap = _exp_q('approved', extra_filters=[ProjectExpense.expense_date >= _ms, ProjectExpense.expense_date <= _me])
+            monthly_trend.append({'month': _ms.strftime("%b '%y"), 'revenue': float(_rev), 'capital': float(_cap)})
+
+        # --- Yearly trend (all years from first record) ---
+        _earliest_pay = db.session.query(sqlfunc.min(PaymentRecord.payment_date)).scalar()
+        _earliest_exp = db.session.query(sqlfunc.min(ProjectExpense.expense_date)).scalar()
+        if filter_prop_id:
+            _earliest_exp = db.session.query(sqlfunc.min(ProjectExpense.expense_date)).filter(ProjectExpense.property_id == filter_prop_id).scalar()
+        _start_yr = now.year
+        if _earliest_pay: _start_yr = min(_start_yr, _earliest_pay.year)
+        if _earliest_exp: _start_yr = min(_start_yr, _earliest_exp.year)
+        yearly_trend = []
+        for _yr in range(_start_yr, now.year + 1):
+            _ys = date_type(_yr, 1, 1)
+            _ye = date_type(_yr, 12, 31)
+            _yrev = _rev_q([PaymentRecord.payment_date >= _ys, PaymentRecord.payment_date <= _ye])
+            _ycap = _exp_q('approved', extra_filters=[ProjectExpense.expense_date >= _ys, ProjectExpense.expense_date <= _ye])
+            yearly_trend.append({'year': str(_yr), 'revenue': float(_yrev), 'capital': float(_ycap)})
+
+        # --- Recent data (filterable) ---
         recent_inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).limit(5).all()
         recent_messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(5).all()
-        recent_payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(5).all()
-        recent_tenants = Tenant.query.order_by(Tenant.created_at.desc()).limit(5).all()
-        recent_expenses = ProjectExpense.query.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).limit(5).all()
+        rec_pay_q = PaymentRecord.query
+        if filter_prop_title:
+            rec_pay_q = rec_pay_q.join(Tenant, PaymentRecord.tenant_id == Tenant.id).filter(
+                Tenant.property_name.ilike(f'%{filter_prop_title}%')
+            )
+        recent_payments = rec_pay_q.order_by(PaymentRecord.created_at.desc()).limit(5).all()
+        recent_tenants = tenant_q.order_by(Tenant.created_at.desc()).limit(5).all()
+        rec_exp_q = ProjectExpense.query
+        if filter_prop_id:
+            rec_exp_q = rec_exp_q.filter(ProjectExpense.property_id == filter_prop_id)
+        recent_expenses = rec_exp_q.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).limit(5).all()
 
         return jsonify({
             'total_properties': total_properties,
@@ -1985,15 +2139,23 @@ def admin_stats():
             'total_units': total_units,
             'available_units': available_units,
             'occupied_units': occupied_units,
-            'monthly_revenue': monthly_revenue,
-            'total_revenue': total_revenue,
-            'monthly_capital_spent': monthly_capital_spent,
-            'total_capital_spent': total_capital_spent,
-            'approved_capital_spent': approved_capital_spent,
-            'pending_capital_spent': pending_capital_spent,
-            'rejected_capital_spent': rejected_capital_spent,
-            'total_capital_budget': total_capital_budget,
-            'capital_budget_remaining': capital_budget_remaining,
+            'monthly_revenue': float(monthly_revenue),
+            'total_revenue': float(total_revenue),
+            'monthly_capital_spent': float(monthly_capital_spent),
+            'total_capital_spent': float(total_capital_spent),
+            'approved_capital_spent': float(approved_capital_spent),
+            'pending_capital_spent': float(pending_capital_spent),
+            'rejected_capital_spent': float(rejected_capital_spent),
+            'total_capital_budget': float(total_capital_budget),
+            'capital_budget_remaining': float(capital_budget_remaining),
+            'monthly_trend': monthly_trend,
+            'yearly_trend': yearly_trend,
+            'filtered_property': {'id': filter_prop.id, 'title': filter_prop.title} if filter_prop else None,
+            'tenant_status': {
+                'active': active_tenants,
+                'reserved': reserved_tenants,
+                'vacated': vacated_tenants,
+            },
             'recent_activity': {
                 'inquiries': [{
                     'id': inq.id,
@@ -2041,7 +2203,10 @@ def admin_site_content():
     try:
         ensure_cms_baseline()
         if request.method == 'GET':
-            return jsonify(get_site_content())
+            return jsonify({
+                item.slug: item.draft_value if item.draft_value is not None else item.value
+                for item in SiteContent.query.order_by(SiteContent.slug.asc()).all()
+            })
 
         admin = get_current_admin()
         if not admin or admin.role != 'CEO':
@@ -2051,13 +2216,101 @@ def admin_site_content():
             if slug in data:
                 existing = SiteContent.query.filter_by(slug=slug).first()
                 if existing:
-                    existing.value = str(data.get(slug, '')).strip()
+                    existing.draft_value = str(data.get(slug, '')).strip()
                 else:
-                    db.session.add(SiteContent(slug=slug, value=str(data.get(slug, '')).strip()))
+                    db.session.add(SiteContent(slug=slug, value=str(data.get(slug, '')).strip(), draft_value=str(data.get(slug, '')).strip()))
         db.session.commit()
-        return jsonify({"success": True, "message": "Website content updated successfully"})
+        return jsonify({"success": True, "message": "Saved as draft — click Publish to go live"})
     except Exception as e:
         logger.error(f"Error updating site content: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/site-content/upload-hero-bg', methods=['POST'])
+@login_required
+def upload_hero_bg():
+    try:
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
+        if 'file' not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "message": "No file selected"}), 400
+        if file and allowed_file(file.filename):
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = secure_filename(f"hero_bg_{int(time())}.{ext}")
+            file_path = os.path.join(app.config['HERO_BG_FOLDER'], filename)
+            file.save(file_path)
+            path_value = f"images/site/{filename}"
+            existing = SiteContent.query.filter_by(slug='home.hero_bg_path').first()
+            if existing:
+                existing.draft_value = path_value
+            else:
+                db.session.add(SiteContent(slug='home.hero_bg_path', value='', draft_value=path_value))
+            db.session.commit()
+            return jsonify({"success": True, "path": path_value, "message": "Saved as draft — click Publish to go live"})
+        return jsonify({"success": False, "message": "Invalid file type. Use PNG, JPG, WEBP, or GIF."}), 400
+    except Exception as e:
+        logger.error(f"Error uploading hero background: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/site-content/upload-video', methods=['POST'])
+@login_required
+def upload_site_video():
+    try:
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
+        if 'file' not in request.files:
+            return jsonify({"success": False, "message": "No file provided"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "message": "No file selected"}), 400
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if ext not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({"success": False, "message": "Invalid file type. Use MP4, WEBM, MOV, or OGG."}), 400
+        filename = secure_filename(f"site_video_{int(time())}.{ext}")
+        file_path = os.path.join(app.config['VIDEO_FOLDER'], filename)
+        file.save(file_path)
+        video_url = f"/assets/videos/site/{filename}"
+        existing = SiteContent.query.filter_by(slug='home.video_url').first()
+        if existing:
+            existing.draft_value = video_url
+        else:
+            db.session.add(SiteContent(slug='home.video_url', value='', draft_value=video_url))
+        db.session.commit()
+        return jsonify({"success": True, "url": video_url, "message": "Video saved as draft — click Publish to go live"})
+    except Exception as e:
+        logger.error(f"Error uploading site video: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.route('/admin/api/site-content/draft-status', methods=['GET'])
+@login_required
+def site_content_draft_status():
+    try:
+        count = SiteContent.query.filter(SiteContent.draft_value.isnot(None)).count()
+        return jsonify({"pending": count})
+    except Exception as e:
+        logger.error(f"Error fetching draft status: {str(e)}")
+        return jsonify({"pending": 0})
+
+@app.route('/admin/api/site-content/publish', methods=['POST'])
+@login_required
+def publish_site_content():
+    try:
+        admin = get_current_admin()
+        if not admin or admin.role != 'CEO':
+            return jsonify({"success": False, "message": "CEO access required"}), 403
+        items = SiteContent.query.filter(SiteContent.draft_value.isnot(None)).all()
+        count = len(items)
+        for item in items:
+            item.value = item.draft_value
+            item.draft_value = None
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Published {count} change(s) to the live website", "published": count})
+    except Exception as e:
+        logger.error(f"Error publishing site content: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @app.route('/admin/api/team-members', methods=['GET', 'POST'])
@@ -2668,6 +2921,7 @@ def admin_project_expenses():
             property_id = request.args.get('property_id', type=int)
             approval_status = (request.args.get('approval_status') or '').strip().lower()
             has_receipt = (request.args.get('has_receipt') or '').strip().lower()
+            category_filter = (request.args.get('category') or '').strip().lower()
             summary_query = ProjectExpense.query
             if property_id:
                 summary_query = summary_query.filter_by(property_id=property_id)
@@ -2676,6 +2930,8 @@ def admin_project_expenses():
                 query = query.filter_by(approval_status=approval_status)
             if has_receipt in {'1', 'true', 'yes'}:
                 query = query.filter(ProjectExpense.receipt_path.isnot(None), ProjectExpense.receipt_path != '')
+            if category_filter in {'materials', 'labour', 'transport', 'equipment', 'permits', 'land', 'other'}:
+                query = query.filter_by(category=category_filter)
             expenses = query.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).all()
             total_amount = round(sum(exp.amount or 0 for exp in expenses), 2)
             by_category = {}
@@ -2796,6 +3052,8 @@ def admin_project_expense_detail(expense_id):
             expense.notes = (data['notes'] or '').strip() or None
         if 'receipt_path' in data:
             expense.receipt_path = (data['receipt_path'] or '').strip() or None
+        if 'is_paid' in data:
+            expense.is_paid = bool(data['is_paid'])
         requested_status = (data.get('approval_status') or '').strip().lower()
         if requested_status:
             if requested_status not in {'pending', 'approved', 'rejected'}:
@@ -2864,7 +3122,90 @@ def admin_vendors():
         logger.error(f"Error managing vendors: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-@app.route('/admin/api/inquiries', methods=['GET'])
+@app.route('/admin/api/maintenance', methods=['GET', 'POST'])
+@login_required
+def admin_maintenance():
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted"}), 403
+        if request.method == 'GET':
+            property_id = request.args.get('property_id')
+            q = MaintenanceRecord.query
+            if property_id:
+                q = q.filter_by(property_id=int(property_id))
+            records = q.order_by(MaintenanceRecord.maintenance_date.desc(), MaintenanceRecord.id.desc()).all()
+            return jsonify([{
+                'id': r.id,
+                'property_id': r.property_id,
+                'property_title': r.property.title if r.property else '',
+                'maintenance_date': r.maintenance_date.isoformat() if r.maintenance_date else '',
+                'title': r.title,
+                'category': r.category,
+                'description': r.description or '',
+                'vendor_name': r.vendor_name or '',
+                'cost': r.cost,
+                'status': r.status,
+                'recorded_by': r.recorded_by or '',
+                'created_at': r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '',
+            } for r in records])
+        data = request.get_json() or {}
+        title = (data.get('title') or '').strip()
+        if not title:
+            return jsonify({"success": False, "message": "Title is required"}), 400
+        property_id = data.get('property_id')
+        if not property_id:
+            return jsonify({"success": False, "message": "Property is required"}), 400
+        record = MaintenanceRecord(
+            property_id=int(property_id),
+            maintenance_date=date_type.fromisoformat(data['maintenance_date']) if data.get('maintenance_date') else date_type.today(),
+            title=title,
+            category=(data.get('category') or 'general').strip(),
+            description=(data.get('description') or '').strip() or None,
+            vendor_name=(data.get('vendor_name') or '').strip() or None,
+            cost=float(data['cost']) if data.get('cost') else None,
+            status=(data.get('status') or 'completed').strip(),
+            recorded_by=admin.username,
+        )
+        db.session.add(record)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Maintenance record saved", "id": record.id})
+    except Exception as e:
+        logger.error(f"Error managing maintenance: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/maintenance/<int:record_id>', methods=['PUT', 'DELETE'])
+@login_required
+def admin_maintenance_record(record_id):
+    try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted"}), 403
+        record = MaintenanceRecord.query.get_or_404(record_id)
+        if request.method == 'DELETE':
+            db.session.delete(record)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Record deleted"})
+        data = request.get_json() or {}
+        if 'title' in data: record.title = (data['title'] or '').strip()
+        if 'category' in data: record.category = (data['category'] or 'general').strip()
+        if 'description' in data: record.description = (data['description'] or '').strip() or None
+        if 'vendor_name' in data: record.vendor_name = (data['vendor_name'] or '').strip() or None
+        if 'cost' in data: record.cost = float(data['cost']) if data['cost'] else None
+        if 'status' in data: record.status = (data['status'] or 'completed').strip()
+        if 'maintenance_date' in data and data['maintenance_date']:
+            record.maintenance_date = date_type.fromisoformat(data['maintenance_date'])
+        if 'property_id' in data and data['property_id']:
+            record.property_id = int(data['property_id'])
+        db.session.commit()
+        return jsonify({"success": True, "message": "Record updated"})
+    except Exception as e:
+        logger.error(f"Error updating maintenance record: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/inquiries', methods=['GET', 'POST'])
 @login_required
 def admin_get_inquiries():
     """Get all property inquiries"""
@@ -2872,9 +3213,33 @@ def admin_get_inquiries():
         admin = get_current_admin()
         if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if request.method == 'POST':
+            data = request.get_json() or {}
+            if not data.get('full_name') or not data.get('phone'):
+                return jsonify({"success": False, "message": "Name and phone are required"}), 400
+            prop = None
+            if data.get('property_id'):
+                prop = Property.query.get(int(data['property_id']))
+            inq = PropertyInquiry(
+                property_id=prop.id if prop else None,
+                full_name=data['full_name'].strip(),
+                email=(data.get('email') or '').strip() or 'manual@entry.local',
+                phone=data['phone'].strip(),
+                inquiry_type=data.get('inquiry_type', 'general'),
+                budget_range=(data.get('budget_range') or '').strip() or None,
+                preferred_move_date=date_type.fromisoformat(data['preferred_move_date']) if data.get('preferred_move_date') else None,
+                message=(data.get('message') or '').strip() or 'Manually added by staff',
+                status=data.get('status', 'new'),
+                priority=data.get('priority', 'medium'),
+                inquiry_notes=(data.get('inquiry_notes') or '').strip() or None,
+            )
+            db.session.add(inq)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Lead added", "id": inq.id})
         inquiries = PropertyInquiry.query.order_by(PropertyInquiry.created_at.desc()).all()
         return jsonify([{
             'id': inquiry.id,
+            'property_id': inquiry.property_id,
             'property_title': inquiry.property.title if inquiry.property else 'General Inquiry',
             'full_name': inquiry.full_name,
             'email': inquiry.email,
@@ -2894,25 +3259,35 @@ def admin_get_inquiries():
         logger.error(f"Error fetching inquiries: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-@app.route('/admin/api/inquiries/<int:inquiry_id>', methods=['PUT'])
+@app.route('/admin/api/inquiries/<int:inquiry_id>', methods=['PUT', 'DELETE'])
 @login_required
 def admin_update_inquiry(inquiry_id):
-    """Update inquiry status and priority"""
+    """Update or delete an inquiry"""
     try:
         admin = get_current_admin()
         if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
-        data = request.get_json()
-        
-        inquiry.status = data.get('status', inquiry.status)
-        inquiry.priority = data.get('priority', inquiry.priority)
-        if 'inquiry_notes' in data:
-            inquiry.inquiry_notes = (data['inquiry_notes'] or '').strip() or None
+        if request.method == 'DELETE':
+            db.session.delete(inquiry)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Lead removed"})
+        data = request.get_json() or {}
+        if 'status' in data: inquiry.status = data['status']
+        if 'priority' in data: inquiry.priority = data['priority']
+        if 'inquiry_notes' in data: inquiry.inquiry_notes = (data['inquiry_notes'] or '').strip() or None
+        if 'full_name' in data: inquiry.full_name = data['full_name'].strip()
+        if 'phone' in data: inquiry.phone = data['phone'].strip()
+        if 'email' in data: inquiry.email = data['email'].strip()
+        if 'budget_range' in data: inquiry.budget_range = data['budget_range'].strip() or None
+        if 'preferred_move_date' in data:
+            inquiry.preferred_move_date = date_type.fromisoformat(data['preferred_move_date']) if data['preferred_move_date'] else None
+        if 'message' in data: inquiry.message = (data['message'] or '').strip() or inquiry.message
+        if 'property_id' in data and data['property_id']:
+            inquiry.property_id = int(data['property_id'])
         inquiry.updated_at = datetime.utcnow()
-        
         db.session.commit()
-        return jsonify({"success": True, "message": "Inquiry updated successfully"})
+        return jsonify({"success": True, "message": "Lead updated"})
     except Exception as e:
         logger.error(f"Error updating inquiry {inquiry_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -3220,7 +3595,6 @@ def admin_account_detail(account_id):
         logger.error(f"Error on account {account_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# ========== TENANT API ==========
 # ========== PROPERTY UNIT TYPE API ==========
 def _serialize_unit_type(ut):
     occupied = Tenant.query.filter_by(unit_type_id=ut.id, status='active').count()
@@ -3330,6 +3704,7 @@ def admin_unit_type_detail(unit_type_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
+# ========== TENANT API ==========
 @app.route('/admin/api/tenants', methods=['GET', 'POST'])
 @login_required
 def admin_tenants():
@@ -3367,7 +3742,7 @@ def admin_tenants():
         if not data.get('name'):
             return jsonify({"success": False, "message": "Tenant name is required"}), 400
 
-        # When unit_type is selected, derive property_name + rent default
+        # When unit_type is selected, derive property_name + rent default (if not provided)
         unit_type_id = data.get('unit_type_id') or None
         property_name = (data.get('property_name') or '').strip() or None
         rent_val = data.get('monthly_rent')
@@ -3885,6 +4260,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CEO Dashboard - BrightWave Habitat Enterprise</title>
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
@@ -3893,17 +4271,19 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <meta name="apple-mobile-web-app-title" content="BrightWave CEO">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         .ceo-nav-btn { color: #94a3b8; transition: all 0.15s; }
         .ceo-nav-btn:hover { background: rgba(71,85,105,0.5); color: #e2e8f0; }
         .ceo-nav-btn.active { background: #475569; color: #ffffff; font-weight: 600; }
-        #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 240px; transition: width 0.25s ease; overflow: hidden; z-index: 50; display: flex; flex-direction: column; background: #0f172a; border-right: 1px solid rgba(71,85,105,0.4); }
+        #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 240px; transition: width 0.25s ease, transform 0.25s ease; overflow: hidden; z-index: 50; display: flex; flex-direction: column; background: #0f172a; border-right: 1px solid rgba(71,85,105,0.4); }
         #sidebar.collapsed { width: 60px; }
         #sidebar.collapsed .sb-label { display: none; }
         #sidebar.collapsed .sb-item { justify-content: center; padding-left: 0; padding-right: 0; }
         #sidebar.collapsed #sidebarBrand { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
         #sidebarToggleBtn { flex-shrink: 0; transition: transform 0.25s ease; }
         #sidebar.collapsed #sidebarToggleBtn { transform: rotate(180deg); }
+        #sidebarPinBtn { transition: color 0.15s; }
         #mainWrapper { margin-left: 240px; transition: margin-left 0.25s ease; min-height: 100vh; display: block; }
         #mainWrapper.sidebar-collapsed { margin-left: 60px; }
         @media (max-width: 767px) {
@@ -3929,6 +4309,43 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen overflow-x-hidden">
+
+    <!-- Loading splash -->
+    <div id="bwLoader" style="position:fixed;inset:0;z-index:9999;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity 0.45s ease;pointer-events:all">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+            <div style="position:relative;width:80px;height:80px">
+                <img src="/assets/images/brightwave-logo.png" alt="BrightWave" id="bwLoaderImg"
+                     style="width:80px;height:80px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px rgba(20,184,166,0.35),0 16px 40px rgba(0,0,0,0.6)"
+                     onerror="this.style.display='none';document.getElementById('bwLoaderIcon').style.display='flex'">
+                <div id="bwLoaderIcon" style="display:none;width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#0d9488,#0e7490);align-items:center;justify-content:center;box-shadow:0 16px 40px rgba(0,0,0,0.5)">
+                    <svg style="width:40px;height:40px" fill="none" stroke="white" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"/></svg>
+                </div>
+            </div>
+            <div style="text-align:center">
+                <p style="color:#f1f5f9;font-size:20px;font-weight:700;letter-spacing:0.04em;margin:0;font-family:system-ui,sans-serif">BrightWave</p>
+                <p style="color:#14b8a6;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin:3px 0 0;font-family:system-ui,sans-serif">Habitat Enterprise</p>
+            </div>
+        </div>
+        <div style="width:36px;height:36px;border:2.5px solid rgba(20,184,166,0.15);border-top-color:#14b8a6;border-radius:50%;animation:bwSpin 0.75s linear infinite"></div>
+        <style>@keyframes bwSpin{to{transform:rotate(360deg)}}</style>
+    </div>
+    <script>
+        const _bwLoaderStart = Date.now();
+        let _bwLoaderDone = false;
+        function dismissLoader() {
+            if (_bwLoaderDone) return;
+            _bwLoaderDone = true;
+            const delay = Math.max(0, 700 - (Date.now() - _bwLoaderStart));
+            setTimeout(() => {
+                const el = document.getElementById('bwLoader');
+                if (!el) return;
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+                setTimeout(() => el && el.remove(), 460);
+            }, delay);
+        }
+    </script>
+
     <script>
         const PENDING_SIGS_COUNT = {{ pending_sigs_count }};
         const USER_ROLE = 'CEO';
@@ -3945,6 +4362,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <p class="text-sm font-bold text-white leading-tight whitespace-nowrap">BrightWave</p>
                 <p class="text-xs text-slate-400 truncate">CEO &middot; {{ user_name }}</p>
             </div>
+            <button id="sidebarPinBtn" onclick="toggleSidebarPin()" class="sb-label text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 flex-shrink-0 transition-colors" title="Pin sidebar open">
+                <i id="sidebarPinIcon" class="fas fa-thumbtack text-xs opacity-40"></i>
+            </button>
             <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 flex-shrink-0" title="Toggle sidebar">
                 <i class="fas fa-chevron-left text-xs"></i>
             </button>
@@ -3981,6 +4401,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <button onclick="showSection('capitalSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-calculator w-5 text-center flex-shrink-0"></i><span class="sb-label">Capital Calculation</span>
             </button>
+            <button onclick="showSection('maintenanceSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-wrench w-5 text-center flex-shrink-0"></i><span class="sb-label">Maintenance</span>
+            </button>
             <button onclick="showSection('contentSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-globe w-5 text-center flex-shrink-0"></i><span class="sb-label">Website</span>
             </button>
@@ -4007,6 +4430,41 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
     <!-- Mobile overlay -->
     <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 hidden" onclick="closeSidebar()"></div>
+
+    <!-- Full-page website preview modal -->
+    <div id="websitePreviewModal" class="fixed inset-0 z-[999] hidden flex flex-col" style="background:#0f172a">
+        <div class="flex items-center justify-between gap-2 px-3 py-2.5 bg-slate-900 border-b border-slate-700/60 flex-shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="flex gap-1 flex-shrink-0">
+                    <span class="w-3 h-3 rounded-full bg-red-500/70"></span>
+                    <span class="w-3 h-3 rounded-full bg-amber-500/70"></span>
+                    <span class="w-3 h-3 rounded-full bg-emerald-500/70"></span>
+                </div>
+                <span class="hidden sm:inline text-xs text-slate-400 font-mono bg-slate-800 border border-slate-700 rounded px-2 py-1 truncate max-w-[180px]">Draft Preview</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+                <button onclick="document.getElementById('websitePreviewFrame').src = document.getElementById('websitePreviewFrame').src" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg transition-colors" title="Refresh">
+                    <i class="fas fa-rotate-right"></i><span class="hidden sm:inline">Refresh</span>
+                </button>
+                <a href="https://www.brightwavehabitat.com/" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg transition-colors" title="Open in Tab">
+                    <i class="fas fa-external-link-alt"></i><span class="hidden sm:inline">Open in Tab</span>
+                </a>
+                <button onclick="closeWebsitePreview()" class="flex items-center gap-1.5 text-xs text-white bg-red-700 hover:bg-red-600 px-2.5 py-1.5 rounded-lg transition-colors" title="Close">
+                    <i class="fas fa-times"></i><span class="hidden sm:inline">Close</span>
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 relative">
+            <div id="previewLoadingSpinner" class="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
+                <div class="text-center">
+                    <div class="w-10 h-10 border-4 border-slate-600 border-t-blue-400 rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-slate-400 text-sm">Loading website preview…</p>
+                    <p class="text-slate-600 text-xs mt-1">Showing the currently saved version</p>
+                </div>
+            </div>
+            <iframe id="websitePreviewFrame" src="" class="w-full h-full border-0" onload="document.getElementById('previewLoadingSpinner').classList.add('hidden')"></iframe>
+        </div>
+    </div>
 
     <!-- Main wrapper -->
     <div id="mainWrapper">
@@ -4347,18 +4805,22 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input type="email" id="tnEmail" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input type="text" id="tnPhone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
-                        <select id="tnProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <select id="tnProperty" onchange="tnOnPropertyChange(); tnUtRefreshForProperty();" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
                             <option value="">-- Select property --</option>
                         </select>
                     </div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type</label>
-                        <select id="tnUnitType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type <span class="text-gray-500">(optional)</span></label>
+                        <select id="tnUnitType" onchange="tnOnUnitTypeChange()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
                             <option value="">-- Select unit type --</option>
                         </select>
                         <p class="text-[10px] text-gray-500 mt-1">Selecting a type auto-fills the yearly rent.</p>
                     </div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label><input type="text" id="tnUnit" placeholder="e.g. Room 12" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent (₦)</label><input type="number" id="tnRent" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label>
+                        <select id="tnUnit" onchange="tnOnUnitChange()" disabled class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white opacity-60">
+                            <option value="">-- Select property first --</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Monthly Rent (₦)</label><input type="number" id="tnRent" step="100" placeholder="Auto-fills from unit or unit type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input type="date" id="tnLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input type="date" id="tnLeaseEnd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label>
@@ -4396,7 +4858,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold mb-3 text-slate-300">Add Unit Type</h3>
                 <form id="addUnitTypeForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Property *</label>
-                        <select id="utProperty" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <select id="utProperty" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
                             <option value="">-- Select property --</option>
                         </select>
                     </div>
@@ -4435,7 +4897,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <form id="utEditForm" class="space-y-3">
                     <input type="hidden" id="utEditId">
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
-                        <select id="utEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                        <select id="utEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Name</label>
                         <input type="text" id="utEditName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -4476,10 +4938,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label>
                         <input type="text" id="tnEditPhone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label>
-                        <select id="tnEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                        <select id="tnEditProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit Type</label>
-                        <select id="tnEditUnitType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select>
+                        <select id="tnEditUnitType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit / Room No.</label>
                         <input type="text" id="tnEditUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -4514,8 +4976,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <input type="hidden" id="pmtEditId">
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Tenant</label>
-                        <select id="pmtTenantId" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                            <option value="">-- Select or type below --</option>
+                        <select id="pmtTenantId" onchange="pmtOnTenantChange()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="">-- Select tenant --</option>
                         </select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Tenant Name (if not listed)</label><input type="text" id="pmtTenantName" placeholder="Free-text name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -4551,6 +5013,51 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
             <div id="businessStats" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <!-- Business metrics cards -->
+            </div>
+            <!-- Project filter bar -->
+            <div class="flex items-center gap-3 mb-4 flex-wrap">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <i class="fas fa-filter text-slate-400 text-xs flex-shrink-0"></i>
+                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wide flex-shrink-0">View</span>
+                    <select id="ceoProjectFilter" onchange="ceoApplyProjectFilter()" class="bg-slate-800 border border-slate-600 text-sm text-white rounded-lg px-3 py-1.5 flex-1 min-w-0 max-w-xs focus:outline-none focus:border-teal-500">
+                        <option value="">All Projects (Portfolio)</option>
+                    </select>
+                </div>
+                <span id="ceoFilterBadge" class="hidden text-xs bg-teal-900/60 border border-teal-700/40 text-teal-300 px-2.5 py-1 rounded-full flex-shrink-0"></span>
+            </div>
+            <!-- Charts row -->
+            <div class="grid grid-cols-1 lg:grid-cols-7 gap-4 mb-6">
+                <div class="lg:col-span-3 bg-gray-800/80 border border-gray-700/50 rounded-xl p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-chart-bar text-teal-400 text-xs"></i> Revenue vs Spend</h3>
+                        <div class="flex items-center gap-0.5 bg-slate-900/70 rounded-lg p-0.5">
+                            <button onclick="ceoSetPeriod('3M')" id="ceoPeriod_3M" class="text-xs px-2.5 py-1 rounded-md font-medium transition-colors text-slate-400 hover:text-white">3M</button>
+                            <button onclick="ceoSetPeriod('6M')" id="ceoPeriod_6M" class="text-xs px-2.5 py-1 rounded-md font-medium transition-colors bg-slate-600 text-white">6M</button>
+                            <button onclick="ceoSetPeriod('12M')" id="ceoPeriod_12M" class="text-xs px-2.5 py-1 rounded-md font-medium transition-colors text-slate-400 hover:text-white">12M</button>
+                            <button onclick="ceoSetPeriod('all')" id="ceoPeriod_all" class="text-xs px-2.5 py-1 rounded-md font-medium transition-colors text-slate-400 hover:text-white">All</button>
+                        </div>
+                    </div>
+                    <div class="relative" style="height:190px"><canvas id="ceoRevenueChart"></canvas></div>
+                </div>
+                <div class="lg:col-span-2 bg-gray-800/80 border border-gray-700/50 rounded-xl p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-circle-dot text-purple-400 text-xs"></i> Tenant Status</h3>
+                    </div>
+                    <div class="relative" style="height:190px"><canvas id="ceoTenantDonut"></canvas></div>
+                </div>
+                <div class="lg:col-span-2 bg-gray-800/80 border border-gray-700/50 rounded-xl p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-receipt text-amber-400 text-xs"></i> Expense Categories</h3>
+                    </div>
+                    <div class="relative" style="height:190px">
+                        <canvas id="ceoCategoryDonut"></canvas>
+                        <div id="ceoCatEmpty" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-1">
+                            <i class="fas fa-receipt text-slate-600 text-2xl"></i>
+                            <p class="text-xs text-slate-500 text-center">No expenses recorded yet</p>
+                            <p class="text-[10px] text-slate-600 text-center">Add expenses in the Expenses tab</p>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="recentActivity" class="bg-gray-800 p-4 rounded-lg">
                 <!-- Recent activity will be populated -->
@@ -4730,7 +5237,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div id="ceoExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap mb-4">
-                        <select id="ceoExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                        <select id="ceoExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                        <select id="ceoExpenseCategoryFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All categories</option><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="land">Land</option><option value="other">Other</option></select>
                         <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="ceoExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
                     </div>
                     <div id="ceoExpenseList" class="space-y-3"></div>
@@ -4738,45 +5246,286 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
+        <!-- MAINTENANCE SECTION -->
+        <section id="maintenanceSection" class="mb-8 hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-semibold">Maintenance Log</h2>
+                <button onclick="ceoToggleMaintenanceForm()" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2"><i class="fas fa-plus text-xs"></i> Record Maintenance</button>
+            </div>
+            <!-- Filters -->
+            <div class="flex flex-wrap gap-3 mb-4 items-center">
+                <select id="ceoMaintProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="">All properties</option></select>
+                <select id="ceoMaintCategory" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All categories</option><option value="general">General</option><option value="plumbing">Plumbing</option><option value="electrical">Electrical</option><option value="painting">Painting</option><option value="roofing">Roofing</option><option value="cleaning">Cleaning</option><option value="security">Security</option><option value="other">Other</option></select>
+                <button onclick="loadMaintenanceRecords()" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded-lg">Filter</button>
+                <span id="ceoMaintSummary" class="text-xs text-gray-400 ml-auto"></span>
+            </div>
+            <!-- Add/Edit form -->
+            <div id="ceoMaintForm" class="hidden bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700">
+                <h3 class="text-sm font-semibold text-gray-300 mb-3" id="ceoMaintFormTitle">New Maintenance Record</h3>
+                <input type="hidden" id="ceoMaintEditId">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Property *</label>
+                        <select id="ceoMaintFormProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="">Select property</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Date *</label>
+                        <input type="date" id="ceoMaintDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs text-gray-400 mb-1">Title *</label>
+                        <input type="text" id="ceoMaintTitle" placeholder="e.g. Fixed roof leak in unit 3A" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Category</label>
+                        <select id="ceoMaintFormCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="general">General</option><option value="plumbing">Plumbing</option><option value="electrical">Electrical</option><option value="painting">Painting</option><option value="roofing">Roofing</option><option value="cleaning">Cleaning</option><option value="security">Security</option><option value="other">Other</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Status</label>
+                        <select id="ceoMaintStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="completed">Completed</option><option value="in_progress">In Progress</option><option value="scheduled">Scheduled</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Vendor / Contractor</label>
+                        <input type="text" id="ceoMaintVendor" placeholder="Vendor or contractor name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Cost (₦)</label>
+                        <input type="number" id="ceoMaintCost" placeholder="0" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs text-gray-400 mb-1">Notes / Description</label>
+                        <textarea id="ceoMaintDesc" rows="2" placeholder="Any additional details..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 resize-none"></textarea>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="ceoSubmitMaintenance()" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Save Record</button>
+                    <button onclick="ceoToggleMaintenanceForm(true)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Cancel</button>
+                    <span id="ceoMaintMsg" class="text-sm ml-2"></span>
+                </div>
+            </div>
+            <!-- Records list -->
+            <div id="ceoMaintList" class="space-y-3"><p class="text-gray-500 text-sm text-center py-8">Loading...</p></div>
+        </section>
+
         <section id="contentSection" class="mb-8 hidden">
-            <h2 class="text-xl font-semibold mb-4">Website Content</h2>
+            <!-- Header row -->
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h2 class="text-xl font-semibold">Website Content Management</h2>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="openWebsitePreview()" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-eye text-xs"></i> Preview Draft
+                    </button>
+                    <a href="https://www.brightwavehabitat.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-external-link-alt text-xs"></i> Open Live Site
+                    </a>
+                </div>
+            </div>
+            <!-- Publish banner -->
+            <div id="publishBanner" class="hidden bg-amber-900/60 border border-amber-600 rounded-lg px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-amber-300 text-sm">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>You have <strong id="draftPendingCount">0</strong> unpublished change(s). Save as draft keeps them private; Publish pushes everything live.</span>
+                </div>
+                <button type="button" onclick="publishWebsite()" id="publishBtn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-5 rounded-lg text-sm transition-colors">
+                    <i class="fas fa-rocket text-xs"></i> Publish to Website
+                </button>
+            </div>
+
+            <!-- Announcement Banner -->
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-bullhorn text-emerald-400"></i> Site Announcement Banner</h3>
+                <p class="text-xs text-gray-400 mb-3">When enabled, a banner appears at the very top of every page on the website. Use it for promotions, news, or important announcements.</p>
+                <form id="announcementForm" class="grid grid-cols-1 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Banner Text</label>
+                        <input type="text" id="home_announcement_text" placeholder="e.g. Phase 2 bookings now open — enquire today" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="home_announcement_enabled" class="accent-emerald-500 w-4 h-4">
+                            <span class="text-sm font-medium text-gray-300">Show banner on website</span>
+                        </label>
+                        <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Draft</button>
+                        <span id="announcementMessage" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Hero Background Image -->
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-image text-blue-400"></i> Hero Background Image</h3>
+                <p class="text-xs text-gray-400 mb-3">Upload a photo to use as the homepage hero background. It will appear as the first slide behind the hero text. Recommended: landscape JPG/WEBP, min 1920×1080.</p>
+                <div id="heroBgPreviewWrap" class="mb-3 hidden">
+                    <p class="text-xs text-gray-400 mb-1">Current hero background:</p>
+                    <img id="heroBgPreview" src="" alt="Hero background preview" class="h-28 w-full object-cover rounded-lg border border-gray-600">
+                    <p id="heroBgCurrentPath" class="text-xs text-gray-500 mt-1"></p>
+                </div>
+                <div class="flex items-end gap-3 flex-wrap">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Select Image File</label>
+                        <input type="file" id="heroBgFileInput" accept="image/*" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <button type="button" onclick="uploadHeroBg()" class="bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg text-sm whitespace-nowrap">Upload &amp; Set</button>
+                    <button type="button" onclick="clearHeroBg()" class="bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm whitespace-nowrap">Clear Background</button>
+                </div>
+                <span id="heroBgMessage" class="block mt-2 text-sm"></span>
+            </div>
+
+            <!-- Video Section -->
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-video text-pink-400"></i> Homepage Video Section</h3>
+                <form id="videoSectionForm" class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Section Title</label>
+                        <input type="text" id="home_video_section_title" placeholder="See BrightWave in Action" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <!-- Video source tabs -->
+                    <div>
+                        <div class="flex gap-2 mb-2">
+                            <button type="button" id="videoTabUrl" onclick="switchVideoTab('url')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-pink-700 text-white">Paste URL</button>
+                            <button type="button" id="videoTabUpload" onclick="switchVideoTab('upload')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-600 text-gray-300">Upload from Device</button>
+                        </div>
+                        <div id="videoPanelUrl">
+                            <label class="block text-xs text-gray-400 mb-1">YouTube embed URL or direct MP4 link</label>
+                            <input type="text" id="home_video_url" placeholder="https://www.youtube.com/embed/VIDEO_ID" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        </div>
+                        <div id="videoPanelUpload" class="hidden">
+                            <label class="block text-xs text-gray-400 mb-1">Select a video from your device (MP4, WEBM, MOV — max 200 MB)</label>
+                            <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime,video/ogg,.mp4,.webm,.mov,.ogg,.m4v" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <button type="button" onclick="uploadSiteVideo()" class="bg-pink-700 hover:bg-pink-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Upload Video</button>
+                                <span id="videoUploadMessage" class="text-sm"></span>
+                            </div>
+                            <div id="videoUploadProgress" class="hidden mt-2">
+                                <div class="bg-gray-600 rounded-full h-2"><div id="videoProgressBar" class="bg-pink-500 h-2 rounded-full transition-all" style="width:0%"></div></div>
+                                <p id="videoProgressText" class="text-xs text-gray-400 mt-1">Uploading…</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="home_video_section_enabled" class="accent-emerald-500 w-4 h-4">
+                            <span class="text-sm font-medium text-gray-300">Show video section on homepage</span>
+                        </label>
+                        <button type="submit" class="bg-pink-700 hover:bg-pink-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Draft</button>
+                        <span id="videoSectionMessage" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Text Content -->
             <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-pen text-amber-400"></i> Page Text Content</h3>
                 <form id="siteContentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">Home Hero Badge</label>
-                        <input type="text" id="home_hero_badge" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Home Hero Badge</label>
+                        <input type="text" id="home_hero_badge" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Home Hero Title</label>
-                        <input type="text" id="home_hero_title" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Home Hero Title</label>
+                        <input type="text" id="home_hero_title" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-2">Home Hero Subtitle</label>
-                        <textarea id="home_hero_subtitle" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Home Hero Subtitle</label>
+                        <textarea id="home_hero_subtitle" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-2">Home About Intro</label>
-                        <textarea id="home_about_intro" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Home About Intro</label>
+                        <textarea id="home_about_intro" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-2">About Hero Subtitle</label>
-                        <textarea id="about_hero_subtitle" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">About Page Hero Subtitle</label>
+                        <textarea id="about_hero_subtitle" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-2">About Intro Body</label>
-                        <textarea id="about_intro_body" rows="4" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">About Page Intro Body</label>
+                        <textarea id="about_intro_body" rows="4" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">About Team Heading</label>
-                        <input type="text" id="about_team_heading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">About Team Heading</label>
+                        <input type="text" id="about_team_heading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">About Team Subheading</label>
-                        <input type="text" id="about_team_subheading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">About Team Subheading</label>
+                        <input type="text" id="about_team_subheading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Save Draft</button>
+                        <button type="button" id="saveAndPreviewBtn" class="flex items-center gap-2 bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg">
+                            <i class="fas fa-eye text-xs"></i> Save &amp; Preview Draft
+                        </button>
+                        <span id="siteContentMessage" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Contact Info & Social Links -->
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-address-book text-rose-400"></i> Contact Info &amp; Social Links</h3>
+                <p class="text-xs text-gray-400 mb-3">Used in the website footer, WhatsApp speed-dial buttons, and anywhere contact details appear.</p>
+                <form id="contactInfoForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Contact Email</label>
+                        <input type="email" id="site_contact_email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="brightwavehabitat@gmail.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Contact Phone</label>
+                        <input type="text" id="site_contact_phone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="+234 803 766 9462">
                     </div>
                     <div class="md:col-span-2">
-                        <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg">Save Website Content</button>
-                        <span id="siteContentMessage" class="ml-3 text-sm"></span>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Address</label>
+                        <input type="text" id="site_contact_address" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="Malete, Kwara State, Nigeria">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Footer Company Description</label>
+                        <textarea id="site_footer_company_desc" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="Building trusted property opportunities across Nigeria…"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-whatsapp text-emerald-400 mr-1"></i> WhatsApp — Student Hostels</label>
+                        <input type="text" id="site_wa_number_hostel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="2348037669462 (no + sign)">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-whatsapp text-emerald-400 mr-1"></i> WhatsApp — Land Purchase</label>
+                        <input type="text" id="site_wa_number_land" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="2349038402914">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-whatsapp text-emerald-400 mr-1"></i> WhatsApp — Residential</label>
+                        <input type="text" id="site_wa_number_home" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="2349075381905">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-facebook text-blue-400 mr-1"></i> Facebook URL</label>
+                        <input type="url" id="site_social_facebook" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="https://facebook.com/...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-x-twitter text-gray-300 mr-1"></i> X (Twitter) URL</label>
+                        <input type="url" id="site_social_twitter" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="https://x.com/...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300"><i class="fab fa-instagram text-pink-400 mr-1"></i> Instagram URL</label>
+                        <input type="url" id="site_social_instagram" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm" placeholder="https://instagram.com/...">
+                    </div>
+                    <div class="md:col-span-2 flex flex-wrap items-center gap-3">
+                        <button type="submit" class="bg-rose-700 hover:bg-rose-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Draft</button>
+                        <span id="contactInfoMessage" class="text-sm"></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Services Section Text -->
+            <div class="bg-gray-800 p-4 rounded-lg mb-4">
+                <h3 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-concierge-bell text-purple-400"></i> Services Section</h3>
+                <form id="servicesSectionForm" class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Services Heading</label>
+                        <input type="text" id="home_services_heading" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Services Lead Text</label>
+                        <textarea id="home_services_lead" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="submit" class="bg-purple-700 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Save Draft</button>
+                        <span id="servicesSectionMessage" class="text-sm"></span>
                     </div>
                 </form>
             </div>
@@ -4953,9 +5702,75 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             return fmtNGN(v);
         }
 
-        async function loadStats() {
+        function countUp(elId, target, fmt) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const num = parseFloat(target) || 0;
+            if (!num) { el.textContent = fmt ? fmt(0) : '0'; return; }
+            const dur = 700, t0 = performance.now();
+            const step = ts => {
+                const p = Math.min((ts - t0) / dur, 1);
+                const v = num * (1 - Math.pow(1 - p, 3));
+                el.textContent = fmt ? fmt(v) : Math.round(v);
+                if (p < 1) requestAnimationFrame(step); else el.textContent = fmt ? fmt(num) : num;
+            };
+            requestAnimationFrame(step);
+        }
+
+        function _trendSlice(monthly, yearly, period) {
+            if (period === 'all') return { labels: yearly.map(y => y.year), revenue: yearly.map(y => y.revenue), capital: yearly.map(y => y.capital) };
+            const n = period === '3M' ? 3 : period === '6M' ? 6 : 12;
+            const s = monthly.slice(-n);
+            return { labels: s.map(m => m.month), revenue: s.map(m => m.revenue), capital: s.map(m => m.capital) };
+        }
+        function _setPeriodBtns(prefix, active) {
+            ['3M','6M','12M','all'].forEach(x => {
+                const btn = document.getElementById(prefix + x);
+                if (btn) btn.className = 'text-xs px-2.5 py-1 rounded-md font-medium transition-colors ' + (x === active ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white');
+            });
+        }
+        window._ceoTrendPeriod = window._ceoTrendPeriod || '6M';
+        function ceoSetPeriod(p) {
+            window._ceoTrendPeriod = p;
+            _setPeriodBtns('ceoPeriod_', p);
+            const full = window._ceoTrendDataFull || { monthly: [], yearly: [] };
+            const d = _trendSlice(full.monthly, full.yearly, p);
+            if (window._ceoRevChart) { window._ceoRevChart.data.labels = d.labels; window._ceoRevChart.data.datasets[0].data = d.revenue; window._ceoRevChart.data.datasets[1].data = d.capital; window._ceoRevChart.update(); }
+        }
+
+        function ceoApplyProjectFilter() {
+            const pid = document.getElementById('ceoProjectFilter').value;
+            loadStats(pid ? parseInt(pid) : null);
+        }
+
+        async function ceoPopulateProjectFilter() {
             try {
-                const stats = await fetchData('/admin/api/stats');
+                const props = await fetchData('/admin/api/properties');
+                const sel = document.getElementById('ceoProjectFilter');
+                if (!sel) return;
+                props.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.title;
+                    sel.appendChild(opt);
+                });
+            } catch(e) { console.warn('Could not load properties for filter', e); }
+        }
+
+        async function loadStats(filterPropertyId) {
+            try {
+                const qs = filterPropertyId ? ('?property_id=' + filterPropertyId) : '';
+                const stats = await fetchData('/admin/api/stats' + qs);
+                // Update filter badge
+                const badge = document.getElementById('ceoFilterBadge');
+                if (badge) {
+                    if (stats.filtered_property) {
+                        badge.textContent = stats.filtered_property.title;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
 
                 // Attention bar
                 const attnBar = document.getElementById('ceoAttentionBar');
@@ -5007,7 +5822,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0 overflow-hidden">
                             <p class="text-xs text-amber-400 font-medium uppercase tracking-wide truncate">Capital Spent</p>
                             <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.approved_capital_spent)}</p>
-                            <p class="text-xs text-amber-300 mt-0.5 truncate">This month: ${fmtCompact(stats.monthly_capital_spent)} · All: ${fmtCompact(stats.total_capital_spent)}</p>
+                            <p class="text-xs text-amber-300 mt-0.5 truncate">This month: ${fmtCompact(stats.monthly_capital_spent)}${stats.pending_capital_spent > 0 ? ' · <span class="text-yellow-400">Pending: ' + fmtCompact(stats.pending_capital_spent) + '</span>' : ''}</p>
                         </div>
                     </div>
                     <div class="bg-cyan-800/60 border border-cyan-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
@@ -5017,7 +5832,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0 overflow-hidden">
                             <p class="text-xs text-cyan-400 font-medium uppercase tracking-wide truncate">Budget Position</p>
                             <p class="text-lg sm:text-xl font-bold ${stats.capital_budget_remaining < 0 ? 'text-red-400' : 'text-white'} mt-0.5 truncate">${stats.total_capital_budget > 0 ? fmtCompact(Math.abs(stats.capital_budget_remaining)) + (stats.capital_budget_remaining < 0 ? ' over' : ' left') : '—'}</p>
-                            <p class="text-xs text-cyan-300 mt-0.5 truncate">Budgeted: ${fmtCompact(stats.total_capital_budget)} · Approved: ${fmtCompact(stats.approved_capital_spent)}</p>
+                            <p class="text-xs text-cyan-300 mt-0.5 truncate">Budget: ${fmtCompact(stats.total_capital_budget)} · Approved: ${fmtCompact(stats.approved_capital_spent)}</p>
                         </div>
                     </div>
                 `;
@@ -5107,8 +5922,89 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                     </div>
                 `;
+                // Charts
+                window._ceoTrendDataFull = { monthly: stats.monthly_trend || [], yearly: stats.yearly_trend || [] };
+                const _ceoD = _trendSlice(window._ceoTrendDataFull.monthly, window._ceoTrendDataFull.yearly, window._ceoTrendPeriod);
+                _setPeriodBtns('ceoPeriod_', window._ceoTrendPeriod);
+                const rcCtx = document.getElementById('ceoRevenueChart');
+                if (rcCtx) {
+                    if (window._ceoRevChart) window._ceoRevChart.destroy();
+                    window._ceoRevChart = new Chart(rcCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: _ceoD.labels,
+                            datasets: [
+                                { label: 'Revenue', data: _ceoD.revenue, backgroundColor: 'rgba(45,212,191,0.7)', borderColor: '#2dd4bf', borderWidth: 1, borderRadius: 4 },
+                                { label: 'Capital Spent', data: _ceoD.capital, backgroundColor: 'rgba(251,146,60,0.6)', borderColor: '#fb923c', borderWidth: 1, borderRadius: 4 }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                            scales: {
+                                x: { ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                                y: { ticks: { color: '#64748b', font: { size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? Math.round(v/1e3)+'K' : v }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                            }
+                        }
+                    });
+                }
+                const ts = stats.tenant_status || {};
+                const tdCtx = document.getElementById('ceoTenantDonut');
+                if (tdCtx) {
+                    if (window._ceoTenantChart) window._ceoTenantChart.destroy();
+                    const tdTotal = (ts.active||0) + (ts.reserved||0) + (ts.vacated||0);
+                    window._ceoTenantChart = new Chart(tdCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Active', 'Reserved', 'Vacated'],
+                            datasets: [{ data: [ts.active||0, ts.reserved||0, ts.vacated||0], backgroundColor: ['rgba(45,212,191,0.8)','rgba(250,204,21,0.8)','rgba(100,116,139,0.7)'], borderWidth: 0, hoverOffset: 4 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '68%',
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 12, boxWidth: 10 } },
+                                tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + (tdTotal ? ' (' + Math.round(ctx.raw/tdTotal*100) + '%)' : '') } }
+                            }
+                        }
+                    });
+                }
+                // Expense categories donut
+                try {
+                    const expData = await fetchData('/admin/api/project-expenses' + qs);
+                    const byCat = expData.by_category || {};
+                    const catEntries = Object.entries(byCat).sort((a,b) => b[1]-a[1]).slice(0,6);
+                    const catCtx = document.getElementById('ceoCategoryDonut');
+                    const catEmpty = document.getElementById('ceoCatEmpty');
+                    if (catEntries.length && catCtx) {
+                        if (catEmpty) catEmpty.classList.add('hidden');
+                        catCtx.style.display = '';
+                        if (window._ceoCatChart) window._ceoCatChart.destroy();
+                        const catColors = ['rgba(251,191,36,0.85)','rgba(20,184,166,0.85)','rgba(99,102,241,0.85)','rgba(249,115,22,0.85)','rgba(239,68,68,0.85)','rgba(100,116,139,0.75)'];
+                        const catTotal = catEntries.reduce((s, e) => s + e[1], 0);
+                        window._ceoCatChart = new Chart(catCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: catEntries.map(e => e[0].replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())),
+                                datasets: [{ data: catEntries.map(e => e[1]), backgroundColor: catColors, borderWidth: 0, hoverOffset: 4 }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                                plugins: {
+                                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, padding: 10, boxWidth: 9 } },
+                                    tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtCompact(ctx.raw) + (catTotal ? ' (' + Math.round(ctx.raw/catTotal*100) + '%)' : '') } }
+                                }
+                            }
+                        });
+                    } else {
+                        if (window._ceoCatChart) { window._ceoCatChart.destroy(); window._ceoCatChart = null; }
+                        if (catCtx) catCtx.style.display = 'none';
+                        if (catEmpty) catEmpty.classList.remove('hidden');
+                    }
+                } catch(e) { console.error('ceoCategoryDonut error', e); }
             } catch (error) {
                 console.error('Error loading stats:', error);
+            } finally {
+                dismissLoader();
             }
         }
 
@@ -5216,8 +6112,228 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 document.getElementById('about_intro_body').value = content['about.intro_body'] || '';
                 document.getElementById('about_team_heading').value = content['about.team_heading'] || '';
                 document.getElementById('about_team_subheading').value = content['about.team_subheading'] || '';
+                // Hero background preview
+                const heroBgPath = content['home.hero_bg_path'] || '';
+                const heroBgPreviewWrap = document.getElementById('heroBgPreviewWrap');
+                if (heroBgPath && heroBgPreviewWrap) {
+                    heroBgPreviewWrap.classList.remove('hidden');
+                    document.getElementById('heroBgPreview').src = '/assets/' + heroBgPath;
+                    document.getElementById('heroBgCurrentPath').textContent = heroBgPath;
+                } else if (heroBgPreviewWrap) {
+                    heroBgPreviewWrap.classList.add('hidden');
+                }
+                // Video section
+                const videoUrl = content['home.video_url'] || '';
+                const videoTitle = content['home.video_section_title'] || '';
+                const videoEnabled = content['home.video_section_enabled'] === 'true';
+                const vuEl = document.getElementById('home_video_url');
+                const vtEl = document.getElementById('home_video_section_title');
+                const veEl = document.getElementById('home_video_section_enabled');
+                if (vuEl) vuEl.value = videoUrl;
+                if (vtEl) vtEl.value = videoTitle;
+                if (veEl) veEl.checked = videoEnabled;
+                // Announcement banner
+                const annText = content['home.announcement_text'] || '';
+                const annEnabled = content['home.announcement_enabled'] === 'true';
+                const annEl = document.getElementById('home_announcement_text');
+                const annEnEl = document.getElementById('home_announcement_enabled');
+                if (annEl) annEl.value = annText;
+                if (annEnEl) annEnEl.checked = annEnabled;
+                // Contact & social
+                const setVal = (id, key) => { const el = document.getElementById(id); if (el) el.value = content[key] || ''; };
+                setVal('site_contact_email', 'site.contact_email');
+                setVal('site_contact_phone', 'site.contact_phone');
+                setVal('site_contact_address', 'site.contact_address');
+                setVal('site_footer_company_desc', 'site.footer_company_desc');
+                setVal('site_wa_number_hostel', 'site.wa_number_hostel');
+                setVal('site_wa_number_land', 'site.wa_number_land');
+                setVal('site_wa_number_home', 'site.wa_number_home');
+                setVal('site_social_facebook', 'site.social_facebook');
+                setVal('site_social_twitter', 'site.social_twitter');
+                setVal('site_social_instagram', 'site.social_instagram');
+                // Services
+                setVal('home_services_heading', 'home.services_heading');
+                setVal('home_services_lead', 'home.services_lead');
+                loadDraftStatus();
             } catch (error) {
                 console.error('Error loading site content:', error);
+            }
+        }
+
+        async function loadDraftStatus() {
+            try {
+                const data = await fetchData('/admin/api/site-content/draft-status');
+                const banner = document.getElementById('publishBanner');
+                const count = document.getElementById('draftPendingCount');
+                if (banner && count) {
+                    if (data.pending > 0) {
+                        count.textContent = data.pending;
+                        banner.classList.remove('hidden');
+                    } else {
+                        banner.classList.add('hidden');
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        async function publishWebsite() {
+            const btn = document.getElementById('publishBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Publishing…'; }
+            try {
+                const data = await fetchData('/admin/api/site-content/publish', { method: 'POST' });
+                if (data.success) {
+                    const banner = document.getElementById('publishBanner');
+                    if (banner) banner.classList.add('hidden');
+                    alert(data.message || 'Published successfully!');
+                } else {
+                    alert(data.message || 'Publish failed.');
+                }
+            } catch (e) {
+                alert('Error publishing changes.');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket text-xs"></i> Publish to Website'; }
+            }
+        }
+
+        function openWebsitePreview() {
+            const modal = document.getElementById('websitePreviewModal');
+            const frame = document.getElementById('websitePreviewFrame');
+            const spinner = document.getElementById('previewLoadingSpinner');
+            if (!modal || !frame) return;
+            spinner.classList.remove('hidden');
+            frame.src = '/?preview=1';
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeWebsitePreview() {
+            const modal = document.getElementById('websitePreviewModal');
+            const frame = document.getElementById('websitePreviewFrame');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            frame.src = '';
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeWebsitePreview();
+        });
+
+        function switchVideoTab(tab) {
+            const isUrl = tab === 'url';
+            document.getElementById('videoPanelUrl').classList.toggle('hidden', !isUrl);
+            document.getElementById('videoPanelUpload').classList.toggle('hidden', isUrl);
+            document.getElementById('videoTabUrl').className = isUrl
+                ? 'px-3 py-1.5 rounded-lg text-xs font-medium bg-pink-700 text-white'
+                : 'px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-600 text-gray-300';
+            document.getElementById('videoTabUpload').className = !isUrl
+                ? 'px-3 py-1.5 rounded-lg text-xs font-medium bg-pink-700 text-white'
+                : 'px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-600 text-gray-300';
+        }
+
+        async function uploadSiteVideo() {
+            const fileInput = document.getElementById('videoFileInput');
+            const msgEl = document.getElementById('videoUploadMessage');
+            const progressWrap = document.getElementById('videoUploadProgress');
+            const progressBar = document.getElementById('videoProgressBar');
+            const progressText = document.getElementById('videoProgressText');
+            if (!fileInput.files.length) {
+                msgEl.textContent = 'Select a video file first.';
+                msgEl.className = 'text-sm text-amber-400';
+                return;
+            }
+            const file = fileInput.files[0];
+            if (file.size > 200 * 1024 * 1024) {
+                msgEl.textContent = 'File too large (max 200 MB).';
+                msgEl.className = 'text-sm text-red-400';
+                return;
+            }
+            msgEl.textContent = '';
+            progressWrap.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Uploading…';
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/admin/api/site-content/upload-video');
+                    xhr.setRequestHeader('X-CSRF-Token', adminCsrfToken);
+                    xhr.withCredentials = true;
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = pct + '%';
+                            progressText.textContent = `Uploading… ${pct}%`;
+                        }
+                    };
+                    xhr.onload = () => {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            progressBar.style.width = '100%';
+                            progressText.textContent = 'Upload complete!';
+                            document.getElementById('home_video_url').value = result.url;
+                            // Auto-enable the video section checkbox
+                            const enabledCheck = document.getElementById('home_video_section_enabled');
+                            if (enabledCheck) enabledCheck.checked = true;
+                            msgEl.textContent = 'Video uploaded! Now click "Save Draft" below.';
+                            msgEl.className = 'text-sm text-green-400 font-medium';
+                            fileInput.value = '';
+                            loadDraftStatus();
+                            resolve();
+                        } else {
+                            reject(new Error(result.message || 'Upload failed'));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.send(formData);
+                });
+            } catch (e) {
+                msgEl.textContent = e.message || 'Upload error.';
+                msgEl.className = 'text-sm text-red-400';
+                progressWrap.classList.add('hidden');
+            }
+        }
+
+        async function uploadHeroBg() {
+            const fileInput = document.getElementById('heroBgFileInput');
+            const msgEl = document.getElementById('heroBgMessage');
+            if (!fileInput.files.length) { msgEl.textContent = 'Please select an image file first.'; msgEl.className = 'block mt-2 text-sm text-amber-400'; return; }
+            msgEl.textContent = 'Uploading…'; msgEl.className = 'block mt-2 text-sm text-gray-400';
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            try {
+                const response = await fetch('/admin/api/site-content/upload-hero-bg', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': adminCsrfToken }, body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    msgEl.textContent = result.message || 'Saved as draft — click Publish to go live.';
+                    msgEl.className = 'block mt-2 text-sm text-amber-400';
+                    const wrap = document.getElementById('heroBgPreviewWrap');
+                    wrap.classList.remove('hidden');
+                    document.getElementById('heroBgPreview').src = '/assets/' + result.path;
+                    document.getElementById('heroBgCurrentPath').textContent = result.path;
+                    fileInput.value = '';
+                    loadDraftStatus();
+                } else {
+                    msgEl.textContent = result.message || 'Upload failed.';
+                    msgEl.className = 'block mt-2 text-sm text-red-400';
+                }
+            } catch (e) {
+                msgEl.textContent = 'Upload error. Check connection.'; msgEl.className = 'block mt-2 text-sm text-red-400';
+            }
+        }
+
+        async function clearHeroBg() {
+            if (!confirm('Remove the custom hero background? The site will fall back to the default photo slideshow.')) return;
+            try {
+                await fetchData('/admin/api/site-content', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'home.hero_bg_path': '' }) });
+                document.getElementById('heroBgPreviewWrap').classList.add('hidden');
+                const msgEl = document.getElementById('heroBgMessage');
+                msgEl.textContent = 'Cleared (draft) — Publish to apply to live site.'; msgEl.className = 'block mt-2 text-sm text-amber-400';
+                loadDraftStatus();
+            } catch (e) {
+                const msgEl = document.getElementById('heroBgMessage');
+                msgEl.textContent = 'Error clearing background.'; msgEl.className = 'block mt-2 text-sm text-red-400';
             }
         }
 
@@ -5459,12 +6575,125 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     body: JSON.stringify(payload)
                 });
                 message.textContent = response.message;
-                message.className = 'ml-3 text-sm text-green-400';
+                message.className = 'ml-3 text-sm text-amber-400';
+                loadDraftStatus();
             } catch (error) {
-                message.textContent = 'Error saving website content';
+                message.textContent = 'Error saving draft';
                 message.className = 'ml-3 text-sm text-red-400';
             }
         });
+
+        document.getElementById('videoSectionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('videoSectionMessage');
+            try {
+                const payload = {
+                    'home.video_url': document.getElementById('home_video_url').value.trim(),
+                    'home.video_section_title': document.getElementById('home_video_section_title').value.trim(),
+                    'home.video_section_enabled': document.getElementById('home_video_section_enabled').checked ? 'true' : 'false'
+                };
+                const response = await fetchData('/admin/api/site-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-amber-400';
+                loadDraftStatus();
+            } catch (error) {
+                message.textContent = 'Error saving draft';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        document.getElementById('announcementForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('announcementMessage');
+            try {
+                const payload = {
+                    'home.announcement_text': document.getElementById('home_announcement_text').value.trim(),
+                    'home.announcement_enabled': document.getElementById('home_announcement_enabled').checked ? 'true' : 'false'
+                };
+                const response = await fetchData('/admin/api/site-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-amber-400';
+                loadDraftStatus();
+            } catch (error) {
+                message.textContent = 'Error saving draft';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        document.getElementById('contactInfoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('contactInfoMessage');
+            try {
+                const g = id => (document.getElementById(id)?.value || '').trim();
+                const payload = {
+                    'site.contact_email': g('site_contact_email'),
+                    'site.contact_phone': g('site_contact_phone'),
+                    'site.contact_address': g('site_contact_address'),
+                    'site.footer_company_desc': g('site_footer_company_desc'),
+                    'site.wa_number_hostel': g('site_wa_number_hostel'),
+                    'site.wa_number_land': g('site_wa_number_land'),
+                    'site.wa_number_home': g('site_wa_number_home'),
+                    'site.social_facebook': g('site_social_facebook'),
+                    'site.social_twitter': g('site_social_twitter'),
+                    'site.social_instagram': g('site_social_instagram'),
+                };
+                const response = await fetchData('/admin/api/site-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-amber-400';
+                loadDraftStatus();
+            } catch (error) {
+                message.textContent = 'Error saving draft';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        document.getElementById('servicesSectionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('servicesSectionMessage');
+            try {
+                const payload = {
+                    'home.services_heading': (document.getElementById('home_services_heading')?.value || '').trim(),
+                    'home.services_lead': (document.getElementById('home_services_lead')?.value || '').trim(),
+                };
+                const response = await fetchData('/admin/api/site-content', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                message.textContent = response.message;
+                message.className = 'ml-3 text-sm text-amber-400';
+                loadDraftStatus();
+            } catch (error) {
+                message.textContent = 'Error saving draft';
+                message.className = 'ml-3 text-sm text-red-400';
+            }
+        });
+
+        // Save & Preview button
+        const savePreviewBtn = document.getElementById('saveAndPreviewBtn');
+        if (savePreviewBtn) {
+            savePreviewBtn.addEventListener('click', async () => {
+                // Trigger the form save first
+                const form = document.getElementById('siteContentForm');
+                if (form) {
+                    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                    // Short delay to let the save complete, then open preview
+                    setTimeout(openWebsitePreview, 600);
+                }
+            });
+        }
 
         document.getElementById('teamMemberForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -5502,6 +6731,35 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== SIDEBAR TOGGLE =====
         let sidebarCollapsed = false;
+        // v2 key — resets any old pinned state from previous session
+        let sidebarPinned = localStorage.getItem('ceo_sidebar_pinned_v2') === 'true';
+
+        function applyPinState() {
+            const pinBtn = document.getElementById('sidebarPinBtn');
+            const pinIcon = document.getElementById('sidebarPinIcon');
+            if (pinIcon) {
+                pinIcon.className = sidebarPinned
+                    ? 'fas fa-thumbtack text-xs text-emerald-400'
+                    : 'fas fa-thumbtack text-xs text-slate-500';
+            }
+            if (pinBtn) {
+                pinBtn.title = sidebarPinned ? 'Unpin sidebar (auto-close on)' : 'Pin sidebar open';
+                pinBtn.className = pinBtn.className.replace(/ring-[^\s]+/g, '').trim();
+                if (sidebarPinned) pinBtn.classList.add('ring-1', 'ring-emerald-500/50');
+            }
+        }
+
+        function toggleSidebarPin() {
+            sidebarPinned = !sidebarPinned;
+            localStorage.setItem('ceo_sidebar_pinned_v2', sidebarPinned);
+            applyPinState();
+            // If just pinned while collapsed, expand the sidebar
+            if (sidebarPinned && sidebarCollapsed) {
+                sidebarCollapsed = false;
+                document.getElementById('sidebar').classList.remove('collapsed');
+                document.getElementById('mainWrapper').classList.remove('sidebar-collapsed');
+            }
+        }
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -5522,14 +6780,25 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function collapseSidebarOnNav() {
+            if (window.innerWidth >= 768 && !sidebarPinned && !sidebarCollapsed) {
+                sidebarCollapsed = true;
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('mainWrapper').classList.add('sidebar-collapsed');
+            }
+        }
+
         function closeSidebar() {
             document.getElementById('sidebar').classList.remove('mobile-open');
             document.getElementById('sidebarOverlay').classList.add('hidden');
         }
 
+        // Apply pin state on load
+        applyPinState();
+
         // ===== CEO SECTION NAVIGATION =====
-        function showSection(sectionId) {
-            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+        function showSection(sectionId, skipCollapse = false) {
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -5538,15 +6807,18 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (target) target.classList.remove('hidden');
             document.querySelectorAll('.ceo-nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll(`.ceo-nav-btn[onclick="showSection('${sectionId}')"]`).forEach(b => b.classList.add('active'));
-            if (window.innerWidth < 768) closeSidebar();
+            if (!skipCollapse) {
+                if (window.innerWidth < 768) closeSidebar(); else collapseSidebarOnNav();
+            }
             if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); loadResetRequests(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); loadInvestorPropertyDropdowns(); }
-            if (sectionId === 'tenantsSection') { loadTenants(); loadPropertiesForTenantForm(); }
+            if (sectionId === 'tenantsSection') { loadTenants(); tnPopulatePropertyDropdown(); tnUtRefreshForProperty(); }
             if (sectionId === 'unitTypesSection') { loadPropertiesForUnitTypeForm(); loadUnitTypes(); }
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
             if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
+            if (sectionId === 'maintenanceSection') { loadMaintenancePropertyOptions(); loadMaintenanceRecords(); }
             if (sectionId === 'contractsSection') loadContracts();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
@@ -5648,21 +6920,187 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
-        async function ceoLoadExpenses(propertyId) {
+        // ── MAINTENANCE (CEO) ─────────────────────────────────────────
+        let _ceoMaintCache = [];
+
+        async function loadMaintenancePropertyOptions() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const allOpt = '<option value="">All properties</option>';
+                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                ['ceoMaintProperty', 'ceoMaintFormProperty', 'mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const cur = el.value;
+                    el.innerHTML = (id.includes('Form') ? '' : allOpt) + opts;
+                    if (cur && props.some(p => String(p.id) === cur)) el.value = cur;
+                });
+            } catch(e) {}
+        }
+
+        async function loadMaintenanceRecords(prefix) {
+            prefix = prefix || 'ceo';
+            const listEl = document.getElementById(prefix + 'MaintList');
+            const summaryEl = document.getElementById(prefix + 'MaintSummary');
+            if (!listEl) return;
+            const propId = document.getElementById(prefix + 'MaintProperty')?.value || '';
+            const cat = document.getElementById(prefix + 'MaintCategory')?.value || '';
+            const params = new URLSearchParams();
+            if (propId) params.set('property_id', propId);
+            const qs = params.toString() ? '?' + params.toString() : '';
+            try {
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">Loading...</p>';
+                const records = await fetchData('/admin/api/maintenance' + qs);
+                const filtered = cat ? records.filter(r => r.category === cat) : records;
+                _ceoMaintCache = filtered;
+                const totalCost = filtered.reduce((s, r) => s + (r.cost || 0), 0);
+                if (summaryEl) summaryEl.textContent = filtered.length + ' record' + (filtered.length !== 1 ? 's' : '') + (totalCost ? ' · Total cost: ' + formatNGN(totalCost) : '');
+                if (!filtered.length) { listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-8">No maintenance records found.</p>'; return; }
+                const statusColors = { completed: 'bg-emerald-900/60 text-emerald-300', in_progress: 'bg-amber-900/60 text-amber-300', scheduled: 'bg-blue-900/60 text-blue-300' };
+                const statusLabels = { completed: 'Completed', in_progress: 'In Progress', scheduled: 'Scheduled' };
+                listEl.innerHTML = filtered.map(r => {
+                    const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
+                    const sl = statusLabels[r.status] || r.status;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="ceoEditMaint(${r.id},'${prefix}')" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="ceoDeleteMaint(${r.id},'${prefix}')" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                }).join('');
+            } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
+        }
+
+        function ceoToggleMaintenanceForm(hide, prefix) {
+            prefix = prefix || 'ceo';
+            const form = document.getElementById(prefix + 'MaintForm');
+            if (!form) return;
+            if (hide) {
+                form.classList.add('hidden');
+                document.getElementById(prefix + 'MaintEditId').value = '';
+                form.querySelectorAll('input,textarea,select').forEach(el => { if (el.type !== 'hidden') el.value = el.tagName === 'SELECT' ? el.options[0]?.value || '' : ''; });
+                document.getElementById(prefix + 'MaintFormTitle').textContent = 'New Maintenance Record';
+                const msg = document.getElementById(prefix + 'MaintMsg');
+                if (msg) msg.textContent = '';
+            } else {
+                form.classList.remove('hidden');
+                const d = new Date(); const pad = n => String(n).padStart(2,'0');
+                const today = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+                const dateEl = document.getElementById(prefix + 'MaintDate');
+                if (dateEl && !dateEl.value) dateEl.value = today;
+                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        async function ceoSubmitMaintenance(prefix) {
+            prefix = prefix || 'ceo';
+            const editId = document.getElementById(prefix + 'MaintEditId').value;
+            const msgEl = document.getElementById(prefix + 'MaintMsg');
+            const payload = {
+                property_id: document.getElementById(prefix + 'MaintFormProperty')?.value || '',
+                maintenance_date: document.getElementById(prefix + 'MaintDate')?.value || '',
+                title: document.getElementById(prefix + 'MaintTitle')?.value?.trim() || '',
+                category: document.getElementById(prefix + 'MaintFormCategory')?.value || 'general',
+                status: document.getElementById(prefix + 'MaintStatus')?.value || 'completed',
+                vendor_name: document.getElementById(prefix + 'MaintVendor')?.value?.trim() || '',
+                cost: document.getElementById(prefix + 'MaintCost')?.value || '',
+                description: document.getElementById(prefix + 'MaintDesc')?.value?.trim() || '',
+            };
+            if (!payload.title) { if (msgEl) { msgEl.textContent = 'Title is required'; msgEl.className = 'text-sm text-red-400'; } return; }
+            if (!payload.property_id) { if (msgEl) { msgEl.textContent = 'Select a property'; msgEl.className = 'text-sm text-red-400'; } return; }
+            try {
+                if (msgEl) { msgEl.textContent = 'Saving...'; msgEl.className = 'text-sm text-gray-400'; }
+                await fetchData(editId ? '/admin/api/maintenance/' + editId : '/admin/api/maintenance', {
+                    method: editId ? 'PUT' : 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                ceoToggleMaintenanceForm(true, prefix);
+                await loadMaintenanceRecords(prefix);
+            } catch(err) { if (msgEl) { msgEl.textContent = err.message || 'Error saving record'; msgEl.className = 'text-sm text-red-400'; } }
+        }
+
+        function ceoEditMaint(id, prefix) {
+            prefix = prefix || 'ceo';
+            const r = _ceoMaintCache.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById(prefix + 'MaintEditId').value = r.id;
+            document.getElementById(prefix + 'MaintFormProperty').value = r.property_id;
+            document.getElementById(prefix + 'MaintDate').value = r.maintenance_date || '';
+            document.getElementById(prefix + 'MaintTitle').value = r.title || '';
+            document.getElementById(prefix + 'MaintFormCategory').value = r.category || 'general';
+            document.getElementById(prefix + 'MaintStatus').value = r.status || 'completed';
+            document.getElementById(prefix + 'MaintVendor').value = r.vendor_name || '';
+            document.getElementById(prefix + 'MaintCost').value = r.cost || '';
+            document.getElementById(prefix + 'MaintDesc').value = r.description || '';
+            document.getElementById(prefix + 'MaintFormTitle').textContent = 'Edit Record';
+            ceoToggleMaintenanceForm(false, prefix);
+        }
+
+        async function ceoDeleteMaint(id, prefix) {
+            prefix = prefix || 'ceo';
+            if (!confirm('Remove this maintenance record?')) return;
+            try {
+                await fetchData('/admin/api/maintenance/' + id, { method: 'DELETE' });
+                await loadMaintenanceRecords(prefix);
+            } catch(e) { alert(e.message || 'Error deleting record'); }
+        }
+
+        window.expenseCache = window.expenseCache || { ceo: [], mgr: [], acc: [] };
+        window.expPage = window.expPage || { ceo: 1, mgr: 1, acc: 1 };
+        const _CEO_PAGE_SIZE = 20;
+
+        function ceoExpenseCard(exp) {
+            const st = exp.approval_status || 'pending';
+            const stCls = st === 'approved' ? 'bg-emerald-900/60 text-emerald-300' : st === 'rejected' ? 'bg-rose-900/60 text-rose-300' : 'bg-amber-900/60 text-amber-300';
+            const stLbl = st === 'approved' ? 'Approved' : st === 'rejected' ? 'Rejected' : 'Pending';
+            const paidBadge = exp.is_paid ? '<span class="px-2 py-0.5 rounded-full text-[11px] bg-emerald-900/60 text-emerald-300">Paid</span>' : '<span class="px-2 py-0.5 rounded-full text-[11px] bg-orange-900/60 text-orange-300">Unpaid</span>';
+            const receiptHtml = exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : '';
+            const approvalBtns = `${st !== 'approved' ? `<button onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 text-xs font-medium">Approve</button>` : ''}${st !== 'rejected' ? `<button onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-rose-400 hover:text-rose-300 text-xs font-medium">Reject</button>` : ''}`;
+            const paidToggle = `<button onclick="ceoTogglePaid(${exp.id},${exp.is_paid})" class="${exp.is_paid ? 'text-orange-400 hover:text-orange-300' : 'text-emerald-400 hover:text-emerald-300'} text-xs font-medium">${exp.is_paid ? 'Mark Unpaid' : 'Mark Paid'}</button>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${stCls}">${stLbl}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} &middot; ${exp.category} &middot; ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${receiptHtml}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty '+exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' &middot; ' : ''}${exp.unit_cost ? 'Unit '+formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}<button onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button><button onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Remove</button>${approvalBtns}</div></div></div>`;
+        }
+
+        function renderExpensePage(prefix) {
+            const listEl = document.getElementById(prefix + 'ExpenseList');
+            if (!listEl) return;
+            const all = (window.expenseCache[prefix]) || [];
+            const total = all.length;
+            const totalPages = Math.max(1, Math.ceil(total / _CEO_PAGE_SIZE));
+            if (window.expPage[prefix] > totalPages) window.expPage[prefix] = totalPages;
+            const start = (window.expPage[prefix] - 1) * _CEO_PAGE_SIZE;
+            const page = all.slice(start, start + _CEO_PAGE_SIZE);
+            if (!total) { listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>'; return; }
+            const cards = page.map(exp => ceoExpenseCard(exp)).join('');
+            const prev = window.expPage[prefix] > 1 ? `<button onclick="window.expPage['${prefix}']--;renderExpensePage('${prefix}')" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">&#8592; Prev</button>` : '';
+            const next = window.expPage[prefix] < totalPages ? `<button onclick="window.expPage['${prefix}']++;renderExpensePage('${prefix}')" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">Next &#8594;</button>` : '';
+            const pager = totalPages > 1 ? `<div class="flex items-center justify-between mt-4 text-xs text-gray-400"><span>Showing ${start+1}&ndash;${Math.min(start+_CEO_PAGE_SIZE,total)} of ${total}</span><div class="flex items-center gap-3">${prev}<span>Page ${window.expPage[prefix]} / ${totalPages}</span>${next}</div></div>` : `<p class="text-xs text-gray-500 mt-3 text-right">${total} expense${total!==1?'s':''} total</p>`;
+            listEl.innerHTML = cards + pager;
+        }
+
+        async function ceoTogglePaid(id, current) {
+            try {
+                await fetchData('/admin/api/project-expenses/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_paid: !current }) });
+                await ceoLoadExpenses(undefined, true);
+            } catch(e) { alert(e.message || 'Error updating payment status'); }
+        }
+
+        async function ceoLoadExpenses(propertyId, preservePage) {
             const selectedId = propertyId || document.getElementById('ceoCapitalProperty')?.value || '';
             const listEl = document.getElementById('ceoExpenseList');
             const totalEl = document.getElementById('ceoExpenseTotal');
             const breakdownEl = document.getElementById('ceoExpenseBreakdown');
             if (!listEl) return;
+            const filters = {
+                status: document.getElementById('ceoExpenseStatusFilter')?.value || '',
+                receiptsOnly: !!document.getElementById('ceoExpenseReceiptOnly')?.checked,
+                category: document.getElementById('ceoExpenseCategoryFilter')?.value || '',
+            };
+            const params = new URLSearchParams();
+            if (selectedId) params.set('property_id', selectedId);
+            if (filters.status) params.set('approval_status', filters.status);
+            if (filters.receiptsOnly) params.set('has_receipt', 'true');
+            if (filters.category) params.set('category', filters.category);
+            const qs = params.toString() ? '?' + params.toString() : '';
             try {
-                const statusFilter = document.getElementById('ceoExpenseStatusFilter')?.value || '';
-                const receiptOnly = document.getElementById('ceoExpenseReceiptOnly')?.checked ? '1' : '';
-                let qs = selectedId ? '?property_id=' + selectedId : '?';
-                if (statusFilter) qs += (qs.includes('?') && qs.length > 1 ? '&' : '&') + 'status=' + statusFilter;
-                if (receiptOnly) qs += '&receipt_only=1';
                 const data = await fetchData('/admin/api/project-expenses' + qs);
-                const expenses = data.expenses || [];
-                _ceoCachedExpenses = expenses;
+                window.expenseCache.ceo = data.expenses || [];
+                _ceoCachedExpenses = window.expenseCache.ceo;
                 const approvalTotals = data.approval_totals || {};
                 const el = (id) => document.getElementById(id);
                 if (el('capApprovedTotal')) el('capApprovedTotal').textContent = fmtCompact(approvalTotals.approved || 0);
@@ -5670,7 +7108,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 if (el('capRejectedTotal')) el('capRejectedTotal').textContent = fmtCompact(approvalTotals.rejected || 0);
                 if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? fmtCompact(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
                 if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? fmtCompact(data.budget_total) : '—';
-                if (totalEl) totalEl.textContent = fmtCompact(data.total_amount || 0);
+                if (totalEl) totalEl.textContent = formatNGN(data.total_amount || 0);
                 const parts = [];
                 if (data.budget_total != null) parts.push('Budget ' + formatNGN(data.budget_total));
                 if (data.budget_remaining != null) parts.push((data.over_budget ? 'Over by ' : 'Left ') + formatNGN(Math.abs(data.budget_remaining)));
@@ -5678,30 +7116,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 if (approvalTotals.pending) parts.push('Pending ' + formatNGN(approvalTotals.pending));
                 if (approvalTotals.rejected) parts.push('Rejected ' + formatNGN(approvalTotals.rejected));
                 if (breakdownEl) breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
-                listEl.innerHTML = expenses.length ? expenses.slice(0, 20).map(exp => `
-                    <div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="font-semibold text-white text-sm">${exp.item_name}</p>
-                                <p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} · ${exp.category} · ${exp.expense_date || ''}</p>
-                                ${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}
-                                ${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-semibold ${exp.approval_status === 'approved' ? 'bg-emerald-900/60 text-emerald-300' : exp.approval_status === 'rejected' ? 'bg-red-900/60 text-red-300' : 'bg-yellow-900/60 text-yellow-300'}">${(exp.approval_status || 'pending').charAt(0).toUpperCase() + (exp.approval_status || 'pending').slice(1)}</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between gap-3 mt-3 text-xs">
-                            <div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div>
-                            <div class="flex items-center gap-3">
-                                ${exp.approval_status !== 'approved' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}
-                                ${exp.approval_status !== 'rejected' ? `<button type="button" onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-red-400 hover:text-red-300 font-medium">Reject</button>` : ''}
-                                <button type="button" onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
-                                <button type="button" onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>
-                            </div>
-                        </div>
-                    </div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+                if (!preservePage) window.expPage.ceo = 1;
+                renderExpensePage('ceo');
             } catch (err) {
                 if (listEl) listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading expenses.</p>';
             }
@@ -5715,7 +7131,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({ approval_status: status })
                 });
-                await ceoLoadExpenses();
+                await ceoLoadExpenses(undefined, true);
                 await loadStats();
             } catch (err) { alert(err.message || 'Error updating status'); }
         }
@@ -5724,7 +7140,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (!confirm('Permanently remove this expense?')) return;
             try {
                 await fetchData('/admin/api/project-expenses/' + id, { method: 'DELETE' });
-                await ceoLoadExpenses();
+                await ceoLoadExpenses(undefined, true);
                 await loadStats();
             } catch (err) { alert(err.message || 'Error deleting expense'); }
         }
@@ -6385,8 +7801,6 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             e.preventDefault();
             const msgEl = document.getElementById('tenantMsg');
             try {
-                const propSel = document.getElementById('tnProperty');
-                const propertyName = propSel.options[propSel.selectedIndex]?.dataset.title || '';
                 const res = await fetchData('/admin/api/tenants', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
@@ -6394,8 +7808,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('tnName').value,
                         email: document.getElementById('tnEmail').value,
                         phone: document.getElementById('tnPhone').value,
-                        property_name: propertyName,
-                        unit_type_id: document.getElementById('tnUnitType').value || null,
+                        property_name: document.getElementById('tnProperty').value,
+                        unit_type_id: document.getElementById('tnUnitType')?.value || null,
                         unit_number: document.getElementById('tnUnit').value,
                         monthly_rent: document.getElementById('tnRent').value,
                         lease_start: document.getElementById('tnLeaseStart').value,
@@ -6407,6 +7821,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 msgEl.textContent = res.message;
                 msgEl.className = 'text-sm text-green-400';
                 document.getElementById('addTenantForm').reset();
+                const _unitSel = document.getElementById('tnUnit');
+                if (_unitSel) { _unitSel.innerHTML = '<option value="">-- Select property first --</option>'; _unitSel.disabled = true; }
+                const _utSel = document.getElementById('tnUnitType');
+                if (_utSel) _utSel.innerHTML = '<option value="">-- Select unit type --</option>';
                 loadTenants();
                 loadStats();
             } catch (err) {
@@ -6415,74 +7833,57 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
-        // ===== PROPERTIES + UNIT TYPES (shared cache) =====
-        let _propertiesCache = [];
+        // ===== UNIT TYPES (cache + UI) =====
         let _unitTypesCache = [];
-
-        async function fetchPropertiesAndCache() {
-            try {
-                const props = await fetchData('/admin/api/properties');
-                _propertiesCache = props.filter(p => p.status === 'active');
-            } catch (e) { _propertiesCache = []; }
-        }
+        let _propertiesCacheForUt = [];
 
         async function fetchUnitTypesAndCache() {
             try { _unitTypesCache = await fetchData('/admin/api/unit-types'); }
             catch (e) { _unitTypesCache = []; }
         }
 
-        function fillPropertyOptions(selectEl, includeBlank = '-- Select property --') {
-            if (!selectEl) return;
-            const current = selectEl.value;
-            selectEl.innerHTML = `<option value="">${includeBlank}</option>` +
-                _propertiesCache.map(p => `<option value="${p.id}" data-title="${(p.title||'').replace(/"/g,'&quot;')}">${p.title}</option>`).join('');
-            if (current) selectEl.value = current;
+        async function fetchPropertiesForUt() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                _propertiesCacheForUt = props.filter(p => p.status === 'active');
+            } catch (e) { _propertiesCacheForUt = []; }
         }
 
-        function fillUnitTypeOptionsForProperty(selectEl, propertyId, includeBlank = '-- Select unit type --') {
+        function fillUtPropertyOptions(selectEl) {
             if (!selectEl) return;
             const current = selectEl.value;
-            const filtered = propertyId ? _unitTypesCache.filter(u => String(u.property_id) === String(propertyId)) : [];
-            selectEl.innerHTML = `<option value="">${includeBlank}</option>` +
-                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — '+fmtNGN(u.annual_price)+'/yr' : ''}</option>`).join('');
+            selectEl.innerHTML = '<option value="">-- Select property --</option>' +
+                _propertiesCacheForUt.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
             if (current) selectEl.value = current;
-        }
-
-        async function loadPropertiesForTenantForm() {
-            await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
-            fillPropertyOptions(document.getElementById('tnProperty'));
-            fillUnitTypeOptionsForProperty(document.getElementById('tnUnitType'), document.getElementById('tnProperty').value);
         }
 
         async function loadPropertiesForUnitTypeForm() {
-            await fetchPropertiesAndCache();
-            fillPropertyOptions(document.getElementById('utProperty'));
+            await fetchPropertiesForUt();
+            fillUtPropertyOptions(document.getElementById('utProperty'));
         }
 
-        document.getElementById('tnProperty')?.addEventListener('change', (e) => {
-            fillUnitTypeOptionsForProperty(document.getElementById('tnUnitType'), e.target.value);
-        });
+        // Repopulate tnUnitType based on currently-selected tnProperty (which uses property TITLE as value, ID is in data-id)
+        async function tnUtRefreshForProperty() {
+            await fetchUnitTypesAndCache();
+            const propSel = document.getElementById('tnProperty');
+            const utSel = document.getElementById('tnUnitType');
+            if (!propSel || !utSel) return;
+            const propId = propSel.selectedOptions[0]?.dataset.id;
+            const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
+            utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+        }
 
-        document.getElementById('tnUnitType')?.addEventListener('change', (e) => {
-            const price = e.target.options[e.target.selectedIndex]?.dataset.price;
+        function tnOnUnitTypeChange() {
+            const sel = document.getElementById('tnUnitType');
+            const price = sel.selectedOptions[0]?.dataset.price;
             const rentEl = document.getElementById('tnRent');
-            if (price && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
-        });
+            if (price && rentEl && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
+        }
 
-        document.getElementById('tnEditProperty')?.addEventListener('change', (e) => {
-            fillUnitTypeOptionsForProperty(document.getElementById('tnEditUnitType'), e.target.value);
-        });
-
-        document.getElementById('tnEditUnitType')?.addEventListener('change', (e) => {
-            const price = e.target.options[e.target.selectedIndex]?.dataset.price;
-            const rentEl = document.getElementById('tnEditRent');
-            if (price && (!rentEl.value || rentEl.value === '0')) rentEl.value = price;
-        });
-
-        // ===== UNIT TYPES =====
         async function loadUnitTypes() {
             try {
-                await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
+                await Promise.all([fetchPropertiesForUt(), fetchUnitTypesAndCache()]);
                 const container = document.getElementById('unitTypesContainer');
                 if (!_unitTypesCache.length) {
                     container.innerHTML = '<div class="bg-gray-800 p-6 rounded-lg text-gray-400 text-center text-sm">No unit types yet. Add one above to start.</div>';
@@ -6490,7 +7891,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 }
                 const grouped = {};
                 _unitTypesCache.forEach(u => {
-                    (grouped[u.property_title || 'Unassigned'] = grouped[u.property_title || 'Unassigned'] || []).push(u);
+                    const key = u.property_title || 'Unassigned';
+                    (grouped[key] = grouped[key] || []).push(u);
                 });
                 container.innerHTML = Object.entries(grouped).map(([propTitle, items]) => `
                     <div class="bg-gray-800 p-4 rounded-lg">
@@ -6547,7 +7949,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         function openUtEdit(u) {
             document.getElementById('utEditId').value = u.id;
-            fillPropertyOptions(document.getElementById('utEditProperty'));
+            fillUtPropertyOptions(document.getElementById('utEditProperty'));
             document.getElementById('utEditProperty').value = u.property_id;
             document.getElementById('utEditName').value = u.name || '';
             document.getElementById('utEditDesc').value = u.description || '';
@@ -6602,29 +8004,33 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) { alert(e.message || 'Error deleting unit type'); }
         }
 
-        // ===== TENANT EDIT =====
+        // ===== TENANT EDIT (modal opens from card Edit button) =====
         function openTenantEdit(t) {
             (async () => {
-                await Promise.all([fetchPropertiesAndCache(), fetchUnitTypesAndCache()]);
-                fillPropertyOptions(document.getElementById('tnEditProperty'));
+                await Promise.all([fetchPropertiesForUt(), fetchUnitTypesAndCache()]);
 
-                let matchedPropId = '';
-                if (t.unit_type_id) {
-                    const ut = _unitTypesCache.find(u => String(u.id) === String(t.unit_type_id));
-                    if (ut) matchedPropId = String(ut.property_id);
-                }
-                if (!matchedPropId && t.property_name) {
-                    const p = _propertiesCache.find(p => p.title === t.property_name);
-                    if (p) matchedPropId = String(p.id);
-                }
-                document.getElementById('tnEditProperty').value = matchedPropId;
-                fillUnitTypeOptionsForProperty(document.getElementById('tnEditUnitType'), matchedPropId);
+                // Build prop select with title as value (matches add form pattern)
+                const propSel = document.getElementById('tnEditProperty');
+                propSel.innerHTML = '<option value="">-- Select property --</option>' +
+                    _propertiesCacheForUt.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+
+                if (t.property_name) propSel.value = t.property_name;
+
+                const refreshEditUt = () => {
+                    const propId = propSel.selectedOptions[0]?.dataset.id;
+                    const utSel = document.getElementById('tnEditUnitType');
+                    const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
+                    utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
+                        filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                    if (t.unit_type_id) utSel.value = t.unit_type_id;
+                };
+                refreshEditUt();
+                propSel.onchange = refreshEditUt;
 
                 document.getElementById('tnEditId').value = t.id;
                 document.getElementById('tnEditName').value = t.name || '';
                 document.getElementById('tnEditEmail').value = t.email || '';
                 document.getElementById('tnEditPhone').value = t.phone || '';
-                document.getElementById('tnEditUnitType').value = t.unit_type_id || '';
                 document.getElementById('tnEditUnit').value = t.unit_number || '';
                 document.getElementById('tnEditRent').value = t.monthly_rent || 0;
                 document.getElementById('tnEditStatus').value = t.status || 'active';
@@ -6652,8 +8058,6 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             msgEl.className = 'text-xs text-gray-400 md:col-span-2';
             try {
                 const id = document.getElementById('tnEditId').value;
-                const propSel = document.getElementById('tnEditProperty');
-                const propertyName = propSel.options[propSel.selectedIndex]?.dataset.title || '';
                 const res = await fetchData('/admin/api/tenants/' + id, {
                     method: 'PUT',
                     headers: {'Content-Type':'application/json'},
@@ -6661,7 +8065,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('tnEditName').value,
                         email: document.getElementById('tnEditEmail').value,
                         phone: document.getElementById('tnEditPhone').value,
-                        property_name: propertyName,
+                        property_name: document.getElementById('tnEditProperty').value,
                         unit_type_id: document.getElementById('tnEditUnitType').value || null,
                         unit_number: document.getElementById('tnEditUnit').value,
                         monthly_rent: document.getElementById('tnEditRent').value || 0,
@@ -6683,13 +8087,74 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         });
 
         // ===== PAYMENTS =====
+        window._ceoPmtTenantMap = {};
+
         async function loadTenantOptions() {
             try {
                 const tenants = await fetchData('/admin/api/tenants?status=active');
+                window._ceoPmtTenantMap = {};
+                tenants.forEach(t => { window._ceoPmtTenantMap[t.id] = t; });
                 const sel = document.getElementById('pmtTenantId');
                 if (!sel) return;
-                sel.innerHTML = '<option value="">-- Select tenant --</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.property_name ? ' ('+t.property_name+')' : ''}</option>`).join('');
+                sel.innerHTML = '<option value="">-- Select tenant --</option>' + tenants.map(t =>
+                    `<option value="${t.id}">${t.name}${t.property_name ? ' — ' + t.property_name : ''}${t.unit_number ? ' / ' + t.unit_number : ''}</option>`
+                ).join('');
             } catch (e) {}
+        }
+
+        function pmtOnTenantChange() {
+            const sel = document.getElementById('pmtTenantId');
+            const tid = parseInt(sel.value);
+            if (!tid) return;
+            const t = window._ceoPmtTenantMap[tid];
+            if (!t) return;
+            const unitEl = document.getElementById('pmtUnit');
+            const amtEl = document.getElementById('pmtAmount');
+            const nameEl = document.getElementById('pmtTenantName');
+            if (unitEl && t.unit_number) unitEl.value = t.unit_number;
+            if (amtEl && t.monthly_rent) amtEl.value = t.monthly_rent;
+            if (nameEl) nameEl.value = '';
+        }
+
+        async function tnPopulatePropertyDropdown() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const sel = document.getElementById('tnProperty');
+                if (!sel) return;
+                sel.innerHTML = '<option value="">-- Select property --</option>' +
+                    props.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+            } catch(e) {}
+        }
+
+        async function tnOnPropertyChange() {
+            const propSel = document.getElementById('tnProperty');
+            const unitSel = document.getElementById('tnUnit');
+            const rentEl = document.getElementById('tnRent');
+            const propId = propSel.selectedOptions[0] && propSel.selectedOptions[0].dataset.id;
+            unitSel.innerHTML = '<option value="">-- Loading units... --</option>';
+            unitSel.disabled = true;
+            unitSel.className = unitSel.className.replace('opacity-60','') + ' opacity-60';
+            if (rentEl) rentEl.value = '';
+            if (!propId) { unitSel.innerHTML = '<option value="">-- Select property first --</option>'; return; }
+            try {
+                const units = await fetchData('/admin/api/units?property_id=' + propId);
+                const opts = units.map(u => {
+                    const label = u.unit_code + (u.monthly_rent ? ' — ₦' + Number(u.monthly_rent).toLocaleString() + '/mo' : '') + (u.status !== 'available' ? ' (' + u.status + ')' : '');
+                    return `<option value="${u.unit_code}" data-rent="${u.monthly_rent || ''}" data-status="${u.status}">${label}</option>`;
+                });
+                unitSel.innerHTML = '<option value="">-- Select unit --</option>' + opts.join('');
+                unitSel.disabled = false;
+                unitSel.className = unitSel.className.replace('opacity-60','');
+            } catch(e) { unitSel.innerHTML = '<option value="">-- Error loading units --</option>'; }
+        }
+
+        function tnOnUnitChange() {
+            const unitSel = document.getElementById('tnUnit');
+            const rentEl = document.getElementById('tnRent');
+            const opt = unitSel.selectedOptions[0];
+            if (opt && opt.dataset.rent && rentEl) {
+                rentEl.value = opt.dataset.rent;
+            }
         }
 
         function parsePaymentMeta(desc) {
@@ -6915,7 +8380,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // Initialize dashboard - show overview by default
         document.addEventListener('DOMContentLoaded', () => {
-            showSection('overviewSection');
+            showSection('overviewSection', true);
+            ceoPopulateProjectFilter();
             loadStats();
             loadProperties();
             loadConstructionPropertyOptions();
@@ -7142,6 +8608,9 @@ ROLE_DASHBOARD_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ user_role }} Portal - BrightWave Habitat Enterprise</title>
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
@@ -7150,6 +8619,7 @@ ROLE_DASHBOARD_TEMPLATE = """
     <meta name="apple-mobile-web-app-title" content="BrightWave">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         .contract-scroll::-webkit-scrollbar { width: 6px; }
         .contract-scroll::-webkit-scrollbar-track { background: #374151; }
@@ -7170,6 +8640,43 @@ ROLE_DASHBOARD_TEMPLATE = """
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen overflow-x-hidden">
+
+    <!-- Loading splash -->
+    <div id="bwLoader" style="position:fixed;inset:0;z-index:9999;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity 0.45s ease;pointer-events:all">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+            <div style="position:relative;width:80px;height:80px">
+                <img src="/assets/images/brightwave-logo.png" alt="BrightWave" id="bwLoaderImg"
+                     style="width:80px;height:80px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px rgba(20,184,166,0.35),0 16px 40px rgba(0,0,0,0.6)"
+                     onerror="this.style.display='none';document.getElementById('bwLoaderIcon').style.display='flex'">
+                <div id="bwLoaderIcon" style="display:none;width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#0d9488,#0e7490);align-items:center;justify-content:center;box-shadow:0 16px 40px rgba(0,0,0,0.5)">
+                    <svg style="width:40px;height:40px" fill="none" stroke="white" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"/></svg>
+                </div>
+            </div>
+            <div style="text-align:center">
+                <p style="color:#f1f5f9;font-size:20px;font-weight:700;letter-spacing:0.04em;margin:0;font-family:system-ui,sans-serif">BrightWave</p>
+                <p style="color:#14b8a6;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin:3px 0 0;font-family:system-ui,sans-serif">Habitat Enterprise</p>
+            </div>
+        </div>
+        <div style="width:36px;height:36px;border:2.5px solid rgba(20,184,166,0.15);border-top-color:#14b8a6;border-radius:50%;animation:bwSpin 0.75s linear infinite"></div>
+        <style>@keyframes bwSpin{to{transform:rotate(360deg)}}</style>
+    </div>
+    <script>
+        const _bwLoaderStart = Date.now();
+        let _bwLoaderDone = false;
+        function dismissLoader() {
+            if (_bwLoaderDone) return;
+            _bwLoaderDone = true;
+            const delay = Math.max(0, 700 - (Date.now() - _bwLoaderStart));
+            setTimeout(() => {
+                const el = document.getElementById('bwLoader');
+                if (!el) return;
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+                setTimeout(() => el && el.remove(), 460);
+            }, delay);
+        }
+    </script>
+
     <script>
         const USER_ROLE = {{ user_role | tojson }};
         const ALL_ROLES = {{ all_roles_json | safe }};
@@ -7328,7 +8835,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             </div>
                             <span id="invTypeBadge" class="text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"></span>
                         </div>
-                        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-1">Welcome back, <span id="invWelcomeName" class="text-emerald-400"></span></h2>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-1 break-words">Welcome back, <span id="invWelcomeName" class="text-emerald-400"></span></h2>
                         <p id="invHeroSubtitle" class="text-slate-400 text-sm mb-5 sm:mb-7"></p>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                             <div class="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4">
@@ -7336,7 +8843,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                                 <p id="invHeroAmount" class="text-base sm:text-xl font-bold text-white break-all leading-tight">—</p>
                             </div>
                             <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 sm:p-4">
-                                <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1.5">Total Return</p>
+                                <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1.5">Net ROI Earned</p>
                                 <p id="invHeroReturn" class="text-base sm:text-xl font-bold text-emerald-300 break-all leading-tight">—</p>
                                 <p id="invHeroReturnNote" class="text-[11px] text-emerald-500/70 mt-1 leading-snug hidden sm:block"></p>
                             </div>
@@ -7347,6 +8854,22 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 sm:p-4">
                                 <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1.5">Site Progress</p>
                                 <p id="invHeroProgress" class="text-base sm:text-xl font-bold text-amber-300 leading-tight">—</p>
+                            </div>
+                        </div>
+                        <!-- Next Payout Banner -->
+                        <div id="invNextPayoutBanner" class="hidden mt-4 flex items-center justify-between gap-3 px-4 py-3 bg-emerald-900/30 border border-emerald-700/30 rounded-xl">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-8 h-8 bg-emerald-900/60 border border-emerald-700/40 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-calendar-check text-emerald-400 text-xs"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[11px] text-emerald-400 uppercase tracking-wide">Next Scheduled Payout</p>
+                                    <p id="invNextPayoutLabel" class="text-sm font-semibold text-white truncate"></p>
+                                </div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p id="invNextPayoutAmount" class="text-base font-bold text-emerald-300"></p>
+                                <p id="invNextPayoutDate" class="text-xs text-gray-400"></p>
                             </div>
                         </div>
                     </div>
@@ -7408,11 +8931,41 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="bg-gradient-to-r from-slate-800 to-gray-800 border border-slate-600/40 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <p class="font-semibold text-white">Have a question about your investment?</p>
-                        <p class="text-sm text-gray-400 mt-1">The CEO is available to address any concerns or provide updates directly.</p>
+                        <p class="text-sm text-gray-400 mt-1">The CEO is directly available — reach out any time for updates, clarifications, or distribution requests.</p>
                     </div>
-                    <a href="mailto:brightwavehabitat@gmail.com" class="flex-shrink-0 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-3 px-6 rounded-xl transition-colors flex items-center gap-2">
-                        <i class="fas fa-envelope text-xs"></i> Contact CEO
-                    </a>
+                    <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                        <a href="https://wa.me/2348037669462?text=Hi%2C%20I%20have%20a%20question%20about%20my%20BrightWave%20investment." target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium py-3 px-5 rounded-xl transition-colors">
+                            <i class="fab fa-whatsapp"></i> WhatsApp
+                        </a>
+                        <a href="mailto:brightwavehabitat@gmail.com" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium py-3 px-5 rounded-xl transition-colors">
+                            <i class="fas fa-envelope text-xs"></i> Email CEO
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 6. RESOURCES -->
+                <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-6">
+                    <h3 class="font-bold text-white text-base mb-4">Investor Resources</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <a href="mailto:brightwavehabitat@gmail.com?subject=Investment%20Statement%20Request" class="flex items-center gap-3 p-3 bg-gray-700/50 border border-gray-600/50 rounded-xl hover:border-emerald-700/50 transition-colors group">
+                            <div class="w-9 h-9 bg-emerald-900/50 border border-emerald-700/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-file-invoice text-emerald-400 text-sm"></i>
+                            </div>
+                            <div><p class="text-sm font-medium text-white group-hover:text-emerald-300 transition-colors">Request Statement</p><p class="text-xs text-gray-400">Formal investment summary</p></div>
+                        </a>
+                        <a href="/about" target="_blank" class="flex items-center gap-3 p-3 bg-gray-700/50 border border-gray-600/50 rounded-xl hover:border-blue-700/50 transition-colors group">
+                            <div class="w-9 h-9 bg-blue-900/50 border border-blue-700/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-users text-blue-400 text-sm"></i>
+                            </div>
+                            <div><p class="text-sm font-medium text-white group-hover:text-blue-300 transition-colors">Meet the Team</p><p class="text-xs text-gray-400">Who manages your investment</p></div>
+                        </a>
+                        <a href="https://www.brightwavehabitat.com/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 bg-gray-700/50 border border-gray-600/50 rounded-xl hover:border-amber-700/50 transition-colors group">
+                            <div class="w-9 h-9 bg-amber-900/50 border border-amber-700/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-globe text-amber-400 text-sm"></i>
+                            </div>
+                            <div><p class="text-sm font-medium text-white group-hover:text-amber-300 transition-colors">Public Website</p><p class="text-xs text-gray-400">brightwavehabitat.com</p></div>
+                        </a>
+                    </div>
                 </div>
 
             </div>
@@ -7450,16 +9003,67 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabInquiries" onclick="showMgrTab('mgrTabInquiries')">Inquiries <span id="mgrInquiriesBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabConstruction" onclick="showMgrTab('mgrTabConstruction')">Construction</button>
                 <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabCapital" onclick="showMgrTab('mgrTabCapital')">Capital Calc</button>
+                <button class="mgr-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="mgrTabMaintenance" onclick="showMgrTab('mgrTabMaintenance')">Maintenance</button>
             </div>
             </div>
 
             <!-- OVERVIEW TAB -->
             <div id="mgrTabOverview">
-                <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                    <div class="bg-gray-800 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1 truncate">Properties</p><p id="mgr_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                    <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Available Units</p><p id="mgr_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                    <div class="bg-blue-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1 truncate">Open Inquiries</p><p id="mgr_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                    <div class="bg-purple-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-purple-300 uppercase tracking-wide mb-1 truncate">Active Tenants</p><p id="mgr_active_tenants" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                    <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-building text-slate-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Properties</p><p id="mgr_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    </div>
+                    <div class="bg-emerald-900/70 border border-emerald-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-emerald-700/70 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-door-open text-emerald-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-emerald-300 uppercase tracking-wide mb-0.5 truncate">Available Units</p><p id="mgr_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    </div>
+                    <div class="bg-blue-900/70 border border-blue-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-blue-700/70 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-inbox text-blue-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-blue-300 uppercase tracking-wide mb-0.5 truncate">Open Inquiries</p><p id="mgr_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    </div>
+                    <div class="bg-purple-900/70 border border-purple-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-purple-700/70 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-users text-purple-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-purple-300 uppercase tracking-wide mb-0.5 truncate">Active Tenants</p><p id="mgr_active_tenants" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                    </div>
+                </div>
+                <!-- Financial snapshot row -->
+                <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                    <div class="bg-teal-900/60 border border-teal-700/30 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-teal-700/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-naira-sign text-teal-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-teal-300 uppercase tracking-wide mb-0.5 truncate">Revenue</p><p id="mgr_revenue" class="text-lg sm:text-xl font-bold text-white truncate">-</p><p class="text-[10px] text-teal-400 mt-0.5">All time collected</p></div>
+                    </div>
+                    <div class="bg-amber-900/60 border border-amber-700/30 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-amber-700/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-hammer text-amber-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-amber-300 uppercase tracking-wide mb-0.5 truncate">Capital Spent</p><p id="mgr_capital" class="text-lg sm:text-xl font-bold text-white truncate">-</p><p class="text-[10px] text-amber-400 mt-0.5">Approved expenses</p></div>
+                    </div>
+                    <div class="bg-gray-800 border border-gray-700/50 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-scale-balanced text-gray-300 text-xs"></i></div>
+                        <div class="min-w-0"><p id="mgr_net_lbl" class="text-[11px] uppercase tracking-wide mb-0.5 truncate text-gray-400">Net P&amp;L</p><p id="mgr_net" class="text-lg sm:text-xl font-bold truncate">-</p></div>
+                    </div>
+                    <div class="bg-gray-800 border border-gray-700/50 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                        <div class="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-chart-pie text-gray-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Occupancy</p><p id="mgr_occupancy" class="text-lg sm:text-xl font-bold text-white truncate">-</p><p class="text-[10px] text-gray-500 mt-0.5" id="mgr_occ_sub">of all units</p></div>
+                    </div>
+                </div>
+                <!-- Charts row -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+                    <div class="lg:col-span-3 bg-gray-800/80 border border-gray-700/50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2"><i class="fas fa-chart-bar text-teal-400"></i> Revenue vs Spend</h3>
+                            <div class="flex items-center gap-0.5 bg-slate-900/70 rounded-lg p-0.5">
+                                <button onclick="mgrSetPeriod('3M')" id="mgrPeriod_3M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">3M</button>
+                                <button onclick="mgrSetPeriod('6M')" id="mgrPeriod_6M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors bg-slate-600 text-white">6M</button>
+                                <button onclick="mgrSetPeriod('12M')" id="mgrPeriod_12M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">12M</button>
+                                <button onclick="mgrSetPeriod('all')" id="mgrPeriod_all" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">All</button>
+                            </div>
+                        </div>
+                        <div class="relative" style="height:180px"><canvas id="mgrRevenueChart"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-2 bg-gray-800/80 border border-gray-700/50 rounded-xl p-4">
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-circle-dot text-purple-400"></i> Tenant Status</h3>
+                        <div class="relative flex items-center justify-center" style="height:180px"><canvas id="mgrTenantDonut"></canvas></div>
+                    </div>
                 </div>
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Properties Overview</h3>
@@ -7495,10 +9099,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6 mb-6">
                     <div class="bg-gray-800 rounded-xl p-6">
                         <div class="flex items-center justify-between gap-3 mb-4">
-                            <h3 class="font-semibold text-lg text-slate-300">Phase 1 Units</h3>
+                            <h3 class="font-semibold text-lg text-slate-300">All Units <span id="mgrUnitsCount" class="text-sm font-normal text-emerald-400 ml-1"></span></h3>
                             <span class="text-xs text-gray-500">Dropdown = status · Edit = rent & notes</span>
                         </div>
-                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[540px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400 pr-2">Property</th><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th><th class="py-2 text-left text-gray-400">Action</th></tr></thead><tbody id="mgr_unitsTable"></tbody></table></div>
                     </div>
                     <div class="bg-gray-800 rounded-xl p-6">
                         <h3 class="font-semibold text-lg mb-4 text-slate-300">Add or Update Tenant</h3>
@@ -7507,8 +9111,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrTenantName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrTenantEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone</label><input id="mgrTenantPhone" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><input id="mgrTenantProperty" type="text" value="BrightWave Phase 1 Apartment" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><select id="mgrTenantProperty" onchange="populateManagerUnitSelect(window._mgrAllUnits||[], this.value)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">Select property</option></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><select id="mgrTenantUnit" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Yearly Rent</label><input id="mgrTenantRent" type="number" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease Start</label><input id="mgrTenantLeaseStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                             <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label><input id="mgrTenantLeaseEnd" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -7520,7 +9124,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="bg-gray-800 rounded-xl p-6">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <h3 class="font-semibold text-lg text-slate-300">Active Tenants</h3>
-                        <span class="text-xs text-gray-500">Manager can add and vacate tenants</span>
+                        <span id="mgr_tenantRentTotal" class="text-xs text-emerald-400 font-medium"></span>
                     </div>
                     <div id="mgr_tenantsList" class="space-y-3"></div>
                 </div>
@@ -7528,10 +9132,30 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             <!-- INQUIRIES TAB -->
             <div id="mgrTabInquiries" class="hidden">
+                <div id="mgr_inqPipeline" class="flex flex-wrap gap-2 mb-4"></div>
+                <!-- Quick Add Inquiry -->
+                <div class="bg-gray-800 rounded-xl p-4 mb-4">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <h4 class="font-semibold text-slate-300">Log New Inquiry</h4>
+                        <button type="button" id="mgrInqFormToggle" onclick="this.classList.toggle('hidden');document.getElementById('mgrInqFormBody').classList.toggle('hidden')" class="text-xs text-blue-400 border border-blue-700/50 px-3 py-1.5 rounded-lg hover:bg-blue-900/30">+ Add</button>
+                    </div>
+                    <div id="mgrInqFormBody" class="hidden">
+                        <form id="mgrInqForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="mgrInqName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone *</label><input id="mgrInqPhone" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="mgrInqEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><select id="mgrInqProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">General</option></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Type</label><select id="mgrInqType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="general">General</option><option value="rent">Rent</option><option value="purchase">Purchase</option></select></div>
+                            <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label><select id="mgrInqStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="new">New</option><option value="contacted">Contacted</option><option value="viewing_scheduled">Viewing Scheduled</option><option value="offer_made">Offer Made</option><option value="closed">Closed</option></select></div>
+                            <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="mgrInqNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white resize-none"></textarea></div>
+                            <div class="sm:col-span-2 flex items-center gap-3"><button type="submit" class="bg-blue-700 hover:bg-blue-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Inquiry</button><span id="mgrInqMsg" class="text-sm"></span></div>
+                        </form>
+                    </div>
+                </div>
                 <div class="bg-gray-800 rounded-xl p-6">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <h3 class="font-semibold text-lg text-slate-300">All Inquiries</h3>
-                        <span class="text-xs text-gray-500">Update status to track your pipeline</span>
+                        <span class="text-xs text-gray-500">Click a row to expand contact details</span>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[480px]">
@@ -7618,7 +9242,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div id="mgrExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap mb-4">
-                            <select id="mgrExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                            <select id="mgrExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                            <select id="mgrExpenseCategoryFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All categories</option><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="land">Land</option><option value="other">Other</option></select>
                             <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="mgrExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
                         </div>
                         <div id="mgrExpenseList" class="space-y-3"></div>
@@ -7626,17 +9251,91 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
             </div>
 
+            <!-- MANAGER MAINTENANCE TAB -->
+            <div id="mgrTabMaintenance" class="hidden">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h2 class="text-lg font-semibold">Maintenance Log</h2>
+                    <button onclick="ceoToggleMaintenanceForm(false,'mgr')" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2"><i class="fas fa-plus text-xs"></i> Record Maintenance</button>
+                </div>
+                <div class="flex flex-wrap gap-3 mb-4 items-center">
+                    <select id="mgrMaintProperty" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="">All properties</option></select>
+                    <select id="mgrMaintCategory" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All categories</option><option value="general">General</option><option value="plumbing">Plumbing</option><option value="electrical">Electrical</option><option value="painting">Painting</option><option value="roofing">Roofing</option><option value="cleaning">Cleaning</option><option value="security">Security</option><option value="other">Other</option></select>
+                    <button onclick="loadMaintenanceRecords('mgr')" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded-lg">Filter</button>
+                    <span id="mgrMaintSummary" class="text-xs text-gray-400 ml-auto"></span>
+                </div>
+                <div id="mgrMaintForm" class="hidden bg-gray-800 rounded-xl p-4 mb-4 border border-gray-700">
+                    <h3 class="text-sm font-semibold text-gray-300 mb-3" id="mgrMaintFormTitle">New Maintenance Record</h3>
+                    <input type="hidden" id="mgrMaintEditId">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Property *</label>
+                            <select id="mgrMaintFormProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="">Select property</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Date *</label>
+                            <input type="date" id="mgrMaintDate" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs text-gray-400 mb-1">Title *</label>
+                            <input type="text" id="mgrMaintTitle" placeholder="e.g. Fixed roof leak in unit 3A" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Category</label>
+                            <select id="mgrMaintFormCategory" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="general">General</option><option value="plumbing">Plumbing</option><option value="electrical">Electrical</option><option value="painting">Painting</option><option value="roofing">Roofing</option><option value="cleaning">Cleaning</option><option value="security">Security</option><option value="other">Other</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Status</label>
+                            <select id="mgrMaintStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="completed">Completed</option><option value="in_progress">In Progress</option><option value="scheduled">Scheduled</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Vendor / Contractor</label>
+                            <input type="text" id="mgrMaintVendor" placeholder="Vendor or contractor name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Cost (₦)</label>
+                            <input type="number" id="mgrMaintCost" placeholder="0" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs text-gray-400 mb-1">Notes / Description</label>
+                            <textarea id="mgrMaintDesc" rows="2" placeholder="Any additional details..." class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 resize-none"></textarea>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="ceoSubmitMaintenance('mgr')" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Save Record</button>
+                        <button onclick="ceoToggleMaintenanceForm(true,'mgr')" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Cancel</button>
+                        <span id="mgrMaintMsg" class="text-sm ml-2"></span>
+                    </div>
+                </div>
+                <div id="mgrMaintList" class="space-y-3"><p class="text-gray-500 text-sm text-center py-8">Loading...</p></div>
+            </div>
+
             {% elif r == 'ACCOUNTANT' %}
             <!-- ACCOUNTANT DASHBOARD -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Total Revenue</p><p id="acc_total_revenue" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
-                <div class="bg-teal-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-teal-300 uppercase tracking-wide mb-1 truncate">This Month</p><p id="acc_monthly_revenue" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
-                <div class="bg-blue-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-blue-300 uppercase tracking-wide mb-1 truncate">Active Tenants</p><p id="acc_tenants" class="text-xl sm:text-2xl font-bold text-white truncate">-</p></div>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                <div class="bg-amber-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Capital Spent</p><p id="acc_capital_spent" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
-                <div class="bg-orange-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-orange-300 uppercase tracking-wide mb-1 truncate">Capital This Month</p><p id="acc_monthly_capital" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
-                <div id="acc_budget_card" class="bg-cyan-900 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1"><p class="text-[11px] sm:text-xs text-cyan-300 uppercase tracking-wide mb-1 truncate" id="acc_budget_label">Budget Remaining</p><p id="acc_budget_remaining" class="text-lg sm:text-xl font-bold text-white truncate">-</p></div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-emerald-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-coins text-emerald-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Total Revenue</p><p id="acc_total_revenue" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-teal-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-calendar-day text-teal-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">This Month</p><p id="acc_monthly_revenue" class="text-xl sm:text-2xl font-bold truncate">-</p><p id="acc_rev_trend" class="text-[10px] text-gray-500 mt-0.5 truncate"></p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1 flex items-start gap-3">
+                    <div class="w-8 h-8 bg-blue-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-users text-blue-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Active Tenants</p><p id="acc_tenants" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-amber-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-hard-hat text-amber-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Capital Spent</p><p id="acc_capital_spent" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-orange-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-receipt text-orange-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Capital This Month</p><p id="acc_monthly_capital" class="text-xl sm:text-2xl font-bold truncate">-</p><p id="acc_cap_trend" class="text-[10px] text-gray-500 mt-0.5 truncate"></p></div>
+                </div>
+                <div id="acc_budget_card" class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1 flex items-start gap-3">
+                    <div class="w-8 h-8 bg-cyan-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-piggy-bank text-cyan-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate" id="acc_budget_label">Budget Remaining</p><p id="acc_budget_remaining" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
@@ -7676,17 +9375,70 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Occupancy Snapshot</h3>
                 <div id="accUnitsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
             </div>
+            <!-- Cash Flow Summary -->
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Cash Flow Summary</h3>
+                    <span class="text-xs text-gray-500" id="cf_subtitle">All time · approved expenses</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-5">
+                    <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-emerald-800/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-arrow-circle-down text-emerald-400 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[10px] text-emerald-400 uppercase tracking-wide mb-0.5 truncate">Revenue In</p><p id="cf_revenue" class="text-sm font-bold text-white truncate">—</p></div>
+                    </div>
+                    <div class="bg-amber-900/40 border border-amber-700/30 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-amber-800/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-arrow-circle-up text-amber-400 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[10px] text-amber-400 uppercase tracking-wide mb-0.5 truncate">Capital Out</p><p id="cf_expenses" class="text-sm font-bold text-white truncate">—</p></div>
+                    </div>
+                    <div id="cf_net_card" class="rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-scale-balanced text-gray-300 text-xs"></i></div>
+                        <div class="min-w-0"><p id="cf_net_label" class="text-[10px] uppercase tracking-wide mb-0.5 truncate">Net P&amp;L</p><p id="cf_net" class="text-sm font-bold truncate">—</p></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-2">
+                    <div class="lg:col-span-3">
+                        <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                            <h4 class="text-xs text-gray-500 uppercase tracking-wide">Revenue vs Spend</h4>
+                            <div class="flex items-center gap-0.5 bg-slate-900/70 rounded-lg p-0.5">
+                                <button onclick="accSetPeriod('3M')" id="accPeriod_3M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">3M</button>
+                                <button onclick="accSetPeriod('6M')" id="accPeriod_6M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors bg-slate-600 text-white">6M</button>
+                                <button onclick="accSetPeriod('12M')" id="accPeriod_12M" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">12M</button>
+                                <button onclick="accSetPeriod('all')" id="accPeriod_all" class="text-xs px-2 py-0.5 rounded-md font-medium transition-colors text-slate-400 hover:text-white">All</button>
+                            </div>
+                        </div>
+                        <div class="relative" style="height:155px"><canvas id="accRevenueChart"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-2 flex flex-col">
+                        <h4 class="text-xs text-gray-500 uppercase tracking-wide mb-2">Expense Categories</h4>
+                        <div class="flex-1 relative" style="min-height:140px"><canvas id="accCategoryDonut"></canvas></div>
+                    </div>
+                </div>
+            </div>
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Recent Project Expenses</h3>
                     <div id="accExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap mb-4">
-                    <select id="accExpensePropertyFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All projects</option></select>
-                    <select id="accExpenseStatusFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
-                    <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="accExpenseReceiptOnly" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
+                    <select id="accExpensePropertyFilter" onchange="accFilterExpenses()" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All projects</option></select>
+                    <select id="accExpenseStatusFilter" onchange="accFilterExpenses()" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+                    <select id="accExpenseCategoryFilter" onchange="accFilterExpenses()" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs"><option value="">All categories</option><option value="materials">Materials</option><option value="labour">Labour</option><option value="transport">Transport</option><option value="equipment">Equipment</option><option value="permits">Permits</option><option value="land">Land</option><option value="other">Other</option></select>
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg"><input type="checkbox" id="accExpenseReceiptOnly" onchange="accFilterExpenses()" class="rounded border-gray-500 bg-gray-800">Receipts only</label>
                 </div>
                 <div id="accExpenseList" class="space-y-3"></div>
+            </div>
+            <!-- Rent Roll -->
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Rent Roll</h3>
+                    <div id="accRentRollTotals" class="text-xs text-gray-400 text-right"></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm min-w-[520px]">
+                        <thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400 pr-3">Tenant</th><th class="py-2 text-left text-gray-400 pr-3">Unit</th><th class="py-2 text-left text-gray-400 pr-3">Yearly Rent</th><th class="py-2 text-left text-gray-400 pr-3">Lease Start</th><th class="py-2 text-left text-gray-400">Lease End</th></tr></thead>
+                        <tbody id="accRentRollBody"></tbody>
+                    </table>
+                </div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
@@ -7701,11 +9453,37 @@ ROLE_DASHBOARD_TEMPLATE = """
 
             {% elif r == 'REALTOR' %}
             <!-- REALTOR DASHBOARD -->
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide mb-1 truncate">Active Properties</p><p id="rel_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                <div class="bg-emerald-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-emerald-300 uppercase tracking-wide mb-1 truncate">Available Units</p><p id="rel_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                <div class="bg-amber-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-amber-300 uppercase tracking-wide mb-1 truncate">Open Leads</p><p id="rel_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
-                <div class="bg-green-900 rounded-xl p-3 sm:p-4 overflow-hidden"><p class="text-[11px] sm:text-xs text-green-300 uppercase tracking-wide mb-1 truncate">Total Leads</p><p id="rel_new" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-building text-slate-300 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Active Properties</p><p id="rel_properties" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-emerald-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-door-open text-emerald-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Available Units</p><p id="rel_available_units" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-amber-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-user-clock text-amber-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Open Leads</p><p id="rel_inquiries" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/40 rounded-xl p-3 sm:p-4 overflow-hidden flex items-start gap-3">
+                    <div class="w-8 h-8 bg-green-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-handshake text-green-400 text-xs"></i></div>
+                    <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate">Total Leads</p><p id="rel_new" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
+                </div>
+            </div>
+            <!-- Lead Pipeline Summary -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+                <div class="lg:col-span-3 bg-gray-800 rounded-xl p-4">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <h4 class="text-sm font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-filter text-slate-400 text-xs"></i> Lead Pipeline</h4>
+                        <span class="text-xs text-emerald-400 font-medium" id="rel_conversionRate"></span>
+                    </div>
+                    <div id="rel_pipelineBars" class="space-y-2.5"></div>
+                </div>
+                <div class="lg:col-span-2 bg-gray-800 rounded-xl p-4 flex flex-col">
+                    <h4 class="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2"><i class="fas fa-chart-pie text-blue-400 text-xs"></i> Stage Mix</h4>
+                    <div class="flex-1 relative" style="min-height:165px"><canvas id="relPipelineDonut"></canvas></div>
+                </div>
             </div>
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
@@ -7718,8 +9496,63 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <h3 class="font-semibold text-lg mb-4 text-slate-300">Available Properties</h3>
                 <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Price</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="rel_propertiesTable"></tbody></table></div>
             </div>
+            <!-- Commission Tracker -->
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
+                    <span class="text-xs text-gray-500">10% sale · 10% first year rent</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden">
+                        <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1 truncate">Rental Commission</p>
+                        <p id="rel_rental_comm" class="text-base font-bold text-white truncate">—</p>
+                        <p class="text-[11px] text-emerald-600/70 mt-0.5">10% × active leases</p>
+                    </div>
+                    <div class="bg-blue-900/40 border border-blue-700/30 rounded-xl p-3 overflow-hidden">
+                        <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1 truncate">Sale Commission</p>
+                        <p id="rel_sale_comm" class="text-base font-bold text-white truncate">—</p>
+                        <p class="text-[11px] text-blue-600/70 mt-0.5">10% × closed deals</p>
+                    </div>
+                    <div class="bg-amber-900/40 border border-amber-700/30 rounded-xl p-3 overflow-hidden">
+                        <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total Estimated</p>
+                        <p id="rel_total_comm" class="text-base font-bold text-amber-300 truncate">—</p>
+                        <p class="text-[11px] text-amber-600/70 mt-0.5">Combined estimate</p>
+                    </div>
+                </div>
+                <div id="rel_comm_detail" class="space-y-2"></div>
+            </div>
+            <!-- Add / Edit Lead Form -->
+            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 id="relLeadFormTitle" class="font-semibold text-lg text-slate-300">Add New Lead</h3>
+                    <button type="button" id="relLeadFormToggle" onclick="relToggleLeadForm()" class="text-xs text-emerald-400 border border-emerald-700/50 px-3 py-1.5 rounded-lg hover:bg-emerald-900/30">+ Add Lead</button>
+                </div>
+                <div id="relLeadFormBody" class="hidden">
+                    <form id="relLeadForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="hidden" id="relLeadEditId">
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label><input id="relLeadName" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Phone *</label><input id="relLeadPhone" type="text" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white" placeholder="e.g. 08012345678"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Email</label><input id="relLeadEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Property</label><select id="relLeadProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">General Inquiry</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Type</label><select id="relLeadType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="general">General</option><option value="rent">Rent</option><option value="purchase">Purchase</option><option value="hostel">Hostel</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Status</label><select id="relLeadStatus" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="new">New</option><option value="contacted">Contacted</option><option value="viewing_scheduled">Viewing Scheduled</option><option value="offer_made">Offer Made</option><option value="closed">Closed</option><option value="rejected">Rejected</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Budget Range</label><input id="relLeadBudget" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white" placeholder="e.g. ₦500k – ₦1M"></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Preferred Move Date</label><input id="relLeadMoveDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                        <div class="sm:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="relLeadNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white resize-none" placeholder="Source of lead, additional details..."></textarea></div>
+                        <div class="sm:col-span-2 flex items-center gap-3 flex-wrap">
+                            <button type="submit" id="relLeadSubmitBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-5 rounded-lg text-sm">Save Lead</button>
+                            <button type="button" id="relLeadCancelBtn" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm" onclick="relCancelLeadEdit()">Cancel Edit</button>
+                            <span id="relLeadMsg" class="text-sm"></span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <!-- Leads Table -->
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
-                <h3 class="font-semibold text-lg mb-4 text-slate-300">Leads / Inquiries</h3>
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="font-semibold text-lg text-slate-300">Leads / Inquiries</h3>
+                    <span id="rel_leadsCount" class="text-xs text-gray-500"></span>
+                </div>
                 <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="rel_inquiriesTable"></tbody></table></div>
             </div>
                 <div class="bg-gray-800 rounded-xl p-6 mt-6">
@@ -7759,6 +9592,34 @@ ROLE_DASHBOARD_TEMPLATE = """
             return formatNGN(v);
         }
 
+        function countUp(elId, target, fmt) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const num = parseFloat(target) || 0;
+            if (!num) { el.textContent = fmt ? fmt(0) : '0'; return; }
+            const dur = 700, t0 = performance.now();
+            const step = ts => {
+                const p = Math.min((ts - t0) / dur, 1);
+                const v = num * (1 - Math.pow(1 - p, 3));
+                el.textContent = fmt ? fmt(v) : Math.round(v);
+                if (p < 1) requestAnimationFrame(step); else el.textContent = fmt ? fmt(num) : num;
+            };
+            requestAnimationFrame(step);
+        }
+
+        function _trendSlice(monthly, yearly, period) {
+            if (period === 'all') return { labels: yearly.map(y => y.year), revenue: yearly.map(y => y.revenue), capital: yearly.map(y => y.capital) };
+            const n = period === '3M' ? 3 : period === '6M' ? 6 : 12;
+            const s = monthly.slice(-n);
+            return { labels: s.map(m => m.month), revenue: s.map(m => m.revenue), capital: s.map(m => m.capital) };
+        }
+        function _setPeriodBtns(prefix, active) {
+            ['3M','6M','12M','all'].forEach(x => {
+                const btn = document.getElementById(prefix + x);
+                if (btn) btn.className = 'text-xs px-2.5 py-1 rounded-md font-medium transition-colors ' + (x === active ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white');
+            });
+        }
+
         async function loadCapitalPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
@@ -7794,11 +9655,15 @@ ROLE_DASHBOARD_TEMPLATE = """
             loadRoleDashboard(role);
         }
 
-        function loadRoleDashboard(role) {
-            if (role === 'INVESTOR') loadInvestorDashboard();
-            else if (role === 'MANAGER') { loadManagerDashboard(); loadRoleDocument('MANAGER'); }
-            else if (role === 'ACCOUNTANT') { loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
-            else if (role === 'REALTOR') { loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
+        async function loadRoleDashboard(role) {
+            try {
+                if (role === 'INVESTOR') await loadInvestorDashboard();
+                else if (role === 'MANAGER') { await loadManagerDashboard(); loadRoleDocument('MANAGER'); }
+                else if (role === 'ACCOUNTANT') { await loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
+                else if (role === 'REALTOR') { await loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
+            } finally {
+                dismissLoader();
+            }
         }
 
         let accountantPaymentsCache = [];
@@ -7816,7 +9681,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (countEl) countEl.textContent = filtered.length < accountantPaymentsCache.length ? `${filtered.length} of ${accountantPaymentsCache.length} shown` : `${filtered.length} total`;
             document.getElementById('acc_paymentsContainer').innerHTML = filtered.slice(0, 30).map(p =>
                 `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
-            ).join('') || '<p class="text-gray-400 py-6 text-center text-sm">No payments match this filter</p>';
+            ).join('') || `<div class="text-center py-8"><svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>${accountantPaymentsCache.length === 0 ? '<p class="text-gray-300 text-sm font-medium">No payments recorded yet</p><p class="text-gray-500 text-xs mt-1">Use the form on the left to log the first payment</p>' : '<p class="text-gray-400 text-sm">No payments match this filter</p>'}</div>`;
         }
 
         function resetAccountantPaymentForm() {
@@ -7853,7 +9718,27 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
         }
 
-        const expenseCache = { ceo: [], mgr: [], acc: [] };
+        window.expenseCache = window.expenseCache || { ceo: [], mgr: [], acc: [] };
+        window.expPage = window.expPage || { ceo: 1, mgr: 1, acc: 1 };
+        const _PAGE_SIZE = 20;
+
+        function renderExpensePage(prefix) {
+            const listEl = document.getElementById(prefix + 'ExpenseList');
+            if (!listEl) return;
+            const all = (window.expenseCache[prefix]) || [];
+            const total = all.length;
+            const totalPages = Math.max(1, Math.ceil(total / _PAGE_SIZE));
+            if (window.expPage[prefix] > totalPages) window.expPage[prefix] = totalPages;
+            const start = (window.expPage[prefix] - 1) * _PAGE_SIZE;
+            const page = all.slice(start, start + _PAGE_SIZE);
+            if (!total) { listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>'; return; }
+            const cards = page.map(exp => renderExpenseCard(prefix, exp)).join('');
+            const prev = window.expPage[prefix] > 1 ? `<button onclick="window.expPage['${prefix}']--;renderExpensePage('${prefix}')" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">&#8592; Prev</button>` : '';
+            const next = window.expPage[prefix] < totalPages ? `<button onclick="window.expPage['${prefix}']++;renderExpensePage('${prefix}')" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">Next &#8594;</button>` : '';
+            const pager = totalPages > 1 ? `<div class="flex items-center justify-between mt-4 text-xs text-gray-400"><span>Showing ${start+1}&ndash;${Math.min(start+_PAGE_SIZE,total)} of ${total}</span><div class="flex items-center gap-3">${prev}<span>Page ${window.expPage[prefix]} / ${totalPages}</span>${next}</div></div>` : `<p class="text-xs text-gray-500 mt-3 text-right">${total} expense${total!==1?'s':''} total</p>`;
+            listEl.innerHTML = cards + pager;
+        }
+
         let vendorOptionsCache = [];
 
         async function loadVendorOptions() {
@@ -7904,6 +9789,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (propertyId) params.set('property_id', propertyId);
             if (filters.status) params.set('approval_status', filters.status);
             if (filters.receiptsOnly) params.set('has_receipt', 'true');
+            if (filters.category) params.set('category', filters.category);
             const query = params.toString();
             return query ? ('?' + query) : '';
         }
@@ -7913,20 +9799,35 @@ ROLE_DASHBOARD_TEMPLATE = """
             return {
                 status: document.getElementById(prefix + 'ExpenseStatusFilter')?.value || '',
                 receiptsOnly: !!document.getElementById(prefix + 'ExpenseReceiptOnly')?.checked,
+                category: document.getElementById(prefix + 'ExpenseCategoryFilter')?.value || '',
                 propertyId: prefix === 'acc' ? (document.getElementById('accExpensePropertyFilter')?.value || '') : (document.getElementById(prefix + 'ConstructionProperty')?.value || ''),
             };
+        }
+
+        async function toggleExpensePaid(expId, current, prefix) {
+            try {
+                await fetchData('/admin/api/project-expenses/' + expId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_paid: !current }) });
+                const propertyId = document.getElementById(prefix + 'CapitalProperty')?.value || '';
+                if (prefix === 'acc') { await loadAccountantDashboard(); } else { await loadProjectExpenses(prefix, propertyId, true); }
+            } catch(e) { alert(e.message || 'Error updating payment status'); }
         }
 
         function renderExpenseCard(source, exp) {
             const prefix = source === 'mgr' ? 'mgr' : (source === 'acc' ? 'acc' : 'ceo');
             const statusMeta = getExpenseStatusMeta(exp.approval_status);
+            const paidBadge = exp.is_paid
+                ? `<span class="px-2 py-0.5 rounded-full text-[11px] bg-emerald-900/60 text-emerald-300 font-medium">Paid</span>`
+                : `<span class="px-2 py-0.5 rounded-full text-[11px] bg-orange-900/60 text-orange-300 font-medium">Unpaid</span>`;
+            const paidToggle = prefix !== 'acc'
+                ? `<button type="button" onclick="toggleExpensePaid(${exp.id}, ${exp.is_paid}, '${prefix}')" class="${exp.is_paid ? 'text-orange-400 hover:text-orange-300' : 'text-emerald-400 hover:text-emerald-300'} font-medium">${exp.is_paid ? 'Mark Unpaid' : 'Mark Paid'}</button>`
+                : '';
             const statusActions = canApproveExpenses()
                 ? `<div class="flex items-center gap-3">${exp.approval_status !== 'approved' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'approved', '${prefix}')" class="text-emerald-400 hover:text-emerald-300 font-medium">Approve</button>` : ''}${exp.approval_status !== 'rejected' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'rejected', '${prefix}')" class="text-rose-400 hover:text-rose-300 font-medium">Reject</button>` : ''}${exp.approval_status !== 'pending' ? `<button type="button" onclick="setExpenseApprovalStatus(${exp.id}, 'pending', '${prefix}')" class="text-amber-400 hover:text-amber-300 font-medium">Mark Pending</button>` : ''}</div>`
                 : '';
             const managementActions = prefix !== 'acc'
                 ? `<button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>`
                 : '';
-            return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span></div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${managementActions}${statusActions}</div></div></div>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}${managementActions}${statusActions}</div></div></div>`;
         }
 
         function updateExpenseForm(prefix) {
@@ -7954,7 +9855,7 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         function editProjectExpense(source, expenseId) {
             const prefix = source === 'mgr' ? 'mgr' : 'ceo';
-            const expense = (expenseCache[prefix] || []).find(item => item.id === expenseId);
+            const expense = ((window.expenseCache||{})[prefix] || []).find(item => item.id === expenseId);
             if (!expense) return;
             document.getElementById(prefix + 'ExpenseEditId').value = expense.id;
             document.getElementById(prefix + 'ExpenseDate').value = expense.expense_date || '';
@@ -7977,7 +9878,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 await fetchData('/admin/api/project-expenses/' + expenseId, { method: 'DELETE' });
                 cancelExpenseEdit(prefix);
                 const propertyId = document.getElementById(prefix + 'ConstructionProperty')?.value || '';
-                await loadProjectExpenses(prefix, propertyId);
+                await loadProjectExpenses(prefix, propertyId, true);
                 if (prefix === 'mgr') await loadManagerDashboard();
                 else await loadStats();
             } catch (err) {
@@ -8000,7 +9901,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     return;
                 }
                 const propertyId = document.getElementById((source === 'mgr' ? 'mgr' : 'ceo') + 'ConstructionProperty')?.value || '';
-                await loadProjectExpenses(source, propertyId);
+                await loadProjectExpenses(source, propertyId, true);
                 if (source === 'mgr') await loadManagerDashboard();
                 else await loadStats();
             } catch (err) {
@@ -8008,7 +9909,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
         }
 
-        async function loadProjectExpenses(source, propertyId) {
+        async function loadProjectExpenses(source, propertyId, preservePage) {
             const prefix = source === 'mgr' ? 'mgr' : 'ceo';
             const listEl = document.getElementById(prefix + 'ExpenseList');
             const totalEl = document.getElementById(prefix + 'ExpenseTotal');
@@ -8018,7 +9919,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const filters = getExpenseFilters(prefix);
             try {
                 const data = await fetchData('/admin/api/project-expenses' + buildExpenseQuery(selectedId, filters));
-                expenseCache[prefix] = data.expenses || [];
+                window.expenseCache[prefix] = data.expenses || [];
                 totalEl.textContent = formatNGN(data.total_amount || 0);
                 const categoryBits = Object.entries(data.by_category || {}).map(([k, v]) => `${k}: ${formatNGN(v)}`);
                 const budgetParts = [];
@@ -8043,9 +9944,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                     if (el('capBudgetRemaining')) el('capBudgetRemaining').textContent = data.budget_remaining != null ? fmtCompact(Math.abs(data.budget_remaining)) + (data.over_budget ? ' over' : ' left') : '—';
                     if (el('capBudgetTotal')) el('capBudgetTotal').textContent = data.budget_total != null ? fmtCompact(data.budget_total) : '—';
                 }
-                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold text-white text-sm">${exp.item_name}</p><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
                 breakdownEl.textContent = parts.length ? parts.join(' · ') : 'No expenses yet';
-                listEl.innerHTML = expenseCache[prefix].length ? expenseCache[prefix].slice(0, 20).map(exp => renderExpenseCard(prefix, exp)).join('') : '<p class="text-gray-500 text-sm text-center py-6">No expenses recorded for this project yet.</p>';
+                if (!preservePage) window.expPage[prefix] = 1;
+                renderExpensePage(prefix);
             } catch (err) {
                 listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading project expenses.</p>';
             }
@@ -8084,7 +9985,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 msgEl.className = 'text-sm text-emerald-400';
                 cancelExpenseEdit(prefix);
                 await loadVendorOptions();
-                await loadProjectExpenses(prefix, propertyId);
+                await loadProjectExpenses(prefix, propertyId, !!editId);
                 if (prefix === 'mgr') await loadManagerDashboard();
                 else await loadStats();
             } catch (err) {
@@ -8197,10 +10098,14 @@ ROLE_DASHBOARD_TEMPLATE = """
             el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${unit.property_title}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${unit.unit_code}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${unit.notes || '—'}</td></tr>`).join('');
         }
 
-        function populateManagerUnitSelect(units) {
+        function populateManagerUnitSelect(units, filterPropertyId) {
             const select = document.getElementById('mgrTenantUnit');
             if (!select) return;
-            select.innerHTML = '<option value="">Select unit</option>' + units.filter(unit => unit.status === 'available' || unit.status === 'reserved').map(unit => `<option value="${unit.unit_code}">${unit.unit_code} • ${unit.status}</option>`).join('');
+            const filtered = units.filter(unit => {
+                const matchProp = !filterPropertyId || String(unit.property_id) === String(filterPropertyId);
+                return matchProp && (unit.status === 'available' || unit.status === 'reserved');
+            });
+            select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${unit.unit_code}">${unit.unit_code} · ${unit.property_title} · ${unit.status}</option>`).join('');
         }
 
         let roleTenantMap = {};
@@ -8219,11 +10124,16 @@ ROLE_DASHBOARD_TEMPLATE = """
         function editRoleTenant(id) {
             const tenant = roleTenantMap[String(id)];
             if (!tenant) return;
+            // Find property_id by matching property_name
+            const allUnits = window._mgrAllUnits || [];
+            const matchedUnit = allUnits.find(u => u.unit_code === tenant.unit_number);
+            const propId = matchedUnit ? matchedUnit.property_id : '';
             document.getElementById('mgrTenantEditId').value = tenant.id;
             document.getElementById('mgrTenantName').value = tenant.name || '';
             document.getElementById('mgrTenantEmail').value = tenant.email || '';
             document.getElementById('mgrTenantPhone').value = tenant.phone || '';
-            document.getElementById('mgrTenantProperty').value = tenant.property_name || 'BrightWave Phase 1 Apartment';
+            const propSel = document.getElementById('mgrTenantProperty');
+            if (propSel) { propSel.value = String(propId); populateManagerUnitSelect(allUnits, propId); }
             const unitSelect = document.getElementById('mgrTenantUnit');
             if (tenant.unit_number && unitSelect && !Array.from(unitSelect.options).some(opt => opt.value === tenant.unit_number)) {
                 const option = document.createElement('option');
@@ -8302,8 +10212,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const latestProgress = updates.length ? updates[updates.length - 1].progress_percentage : 0;
 
                 // --- Hero card ---
-                const firstName = (USER_NAME || '').split(' ')[0] || 'Investor';
-                document.getElementById('invWelcomeName').textContent = firstName;
+                const displayName = USER_NAME || 'Investor';
+                document.getElementById('invWelcomeName').textContent = displayName;
                 document.getElementById('invHeroSubtitle').textContent =
                     (profile.project_property_title || 'BrightWave Phase 1') +
                     (profile.investment_date ? ' · Since ' + profile.investment_date : '');
@@ -8321,12 +10231,40 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('invHeroProgress').textContent = latestProgress + '%';
 
                 if (type === 'DEBT') {
-                    document.getElementById('invHeroReturn').textContent = formatNGN(profile.projected_total_payout || 0);
+                    const netRoiTotal = annualRoiAmount * termYears;
+                    document.getElementById('invHeroReturn').textContent = formatNGN(netRoiTotal);
                     document.getElementById('invHeroReturnNote').textContent =
-                        formatNGN(annualPrincipal) + ' principal + ' + formatNGN(annualRoiAmount) + ' ROI each year';
+                        formatNGN(annualRoiAmount) + '/yr × ' + termYears + ' yrs · Total payout ' + formatNGN(profile.projected_total_payout || 0) + ' (incl. capital)';
                 } else {
                     document.getElementById('invHeroReturn').textContent = equity + '% ownership';
                     document.getElementById('invHeroReturnNote').textContent = 'Proportional to project revenue';
+                }
+
+                // --- Next payout banner ---
+                const now = new Date();
+                const nextPayoutBanner = document.getElementById('invNextPayoutBanner');
+                if (nextPayoutBanner && type === 'DEBT' && payoutSchedule.length) {
+                    let paid = distributed;
+                    const nextUnpaid = payoutSchedule.find(item => {
+                        if (paid >= item.total_payout) { paid -= item.total_payout; return false; }
+                        return true;
+                    });
+                    if (nextUnpaid) {
+                        nextPayoutBanner.classList.remove('hidden');
+                        document.getElementById('invNextPayoutLabel').textContent = 'Year ' + nextUnpaid.year + ' distribution';
+                        document.getElementById('invNextPayoutAmount').textContent = formatNGN(nextUnpaid.total_payout);
+                        const payDateObj = nextUnpaid.due_date ? new Date(nextUnpaid.due_date) : null;
+                        document.getElementById('invNextPayoutDate').textContent = payDateObj
+                            ? (now > payDateObj ? 'Overdue: ' : 'Due: ') + payDateObj.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})
+                            : 'Due date TBC';
+                        if (payDateObj && now > payDateObj) {
+                            nextPayoutBanner.className = nextPayoutBanner.className.replace(/emerald/g, 'red').replace(/bg-red-900\/30/,'bg-red-900/30').replace(/border-red-700\/30/,'border-red-700/30');
+                        }
+                    } else {
+                        nextPayoutBanner.classList.add('hidden');
+                    }
+                } else if (nextPayoutBanner) {
+                    nextPayoutBanner.classList.add('hidden');
                 }
 
                 // --- Construction progress ---
@@ -8337,7 +10275,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                 roiTagEl.textContent = type === 'DEBT' ? roi + '% p.a.' : 'Equity · ' + equity + '%';
 
                 const scheduleEl = document.getElementById('invReturnSchedule');
-                const now = new Date();
                 if (type === 'DEBT' && payoutSchedule.length) {
                     // Track payment status per year using cumulative total_distributed
                     let remaining = distributed;
@@ -8465,42 +10402,114 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         }
 
+        window._mgrTrendPeriod = window._mgrTrendPeriod || '6M';
+        function mgrSetPeriod(p) {
+            window._mgrTrendPeriod = p;
+            _setPeriodBtns('mgrPeriod_', p);
+            const full = window._mgrTrendDataFull || { monthly: [], yearly: [] };
+            const d = _trendSlice(full.monthly, full.yearly, p);
+            if (window._mgrRevChart) { window._mgrRevChart.data.labels = d.labels; window._mgrRevChart.data.datasets[0].data = d.revenue; window._mgrRevChart.data.datasets[1].data = d.capital; window._mgrRevChart.update(); }
+        }
+
         async function loadManagerDashboard() {
             try {
-                const [stats, inquiries, props, units, tenants] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/properties'), fetchData('/admin/api/units'), fetchData('/admin/api/tenants')]);
-                document.getElementById('mgr_properties').textContent = stats.active_properties || 0;
-                document.getElementById('mgr_available_units').textContent = stats.available_units || 0;
-                const openCount = stats.new_inquiries || stats.total_inquiries || 0;
-                document.getElementById('mgr_inquiries').textContent = openCount;
-                document.getElementById('mgr_active_tenants').textContent = stats.active_tenants || 0;
+                const [stats, inquiries, props, units, tenants] = await Promise.all([
+                    fetchData('/admin/api/stats').catch(() => ({})),
+                    fetchData('/admin/api/inquiries').catch(() => []),
+                    fetchData('/admin/api/properties').catch(() => []),
+                    fetchData('/admin/api/units').catch(() => []),
+                    fetchData('/admin/api/tenants').catch(() => [])
+                ]);
+                countUp('mgr_properties', stats.active_properties || 0, v => Math.round(v));
+                countUp('mgr_available_units', stats.available_units || 0, v => Math.round(v));
+                const openCount = stats.new_inquiries || 0;
+                countUp('mgr_inquiries', openCount, v => Math.round(v));
+                countUp('mgr_active_tenants', stats.active_tenants || 0, v => Math.round(v));
+                // Financial snapshot
+                const mgrRevEl = document.getElementById('mgr_revenue');
+                const mgrCapEl = document.getElementById('mgr_capital');
+                const mgrNetEl = document.getElementById('mgr_net');
+                const mgrNetLbl = document.getElementById('mgr_net_lbl');
+                const mgrOccEl = document.getElementById('mgr_occupancy');
+                if (mgrRevEl) countUp('mgr_revenue', stats.total_revenue || 0, fmtCompact);
+                if (mgrCapEl) countUp('mgr_capital', stats.approved_capital_spent || 0, fmtCompact);
+                if (mgrNetEl && mgrNetLbl) {
+                    const mgrNet = (stats.total_revenue || 0) - (stats.approved_capital_spent || 0);
+                    const mgrNeg = mgrNet < 0;
+                    const mgrNetAbs = Math.abs(mgrNet);
+                    mgrNetEl.className = 'text-lg sm:text-xl font-bold truncate ' + (mgrNeg ? 'text-red-400' : 'text-emerald-400');
+                    mgrNetLbl.textContent = mgrNeg ? 'Net Deficit' : 'Net Surplus';
+                    mgrNetLbl.className = 'text-[11px] sm:text-xs uppercase tracking-wide mb-1 truncate ' + (mgrNeg ? 'text-red-400' : 'text-emerald-400');
+                    countUp('mgr_net', mgrNetAbs, v => fmtCompact(v) + (mgrNeg ? ' deficit' : ' surplus'));
+                }
+                if (mgrOccEl) {
+                    const totalU = (stats.total_units || 0);
+                    const occU = (stats.occupied_units || 0);
+                    const pct = totalU > 0 ? Math.round((occU / totalU) * 100) : 0;
+                    if (totalU > 0) countUp('mgr_occupancy', pct, v => Math.round(v) + '%'); else mgrOccEl.textContent = '—';
+                }
                 // Inquiries badge on tab
                 const badge = document.getElementById('mgrInquiriesBadge');
                 if (badge) { badge.textContent = openCount; badge.classList.toggle('hidden', openCount === 0); }
-                // Inquiries table with status dropdown
-                const inqStatuses = ['new','contacted','qualified','converted','closed'];
-                document.getElementById('mgr_inquiriesTable').innerHTML = inquiries.map(i => `
-                    <tr class="border-b border-gray-700">
-                        <td class="py-2 pr-3 font-medium">${i.full_name}</td>
-                        <td class="py-2 pr-3 text-gray-400 text-xs">${i.property_title}</td>
-                        <td class="py-2 pr-3 text-xs">${i.inquiry_type}</td>
-                        <td class="py-2 pr-3">
-                            <select onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 w-full">
-                                ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                // Inquiries pipeline summary
+                const mgrPipeline = document.getElementById('mgr_inqPipeline');
+                if (mgrPipeline) {
+                    const mgrStageCfg = [
+                        {key:'new',label:'New',cls:'bg-blue-900/60 text-blue-300 border-blue-700/40'},
+                        {key:'contacted',label:'Contacted',cls:'bg-teal-900/60 text-teal-300 border-teal-700/40'},
+                        {key:'viewing_scheduled',label:'Viewing',cls:'bg-purple-900/60 text-purple-300 border-purple-700/40'},
+                        {key:'offer_made',label:'Offer',cls:'bg-amber-900/60 text-amber-300 border-amber-700/40'},
+                        {key:'closed',label:'Closed',cls:'bg-emerald-900/60 text-emerald-300 border-emerald-700/40'},
+                        {key:'rejected',label:'Rejected',cls:'bg-red-900/60 text-red-300 border-red-700/40'},
+                    ];
+                    const mgrCounts = {};
+                    (inquiries || []).forEach(i => { mgrCounts[i.status] = (mgrCounts[i.status] || 0) + 1; });
+                    mgrPipeline.innerHTML = mgrStageCfg.map(s => {
+                        const n = mgrCounts[s.key] || 0;
+                        return `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${s.cls} text-xs font-medium"><span>${s.label}</span><span class="font-bold">${n}</span></div>`;
+                    }).join('');
+                }
+                // Inquiries table with expandable rows and WhatsApp
+                const inqStatuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
+                const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
+                document.getElementById('mgr_inquiriesTable').innerHTML = safeInquiries.map(i => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="mgrToggleInqDetail(${i.id})">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="py-2 text-xs text-gray-500 whitespace-nowrap">${new Date(i.created_at).toLocaleDateString()}</td>
-                    </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No inquiries yet</td></tr>';
+                        <td class="py-2.5 text-xs text-gray-500 whitespace-nowrap">${new Date(i.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="mgrInqDetail_${i.id}" class="hidden bg-gray-800/60">
+                        <td colspan="5" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                            </div>
+                            ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center text-sm">No inquiries yet</td></tr>';
                 document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 // Units table with status action column
-                const phase1Units = units.filter(unit => unit.property_title === 'BrightWave Phase 1 Apartment');
+                const phase1Units = Array.isArray(units) ? units : [];
+                const mgrUnitsCountEl = document.getElementById('mgrUnitsCount');
+                if (mgrUnitsCountEl) mgrUnitsCountEl.textContent = phase1Units.length ? `(${phase1Units.length})` : '';
                 const statusClasses = { available: 'bg-emerald-900/50 text-emerald-300', occupied: 'bg-blue-900/50 text-blue-300', reserved: 'bg-amber-900/50 text-amber-300', maintenance: 'bg-red-900/50 text-red-300' };
                 const unitTableEl = document.getElementById('mgr_unitsTable');
-                if (unitTableEl) unitTableEl.innerHTML = (phase1Units.map(u => `
+                if (unitTableEl) unitTableEl.innerHTML = phase1Units.length ? phase1Units.map(u => `
                     <tr class="border-b border-gray-700" id="unitRow_${u.id}">
+                        <td class="py-2 pr-2 text-xs text-gray-400 max-w-[120px] truncate">${u.property_title || '—'}</td>
                         <td class="py-2 pr-3 font-medium text-white">${u.unit_code}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[u.status] || 'bg-gray-700 text-gray-300'}">${u.status}</span></td>
                         <td class="py-2 pr-3 text-xs text-gray-300">${u.monthly_rent ? formatNGN(u.monthly_rent) : '—'}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[140px] truncate">${u.notes || '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[120px] truncate">${u.notes || '—'}</td>
                         <td class="py-2">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
@@ -8511,7 +10520,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         </td>
                     </tr>
                     <tr id="unitEditRow_${u.id}" class="hidden bg-gray-700/30">
-                        <td colspan="5" class="py-3 px-2">
+                        <td colspan="6" class="py-3 px-2">
                             <div class="flex items-end gap-3 flex-wrap">
                                 <div><label class="block text-[11px] text-gray-400 mb-1">Yearly Rent (₦)</label><input type="number" id="unitRent_${u.id}" value="${u.monthly_rent || ''}" placeholder="0" class="w-32 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white"></div>
                                 <div class="flex-1 min-w-[140px]"><label class="block text-[11px] text-gray-400 mb-1">Notes</label><input type="text" id="unitNotes_${u.id}" value="${(u.notes || '').replace(/"/g,'&quot;')}" placeholder="Optional notes" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white"></div>
@@ -8521,30 +10530,246 @@ ROLE_DASHBOARD_TEMPLATE = """
                                 </div>
                             </div>
                         </td>
-                    </tr>`).join('')) || '<tr><td colspan="5" class="text-gray-500 py-3 text-center text-xs">No units found</td></tr>';
+                    </tr>`).join('') : '<tr><td colspan="6" class="text-gray-500 py-6 text-center text-sm">No units found — add properties and units first</td></tr>';
+                window._mgrAllUnits = units;
                 populateManagerUnitSelect(phase1Units);
-                renderTenantCards('mgr_tenantsList', tenants.filter(t => t.status === 'active'));
+                // Manager charts
+                if (typeof Chart !== 'undefined') {
+                    window._mgrTrendDataFull = { monthly: stats.monthly_trend || [], yearly: stats.yearly_trend || [] };
+                    if (!window._mgrTrendPeriod) window._mgrTrendPeriod = '6M';
+                    const _mgrD = _trendSlice(window._mgrTrendDataFull.monthly, window._mgrTrendDataFull.yearly, window._mgrTrendPeriod);
+                    _setPeriodBtns('mgrPeriod_', window._mgrTrendPeriod);
+                    const mgrRcCtx = document.getElementById('mgrRevenueChart');
+                    if (mgrRcCtx) {
+                        if (window._mgrRevChart) window._mgrRevChart.destroy();
+                        window._mgrRevChart = new Chart(mgrRcCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: _mgrD.labels,
+                                datasets: [
+                                    { label: 'Revenue', data: _mgrD.revenue, backgroundColor: 'rgba(45,212,191,0.7)', borderColor: '#2dd4bf', borderWidth: 1, borderRadius: 4 },
+                                    { label: 'Capital Spent', data: _mgrD.capital, backgroundColor: 'rgba(251,146,60,0.6)', borderColor: '#fb923c', borderWidth: 1, borderRadius: 4 }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                                scales: {
+                                    x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                                    y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? Math.round(v/1e3)+'K' : v }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                                }
+                            }
+                        });
+                    }
+                    const mgrTs = stats.tenant_status || {};
+                    const mgrTdCtx = document.getElementById('mgrTenantDonut');
+                    if (mgrTdCtx) {
+                        if (window._mgrTenantChart) window._mgrTenantChart.destroy();
+                        const mgrTdTotal = (mgrTs.active||0) + (mgrTs.reserved||0) + (mgrTs.vacated||0);
+                        window._mgrTenantChart = new Chart(mgrTdCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Active', 'Reserved', 'Vacated'],
+                                datasets: [{ data: [mgrTs.active||0, mgrTs.reserved||0, mgrTs.vacated||0], backgroundColor: ['rgba(45,212,191,0.8)','rgba(250,204,21,0.8)','rgba(100,116,139,0.7)'], borderWidth: 0, hoverOffset: 4 }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                                plugins: {
+                                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 10, boxWidth: 10 } },
+                                    tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + (mgrTdTotal ? ' (' + Math.round(ctx.raw/mgrTdTotal*100) + '%)' : '') } }
+                                }
+                            }
+                        });
+                    }
+                }
+                // Populate property dropdown in tenant form
+                const mgrPropSel = document.getElementById('mgrTenantProperty');
+                if (mgrPropSel) {
+                    const curPropVal = mgrPropSel.value;
+                    mgrPropSel.innerHTML = '<option value="">Select property</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                    if (curPropVal) mgrPropSel.value = curPropVal;
+                }
+                // Populate inquiry form property dropdown
+                const mgrInqPropSel = document.getElementById('mgrInqProperty');
+                if (mgrInqPropSel) mgrInqPropSel.innerHTML = '<option value="">General</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const activeMgrTenants = tenants.filter(t => t.status === 'active');
+                renderTenantCards('mgr_tenantsList', activeMgrTenants);
+                const mgrRentTotal = activeMgrTenants.reduce((s, t) => s + (parseFloat(t.monthly_rent) || 0), 0);
+                const mgrRentEl = document.getElementById('mgr_tenantRentTotal');
+                if (mgrRentEl) mgrRentEl.textContent = activeMgrTenants.length > 0 ? formatNGN(mgrRentTotal) + '/yr expected' : '';
             } catch (e) { console.error('Manager dashboard error', e); }
+        }
+
+        async function accFilterExpenses() {
+            try {
+                const filters = getExpenseFilters('acc');
+                const expensesData = await fetchData('/admin/api/project-expenses' + buildExpenseQuery(filters.propertyId, filters));
+                window.expenseCache.acc = expensesData.expenses || [];
+                window.expPage.acc = 1;
+                renderExpensePage('acc');
+                const approvalTotals = expensesData.approval_totals || {};
+                const catEntries = Object.entries(expensesData.by_category || {}).sort((a,b) => b[1]-a[1]).slice(0,4);
+                document.getElementById('accExpenseBreakdown').innerHTML = [`Approved: ${formatNGN(approvalTotals.approved || 0)}`, `Pending: ${formatNGN(approvalTotals.pending || 0)}`, `Rejected: ${formatNGN(approvalTotals.rejected || 0)}`].join('<br>') + (catEntries.length ? '<br>' + catEntries.map(([c,a]) => `${c}: ${formatNGN(a)}`).join('<br>') : '');
+                // Recalculate cash flow — capital comes from filtered data when project selected
+                const lastStats = window._accLastStats || {};
+                const cfRevenue = lastStats.total_revenue || 0;
+                const cfExpenses = filters.propertyId ? (approvalTotals.approved || 0) : (lastStats.approved_capital_spent || 0);
+                const cfNet = cfRevenue - cfExpenses;
+                const cfNeg = cfNet < 0;
+                document.getElementById('cf_revenue').textContent = fmtCompact(cfRevenue);
+                document.getElementById('cf_expenses').textContent = fmtCompact(cfExpenses);
+                document.getElementById('cf_net').textContent = fmtCompact(Math.abs(cfNet));
+                document.getElementById('cf_net').className = 'text-sm font-bold truncate ' + (cfNeg ? 'text-red-400' : 'text-emerald-400');
+                document.getElementById('cf_net_label').textContent = cfNeg ? 'Net Deficit' : 'Net Surplus';
+                document.getElementById('cf_net_label').className = 'text-[10px] uppercase tracking-wide mb-0.5 truncate ' + (cfNeg ? 'text-red-400' : 'text-emerald-400');
+                document.getElementById('cf_net_card').className = (cfNeg ? 'bg-red-900/40 border border-red-700/30' : 'bg-emerald-900/40 border border-emerald-700/30') + ' rounded-xl p-3 overflow-hidden flex items-start gap-2.5';
+                const subEl = document.getElementById('cf_subtitle');
+                if (subEl) {
+                    const propSel = document.getElementById('accExpensePropertyFilter');
+                    const propName = propSel && propSel.value ? propSel.options[propSel.selectedIndex]?.text : null;
+                    subEl.textContent = propName ? propName + ' · approved expenses' : 'All time · approved expenses';
+                }
+                // Update category donut live
+                if (typeof Chart !== 'undefined' && window._accCatChart) {
+                    const allCat = Object.entries(expensesData.by_category || {}).sort((a,b) => b[1]-a[1]).slice(0,6);
+                    if (allCat.length) {
+                        window._accCatChart.data.labels = allCat.map(([k]) => k.charAt(0).toUpperCase() + k.slice(1));
+                        window._accCatChart.data.datasets[0].data = allCat.map(([,v]) => v);
+                        window._accCatChart.update();
+                    }
+                }
+            } catch(e) { console.error('accFilterExpenses error', e); }
+        }
+
+        window._accTrendPeriod = window._accTrendPeriod || '6M';
+        function accSetPeriod(p) {
+            window._accTrendPeriod = p;
+            _setPeriodBtns('accPeriod_', p);
+            const full = window._accTrendDataFull || { monthly: [], yearly: [] };
+            const d = _trendSlice(full.monthly, full.yearly, p);
+            if (window._accRevChart) { window._accRevChart.data.labels = d.labels; window._accRevChart.data.datasets[0].data = d.revenue; window._accRevChart.data.datasets[1].data = d.capital; window._accRevChart.update(); }
         }
 
         async function loadAccountantDashboard() {
             try {
                 const expenseFilters = getExpenseFilters('acc');
                 const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
-                document.getElementById('acc_total_revenue').textContent = fmtCompact(stats.total_revenue || 0);
-                document.getElementById('acc_monthly_revenue').textContent = fmtCompact(stats.monthly_revenue || 0);
-                document.getElementById('acc_tenants').textContent = stats.active_tenants || 0;
-                document.getElementById('acc_capital_spent').textContent = fmtCompact(stats.approved_capital_spent || 0);
-                document.getElementById('acc_monthly_capital').textContent = fmtCompact(stats.monthly_capital_spent || 0);
+                countUp('acc_total_revenue', stats.total_revenue || 0, fmtCompact);
+                countUp('acc_monthly_revenue', stats.monthly_revenue || 0, fmtCompact);
+                countUp('acc_tenants', stats.active_tenants || 0, v => Math.round(v));
+                countUp('acc_capital_spent', stats.approved_capital_spent || 0, fmtCompact);
+                countUp('acc_monthly_capital', stats.monthly_capital_spent || 0, fmtCompact);
                 const budgetVal = stats.capital_budget_remaining || 0;
                 const isOverBudget = budgetVal < 0;
-                document.getElementById('acc_budget_remaining').textContent = fmtCompact(Math.abs(budgetVal)) + (isOverBudget ? ' over' : ' left');
-                document.getElementById('acc_budget_remaining').className = `text-lg sm:text-xl font-bold truncate ${isOverBudget ? 'text-red-400' : 'text-white'}`;
+                const budgetAbs = Math.abs(budgetVal);
+                document.getElementById('acc_budget_remaining').className = `text-xl sm:text-2xl font-bold truncate${isOverBudget ? ' text-red-400' : ''}`;
                 document.getElementById('acc_budget_label').textContent = isOverBudget ? 'Over Budget' : 'Budget Remaining';
-                document.getElementById('acc_budget_card').className = `${isOverBudget ? 'bg-red-900/80 border border-red-700/40' : 'bg-cyan-900'} rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1`;
+                document.getElementById('acc_budget_card').className = `${isOverBudget ? 'bg-red-900/30 border border-red-700/40' : 'bg-slate-800/80 border border-slate-700/40'} rounded-xl p-3 sm:p-4 overflow-hidden col-span-2 md:col-span-1 flex items-start gap-3`;
+                countUp('acc_budget_remaining', budgetAbs, v => fmtCompact(v) + (isOverBudget ? ' over' : ' left'));
+                // Trend arrows on monthly cards
+                const accTrend = stats.monthly_trend || [];
+                if (accTrend.length > 1) {
+                    const curR = accTrend[accTrend.length - 1].revenue, prevR = accTrend[accTrend.length - 2].revenue;
+                    const revTrendEl = document.getElementById('acc_rev_trend');
+                    if (revTrendEl && prevR > 0) {
+                        const rPct = ((curR - prevR) / prevR * 100).toFixed(1);
+                        const rUp = curR >= prevR;
+                        revTrendEl.textContent = (rUp ? '\u2191' : '\u2193') + ' ' + Math.abs(rPct) + '% vs last month';
+                        revTrendEl.className = 'text-[10px] mt-0.5 truncate ' + (rUp ? 'text-emerald-400' : 'text-red-400');
+                    }
+                    const curC = accTrend[accTrend.length - 1].capital, prevC = accTrend[accTrend.length - 2].capital;
+                    const capTrendEl = document.getElementById('acc_cap_trend');
+                    if (capTrendEl && prevC > 0) {
+                        const cPct = ((curC - prevC) / prevC * 100).toFixed(1);
+                        const cDown = curC <= prevC;
+                        capTrendEl.textContent = (curC >= prevC ? '\u2191' : '\u2193') + ' ' + Math.abs(cPct) + '% vs last month';
+                        capTrendEl.className = 'text-[10px] mt-0.5 truncate ' + (cDown ? 'text-emerald-400' : 'text-amber-400');
+                    }
+                }
                 accountantPaymentsCache = payments;
                 renderAccountantPayments();
-                document.getElementById('accUnitsSummary').innerHTML = `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Available Units</p><p class="text-xl font-bold text-emerald-400 mt-1">${stats.available_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Occupied Units</p><p class="text-xl font-bold text-blue-400 mt-1">${stats.occupied_units || 0}</p></div><div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden"><p class="text-xs text-gray-500 uppercase tracking-wide truncate">Active Tenants</p><p class="text-xl font-bold text-white mt-1">${tenants.length}</p></div>`;
+                // Cash flow summary
+                const cfRevenue = stats.total_revenue || 0;
+                const cfExpenses = stats.approved_capital_spent || 0;
+                const cfNet = cfRevenue - cfExpenses;
+                const cfNeg = cfNet < 0;
+                document.getElementById('cf_revenue').textContent = fmtCompact(cfRevenue);
+                document.getElementById('cf_expenses').textContent = fmtCompact(cfExpenses);
+                window._accLastStats = stats;
+                document.getElementById('cf_net').textContent = fmtCompact(Math.abs(cfNet));
+                document.getElementById('cf_net').className = 'text-sm font-bold truncate ' + (cfNeg ? 'text-red-400' : 'text-emerald-400');
+                document.getElementById('cf_net_label').textContent = cfNeg ? 'Net Deficit' : 'Net Surplus';
+                document.getElementById('cf_net_label').className = 'text-[10px] uppercase tracking-wide mb-0.5 truncate ' + (cfNeg ? 'text-red-400' : 'text-emerald-400');
+                document.getElementById('cf_net_card').className = (cfNeg ? 'bg-red-900/40 border border-red-700/30' : 'bg-emerald-900/40 border border-emerald-700/30') + ' rounded-xl p-3 overflow-hidden flex items-start gap-2.5';
+                // Revenue vs spend chart (Chart.js)
+                if (typeof Chart !== 'undefined') {
+                    window._accTrendDataFull = { monthly: stats.monthly_trend || [], yearly: stats.yearly_trend || [] };
+                    if (!window._accTrendPeriod) window._accTrendPeriod = '6M';
+                    const _accD = _trendSlice(window._accTrendDataFull.monthly, window._accTrendDataFull.yearly, window._accTrendPeriod);
+                    _setPeriodBtns('accPeriod_', window._accTrendPeriod);
+                    const accRcCtx = document.getElementById('accRevenueChart');
+                    if (accRcCtx) {
+                        if (window._accRevChart) window._accRevChart.destroy();
+                        window._accRevChart = new Chart(accRcCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: _accD.labels,
+                                datasets: [
+                                    { label: 'Revenue', data: _accD.revenue, backgroundColor: 'rgba(45,212,191,0.7)', borderColor: '#2dd4bf', borderWidth: 1, borderRadius: 4 },
+                                    { label: 'Capital Spent', data: _accD.capital, backgroundColor: 'rgba(251,146,60,0.6)', borderColor: '#fb923c', borderWidth: 1, borderRadius: 4 }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                                scales: {
+                                    x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                                    y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? Math.round(v/1e3)+'K' : v }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                                }
+                            }
+                        });
+                    }
+                    // Expense category donut
+                    const accCatCtx = document.getElementById('accCategoryDonut');
+                    if (accCatCtx) {
+                        if (window._accCatChart) window._accCatChart.destroy();
+                        const catEntries = Object.entries(expensesData.by_category || {}).sort((a,b) => b[1]-a[1]).slice(0,6);
+                        if (catEntries.length) {
+                            const catColors = ['rgba(251,146,60,0.85)','rgba(45,212,191,0.85)','rgba(99,102,241,0.85)','rgba(250,204,21,0.85)','rgba(248,113,113,0.85)','rgba(156,163,175,0.75)'];
+                            window._accCatChart = new Chart(accCatCtx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: catEntries.map(([k]) => k.charAt(0).toUpperCase() + k.slice(1)),
+                                    datasets: [{ data: catEntries.map(([,v]) => v), backgroundColor: catColors, borderWidth: 0, hoverOffset: 4 }]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false, cutout: '60%',
+                                    plugins: {
+                                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, padding: 8, boxWidth: 10 } },
+                                        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtCompact(ctx.raw) } }
+                                    }
+                                }
+                            });
+                        } else {
+                            accCatCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 text-xs pt-8">No expense data yet</p>';
+                        }
+                    }
+                }
+                const accTotalU = stats.total_units || 0, accOccU = stats.occupied_units || 0;
+                const accOccPct = accTotalU > 0 ? Math.round(accOccU / accTotalU * 100) : 0;
+                document.getElementById('accUnitsSummary').innerHTML = `
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-emerald-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-door-open text-emerald-400 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[10px] text-gray-500 uppercase tracking-wide truncate">Available</p><p class="text-xl font-bold text-emerald-400">${stats.available_units || 0}</p></div>
+                    </div>
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-blue-900/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-key text-blue-400 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[10px] text-gray-500 uppercase tracking-wide truncate">Occupied</p><p class="text-xl font-bold text-blue-400">${accOccU}</p></div>
+                    </div>
+                    <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
+                        <div class="w-7 h-7 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-chart-pie text-gray-300 text-xs"></i></div>
+                        <div class="min-w-0"><p class="text-[10px] text-gray-500 uppercase tracking-wide truncate">Occupancy</p><p class="text-xl font-bold text-white">${accOccPct}%</p><p class="text-[10px] text-gray-500 mt-0.5">${accOccU}/${accTotalU} units</p></div>
+                    </div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
                 const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
                 if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
@@ -8557,10 +10782,32 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const approvalTotals = expensesData.approval_totals || {};
                 const approvalSummary = [`Approved: ${formatNGN(approvalTotals.approved || 0)}`, `Pending: ${formatNGN(approvalTotals.pending || 0)}`, `Rejected: ${formatNGN(approvalTotals.rejected || 0)}`].join('<br>');
                 document.getElementById('accExpenseBreakdown').innerHTML = `${approvalSummary}${expenseCategorySummary ? '<br>' + expenseCategorySummary : ''}`;
-                expenseCache.acc = expensesData.expenses || [];
-                document.getElementById('accExpenseList').innerHTML = expenseCache.acc.length
-                    ? expenseCache.acc.slice(0, 12).map(exp => renderExpenseCard('acc', exp)).join('')
-                    : '<p class="text-gray-400 py-6 text-center text-sm">No project expenses recorded yet</p>';
+                window.expenseCache.acc = expensesData.expenses || [];
+                window.expPage.acc = 1;
+                renderExpensePage('acc');
+                // Rent Roll
+                const rrBody = document.getElementById('accRentRollBody');
+                const rrTotals = document.getElementById('accRentRollTotals');
+                const activeTenants = tenants.filter(t => t.status === 'active');
+                if (rrBody) {
+                    if (!activeTenants.length) {
+                        rrBody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-6 text-sm">No active tenants yet</td></tr>';
+                    } else {
+                        const totalExpectedAnnual = activeTenants.reduce((s, t) => s + (parseFloat(t.monthly_rent) || 0), 0);
+                        rrBody.innerHTML = activeTenants.map(t => {
+                            const leaseEndDate = t.lease_end ? new Date(t.lease_end) : null;
+                            const isExpiringSoon = leaseEndDate && (leaseEndDate - new Date()) < 60 * 24 * 60 * 60 * 1000;
+                            return `<tr class="border-b border-gray-700/60">
+                                <td class="py-2.5 pr-3 font-medium text-white text-sm">${t.name}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_number || '—'}</td>
+                                <td class="py-2.5 pr-3 text-sm text-emerald-300 font-medium">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.lease_start || '—'}</td>
+                                <td class="py-2.5 text-xs ${isExpiringSoon ? 'text-amber-400 font-medium' : 'text-gray-400'}">${t.lease_end || '—'}${isExpiringSoon ? ' ⚠' : ''}</td>
+                            </tr>`;
+                        }).join('');
+                        if (rrTotals) rrTotals.innerHTML = `${activeTenants.length} active tenant${activeTenants.length !== 1 ? 's' : ''} · <span class="text-emerald-400 font-semibold">${formatNGN(totalExpectedAnnual)}/yr</span> expected`;
+                    }
+                }
             } catch (e) {
                 document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
                 const expenseList = document.getElementById('accExpenseList');
@@ -8570,22 +10817,102 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function relFmtWA(phone) {
+            if (!phone) return '';
+            const d = phone.replace(/\D/g, '');
+            if (d.startsWith('234')) return d;
+            if (d.startsWith('0')) return '234' + d.slice(1);
+            return d;
+        }
+
         async function loadRealtorDashboard() {
             try {
                 const [stats, props, inquiries, units] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/properties'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/units')]);
-                document.getElementById('rel_properties').textContent = stats.active_properties || 0;
-                document.getElementById('rel_available_units').textContent = stats.available_units || 0;
-                document.getElementById('rel_inquiries').textContent = stats.new_inquiries || 0;
-                document.getElementById('rel_new').textContent = stats.total_inquiries || 0;
+                countUp('rel_properties', stats.active_properties || 0, v => Math.round(v));
+                countUp('rel_available_units', stats.available_units || 0, v => Math.round(v));
+                countUp('rel_inquiries', stats.new_inquiries || 0, v => Math.round(v));
+                countUp('rel_new', stats.total_inquiries || 0, v => Math.round(v));
+                // Pipeline — horizontal bars + donut + conversion rate
+                const stageCfg = [
+                    {key:'new', label:'New', bar:'bg-blue-500', txt:'text-blue-300', col:'rgba(59,130,246,0.85)'},
+                    {key:'contacted', label:'Contacted', bar:'bg-teal-500', txt:'text-teal-300', col:'rgba(45,212,191,0.85)'},
+                    {key:'viewing_scheduled', label:'Viewing', bar:'bg-purple-500', txt:'text-purple-300', col:'rgba(168,85,247,0.85)'},
+                    {key:'offer_made', label:'Offer', bar:'bg-amber-500', txt:'text-amber-300', col:'rgba(251,146,60,0.85)'},
+                    {key:'closed', label:'Closed', bar:'bg-emerald-500', txt:'text-emerald-300', col:'rgba(52,211,153,0.85)'},
+                    {key:'rejected', label:'Rejected', bar:'bg-red-500', txt:'text-red-400', col:'rgba(248,113,113,0.85)'},
+                ];
+                const counts = {};
+                (inquiries || []).forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
+                const relTotal = Object.values(counts).reduce((s, n) => s + n, 0);
+                const convEl = document.getElementById('rel_conversionRate');
+                if (convEl) convEl.textContent = relTotal > 0 ? Math.round((counts['closed']||0) / relTotal * 100) + '% conversion' : '';
+                const barsEl = document.getElementById('rel_pipelineBars');
+                if (barsEl) {
+                    barsEl.innerHTML = relTotal ? stageCfg.map(s => {
+                        const n = counts[s.key] || 0;
+                        const pct = relTotal > 0 ? Math.round(n / relTotal * 100) : 0;
+                        return `<div><div class="flex justify-between text-xs mb-1"><span class="${s.txt} font-medium">${s.label}</span><span class="text-gray-400">${n}</span></div><div class="h-1.5 bg-gray-700 rounded-full overflow-hidden"><div class="${s.bar} h-full rounded-full" style="width:${pct}%"></div></div></div>`;
+                    }).join('') : '<p class="text-gray-500 text-xs py-4 text-center">No leads yet</p>';
+                }
+                if (typeof Chart !== 'undefined') {
+                    const relDonutCtx = document.getElementById('relPipelineDonut');
+                    if (relDonutCtx) {
+                        if (window._relPipeChart) window._relPipeChart.destroy();
+                        const donutData = stageCfg.map(s => counts[s.key] || 0);
+                        if (donutData.some(v => v > 0)) {
+                            window._relPipeChart = new Chart(relDonutCtx, {
+                                type: 'doughnut',
+                                data: { labels: stageCfg.map(s => s.label), datasets: [{ data: donutData, backgroundColor: stageCfg.map(s => s.col), borderWidth: 0, hoverOffset: 4 }] },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false, cutout: '62%',
+                                    plugins: {
+                                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, padding: 8, boxWidth: 10 } },
+                                        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + (relTotal ? ' (' + Math.round(ctx.raw/relTotal*100) + '%)' : '') } }
+                                    }
+                                }
+                            });
+                        } else {
+                            relDonutCtx.parentElement.innerHTML = '<p class="text-center text-gray-500 text-xs pt-10">No lead data yet</p>';
+                        }
+                    }
+                }
+                // Commission tracker
+                const priceMap = {};
+                (props || []).forEach(p => { if (p.title) priceMap[p.title] = parseFloat(p.price) || 0; });
+                const closedInquiries = (inquiries || []).filter(i => i.status === 'closed');
+                const saleComm = closedInquiries.reduce((sum, i) => sum + (priceMap[i.property_title] || 0) * 0.10, 0);
+                const rentedUnits = (units || []).filter(u => u.status === 'occupied' && u.monthly_rent);
+                const rentalComm = rentedUnits.reduce((sum, u) => sum + (parseFloat(u.monthly_rent) || 0) * 0.10, 0);
+                const totalComm = saleComm + rentalComm;
+                const relRC = document.getElementById('rel_rental_comm');
+                const relSC = document.getElementById('rel_sale_comm');
+                const relTC = document.getElementById('rel_total_comm');
+                const relCD = document.getElementById('rel_comm_detail');
+                if (relRC) relRC.textContent = formatNGN(rentalComm);
+                if (relSC) relSC.textContent = formatNGN(saleComm);
+                if (relTC) relTC.textContent = formatNGN(totalComm);
+                if (relCD) {
+                    const rows = [
+                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${i.full_name} · <span class="text-gray-500">${i.property_title}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
+                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${u.unit_code} · <span class="text-gray-500">${u.property_title || ''}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
+                    ];
+                    relCD.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-gray-500 py-2">No closed deals or occupied units yet — commission will appear here once leases and sales are recorded.</p>';
+                }
+                _relLeadsCache = inquiries || [];
+                // Populate property dropdown in Add Lead form
+                const relPropSel = document.getElementById('relLeadProperty');
+                if (relPropSel) relPropSel.innerHTML = '<option value="">General Inquiry</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const relCountEl = document.getElementById('rel_leadsCount');
+                if (relCountEl) relCountEl.textContent = inquiries.length + ' lead' + (inquiries.length !== 1 ? 's' : '');
                 renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
                 document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 const statuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
                 const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
-                document.getElementById('rel_inquiriesTable').innerHTML = (inquiries.slice(0, 40).map(i => `
+                document.getElementById('rel_inquiriesTable').innerHTML = inquiries.length ? inquiries.slice(0, 60).map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title}</td>
-                        <td class="py-2.5 pr-3 text-xs capitalize">${i.inquiry_type.replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
                                 ${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
@@ -8597,17 +10924,22 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
                                 <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
+                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email}</a>` : '<span class="text-gray-500">—</span>'}</div>
                                 <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
                                 <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
                             </div>
                             <div class="flex items-end gap-3">
                                 <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
-                                <button type="button" onclick="relSaveNotes(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium flex-shrink-0">Save Note</button>
+                                <div class="flex flex-col gap-1.5 flex-shrink-0">
+                                    <button type="button" onclick="relSaveNotes(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium">Save Note</button>
+                                    <button type="button" onclick="event.stopPropagation();relEditLead(_relLeadsCache.find(x=>x.id===${i.id}))" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium">Edit</button>
+                                    <button type="button" onclick="event.stopPropagation();relDeleteLead(${i.id})" class="text-xs bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-medium">Delete</button>
+                                    ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium text-center flex items-center gap-1 justify-center"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
+                                </div>
                             </div>
                         </td>
-                    </tr>`).join('')) || '<tr><td colspan="5" class="text-gray-400 py-3 text-center">No leads yet</td></tr>';
+                    </tr>`).join('') : '<tr><td colspan="5" class="py-10 text-center"><p class="text-gray-300 text-sm font-medium mb-1">No leads yet</p><p class="text-gray-500 text-xs">Click "+ Add Lead" above to log your first lead manually, or wait for website inquiries.</p></td></tr>';
             } catch (e) {
                 console.error('Realtor dashboard error:', e);
                 const tbl = document.getElementById('rel_inquiriesTable');
@@ -8632,6 +10964,14 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (isHidden) row.classList.remove('hidden');
         }
 
+        function mgrToggleInqDetail(id) {
+            const row = document.getElementById('mgrInqDetail_' + id);
+            if (!row) return;
+            const isHidden = row.classList.contains('hidden');
+            document.querySelectorAll('[id^="mgrInqDetail_"]').forEach(r => r.classList.add('hidden'));
+            if (isHidden) row.classList.remove('hidden');
+        }
+
         async function relSaveNotes(id) {
             const notes = document.getElementById('relNote_' + id)?.value || '';
             try {
@@ -8640,6 +10980,90 @@ ROLE_DASHBOARD_TEMPLATE = """
                 if (btn) { btn.textContent = 'Saved ✓'; btn.classList.add('bg-emerald-600'); setTimeout(() => { btn.textContent = 'Save Note'; btn.classList.remove('bg-emerald-600'); }, 2000); }
             } catch (e) { alert('Failed to save note: ' + e.message); }
         }
+
+        let _relLeadFormOpen = false;
+        let _relLeadsCache = [];
+
+        function relToggleLeadForm() {
+            _relLeadFormOpen = !_relLeadFormOpen;
+            const body = document.getElementById('relLeadFormBody');
+            const btn = document.getElementById('relLeadFormToggle');
+            if (body) body.classList.toggle('hidden', !_relLeadFormOpen);
+            if (btn) btn.textContent = _relLeadFormOpen ? '✕ Close' : '+ Add Lead';
+        }
+
+        function relCancelLeadEdit() {
+            document.getElementById('relLeadEditId').value = '';
+            document.getElementById('relLeadForm').reset();
+            document.getElementById('relLeadSubmitBtn').textContent = 'Save Lead';
+            document.getElementById('relLeadCancelBtn').classList.add('hidden');
+            document.getElementById('relLeadFormTitle').textContent = 'Add New Lead';
+            document.getElementById('relLeadMsg').textContent = '';
+        }
+
+        function relEditLead(lead) {
+            if (!_relLeadFormOpen) relToggleLeadForm();
+            document.getElementById('relLeadEditId').value = lead.id;
+            document.getElementById('relLeadName').value = lead.full_name || '';
+            document.getElementById('relLeadPhone').value = lead.phone || '';
+            document.getElementById('relLeadEmail').value = lead.email === 'manual@entry.local' ? '' : (lead.email || '');
+            document.getElementById('relLeadProperty').value = lead.property_id || '';
+            document.getElementById('relLeadType').value = lead.inquiry_type || 'general';
+            document.getElementById('relLeadStatus').value = lead.status || 'new';
+            document.getElementById('relLeadBudget').value = lead.budget_range || '';
+            document.getElementById('relLeadMoveDate').value = lead.preferred_move_date || '';
+            document.getElementById('relLeadNotes').value = lead.inquiry_notes || '';
+            document.getElementById('relLeadSubmitBtn').textContent = 'Update Lead';
+            document.getElementById('relLeadCancelBtn').classList.remove('hidden');
+            document.getElementById('relLeadFormTitle').textContent = 'Edit Lead';
+            document.getElementById('relLeadFormBody').classList.remove('hidden');
+            _relLeadFormOpen = true;
+            document.getElementById('relLeadFormTitle').scrollIntoView({behavior:'smooth', block:'start'});
+        }
+
+        async function relDeleteLead(id) {
+            if (!confirm('Remove this lead permanently?')) return;
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'DELETE' });
+                await loadRealtorDashboard();
+            } catch (e) { alert('Error removing lead: ' + e.message); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('relLeadForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const editId = document.getElementById('relLeadEditId').value;
+                const msgEl = document.getElementById('relLeadMsg');
+                const submitBtn = document.getElementById('relLeadSubmitBtn');
+                const payload = {
+                    full_name: document.getElementById('relLeadName').value.trim(),
+                    phone: document.getElementById('relLeadPhone').value.trim(),
+                    email: document.getElementById('relLeadEmail').value.trim(),
+                    property_id: document.getElementById('relLeadProperty').value || null,
+                    inquiry_type: document.getElementById('relLeadType').value,
+                    status: document.getElementById('relLeadStatus').value,
+                    budget_range: document.getElementById('relLeadBudget').value.trim(),
+                    preferred_move_date: document.getElementById('relLeadMoveDate').value || null,
+                    inquiry_notes: document.getElementById('relLeadNotes').value.trim(),
+                };
+                submitBtn.disabled = true; submitBtn.textContent = 'Saving...';
+                try {
+                    if (editId) {
+                        await fetchData('/admin/api/inquiries/' + editId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    } else {
+                        await fetchData('/admin/api/inquiries', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    }
+                    msgEl.textContent = editId ? 'Lead updated!' : 'Lead added!';
+                    msgEl.className = 'text-sm text-emerald-400';
+                    relCancelLeadEdit();
+                    if (!editId) { _relLeadFormOpen = false; document.getElementById('relLeadFormBody').classList.add('hidden'); document.getElementById('relLeadFormToggle').textContent = '+ Add Lead'; }
+                    await loadRealtorDashboard();
+                } catch (err) {
+                    msgEl.textContent = err.message || 'Error saving lead';
+                    msgEl.className = 'text-sm text-red-400';
+                } finally { submitBtn.disabled = false; submitBtn.textContent = editId ? 'Update Lead' : 'Save Lead'; }
+            });
+        });
 
         async function vacateRoleTenant(id) {
             if (!confirm('Mark this tenant as vacated?')) return;
@@ -8654,11 +11078,13 @@ ROLE_DASHBOARD_TEMPLATE = """
                 e.preventDefault();
                 const msgEl = document.getElementById('mgrTenantMsg');
                 const editId = document.getElementById('mgrTenantEditId').value;
+                const propSel = document.getElementById('mgrTenantProperty');
+                const propName = propSel?.selectedOptions[0]?.text || '';
                 const payload = {
                     name: document.getElementById('mgrTenantName').value,
                     email: document.getElementById('mgrTenantEmail').value,
                     phone: document.getElementById('mgrTenantPhone').value,
-                    property_name: document.getElementById('mgrTenantProperty').value,
+                    property_name: propName,
                     unit_number: document.getElementById('mgrTenantUnit').value,
                     monthly_rent: document.getElementById('mgrTenantRent').value,
                     lease_start: document.getElementById('mgrTenantLeaseStart').value,
@@ -8671,7 +11097,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                     msgEl.textContent = res.message || 'Tenant saved';
                     msgEl.className = 'text-sm text-emerald-400';
                     document.getElementById('managerTenantForm').reset();
-                    document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Apartment';
                     document.getElementById('mgrTenantEditId').value = '';
                     document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
                     document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
@@ -8684,9 +11109,29 @@ ROLE_DASHBOARD_TEMPLATE = """
             document.getElementById('mgrTenantCancelEdit')?.addEventListener('click', () => {
                 document.getElementById('managerTenantForm').reset();
                 document.getElementById('mgrTenantEditId').value = '';
-                document.getElementById('mgrTenantProperty').value = 'BrightWave Phase 1 Apartment';
                 document.getElementById('mgrTenantSubmit').textContent = 'Save Tenant';
                 document.getElementById('mgrTenantCancelEdit').classList.add('hidden');
+            });
+            document.getElementById('mgrInqForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('mgrInqMsg');
+                const payload = {
+                    full_name: document.getElementById('mgrInqName').value.trim(),
+                    phone: document.getElementById('mgrInqPhone').value.trim(),
+                    email: document.getElementById('mgrInqEmail').value.trim(),
+                    property_id: document.getElementById('mgrInqProperty').value || null,
+                    inquiry_type: document.getElementById('mgrInqType').value,
+                    status: document.getElementById('mgrInqStatus').value,
+                    inquiry_notes: document.getElementById('mgrInqNotes').value.trim(),
+                };
+                try {
+                    await fetchData('/admin/api/inquiries', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    msgEl.textContent = 'Inquiry saved!';
+                    msgEl.className = 'text-sm text-emerald-400';
+                    document.getElementById('mgrInqForm').reset();
+                    document.getElementById('mgrInqFormBody').classList.add('hidden');
+                    await loadManagerDashboard();
+                } catch (err) { msgEl.textContent = err.message || 'Error'; msgEl.className = 'text-sm text-red-400'; }
             });
             document.getElementById('accountantPaymentForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -8861,15 +11306,15 @@ ROLE_DASHBOARD_TEMPLATE = """
                 e.preventDefault();
                 await submitProjectExpense('mgr');
             });
-            document.getElementById('ceoCapitalProperty')?.addEventListener('change', () => loadProjectExpenses('ceo'));
             document.getElementById('mgrCapitalProperty')?.addEventListener('change', () => loadProjectExpenses('mgr'));
-            document.getElementById('ceoExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('ceo'));
-            document.getElementById('ceoExpenseReceiptOnly')?.addEventListener('change', () => loadProjectExpenses('ceo'));
             document.getElementById('mgrExpenseStatusFilter')?.addEventListener('change', () => loadProjectExpenses('mgr'));
             document.getElementById('mgrExpenseReceiptOnly')?.addEventListener('change', () => loadProjectExpenses('mgr'));
+            document.getElementById('mgrExpenseCategoryFilter')?.addEventListener('change', () => loadProjectExpenses('mgr'));
             document.getElementById('accExpensePropertyFilter')?.addEventListener('change', () => loadAccountantDashboard());
             document.getElementById('accExpenseStatusFilter')?.addEventListener('change', () => loadAccountantDashboard());
             document.getElementById('accExpenseReceiptOnly')?.addEventListener('change', () => loadAccountantDashboard());
+            document.getElementById('accExpenseCategoryFilter')?.addEventListener('change', () => loadAccountantDashboard());
+            document.getElementById('ceoExpenseCategoryFilter')?.addEventListener('change', () => ceoLoadExpenses());
         });
 
         async function deleteConstructionUpdate(id, source) {
@@ -8923,7 +11368,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function showMgrTab(tabId) {
-            const tabs = ['mgrTabOverview', 'mgrTabUnits', 'mgrTabInquiries', 'mgrTabConstruction', 'mgrTabCapital'];
+            const tabs = ['mgrTabOverview', 'mgrTabUnits', 'mgrTabInquiries', 'mgrTabConstruction', 'mgrTabCapital', 'mgrTabMaintenance'];
             tabs.forEach(t => {
                 const el = document.getElementById(t);
                 if (el) el.classList.toggle('hidden', t !== tabId);
@@ -8942,6 +11387,125 @@ ROLE_DASHBOARD_TEMPLATE = """
                 loadConstructionUpdates(mgrSel?.value || '');
             }
             if (tabId === 'mgrTabCapital') { loadCapitalPropertyOptions(); }
+            if (tabId === 'mgrTabMaintenance') { loadMaintenancePropertyOptions(); loadMaintenanceRecords('mgr'); }
+        }
+
+        let _mgrMaintCache = [];
+
+        async function loadMaintenancePropertyOptions() {
+            try {
+                const props = await fetchData('/admin/api/properties');
+                const allOpt = '<option value="">All properties</option>';
+                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                ['mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const cur = el.value;
+                    el.innerHTML = (id.includes('Form') ? '' : allOpt) + opts;
+                    if (cur && props.some(p => String(p.id) === cur)) el.value = cur;
+                });
+            } catch(e) {}
+        }
+
+        async function loadMaintenanceRecords(prefix) {
+            prefix = prefix || 'mgr';
+            const listEl = document.getElementById(prefix + 'MaintList');
+            const summaryEl = document.getElementById(prefix + 'MaintSummary');
+            if (!listEl) return;
+            const propId = document.getElementById(prefix + 'MaintProperty')?.value || '';
+            const cat = document.getElementById(prefix + 'MaintCategory')?.value || '';
+            const params = new URLSearchParams();
+            if (propId) params.set('property_id', propId);
+            const qs = params.toString() ? '?' + params.toString() : '';
+            try {
+                listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">Loading...</p>';
+                const records = await fetchData('/admin/api/maintenance' + qs);
+                const filtered = cat ? records.filter(r => r.category === cat) : records;
+                _mgrMaintCache = filtered;
+                const totalCost = filtered.reduce((s, r) => s + (r.cost || 0), 0);
+                if (summaryEl) summaryEl.textContent = filtered.length + ' record' + (filtered.length !== 1 ? 's' : '') + (totalCost ? ' · Total cost: ' + formatNGN(totalCost) : '');
+                if (!filtered.length) { listEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-8">No maintenance records found.</p>'; return; }
+                const statusColors = { completed: 'bg-emerald-900/60 text-emerald-300', in_progress: 'bg-amber-900/60 text-amber-300', scheduled: 'bg-blue-900/60 text-blue-300' };
+                const statusLabels = { completed: 'Completed', in_progress: 'In Progress', scheduled: 'Scheduled' };
+                listEl.innerHTML = filtered.map(r => {
+                    const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
+                    const sl = statusLabels[r.status] || r.status;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="mgrEditMaint(${r.id})" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="mgrDeleteMaint(${r.id})" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                }).join('');
+            } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
+        }
+
+        function ceoToggleMaintenanceForm(hide, prefix) {
+            prefix = prefix || 'mgr';
+            const form = document.getElementById(prefix + 'MaintForm');
+            if (!form) return;
+            if (hide) {
+                form.classList.add('hidden');
+                document.getElementById(prefix + 'MaintEditId').value = '';
+                form.querySelectorAll('input,textarea,select').forEach(el => { if (el.type !== 'hidden') el.value = el.tagName === 'SELECT' ? el.options[0]?.value || '' : ''; });
+                document.getElementById(prefix + 'MaintFormTitle').textContent = 'New Maintenance Record';
+                const msg = document.getElementById(prefix + 'MaintMsg');
+                if (msg) msg.textContent = '';
+            } else {
+                form.classList.remove('hidden');
+                const d = new Date(); const pad = n => String(n).padStart(2,'0');
+                const today = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+                const dateEl = document.getElementById(prefix + 'MaintDate');
+                if (dateEl && !dateEl.value) dateEl.value = today;
+                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        async function ceoSubmitMaintenance(prefix) {
+            prefix = prefix || 'mgr';
+            const editId = document.getElementById(prefix + 'MaintEditId').value;
+            const msgEl = document.getElementById(prefix + 'MaintMsg');
+            const payload = {
+                property_id: document.getElementById(prefix + 'MaintFormProperty')?.value || '',
+                maintenance_date: document.getElementById(prefix + 'MaintDate')?.value || '',
+                title: document.getElementById(prefix + 'MaintTitle')?.value?.trim() || '',
+                category: document.getElementById(prefix + 'MaintFormCategory')?.value || 'general',
+                status: document.getElementById(prefix + 'MaintStatus')?.value || 'completed',
+                vendor_name: document.getElementById(prefix + 'MaintVendor')?.value?.trim() || '',
+                cost: document.getElementById(prefix + 'MaintCost')?.value || '',
+                description: document.getElementById(prefix + 'MaintDesc')?.value?.trim() || '',
+            };
+            if (!payload.title) { if (msgEl) { msgEl.textContent = 'Title is required'; msgEl.className = 'text-sm text-red-400'; } return; }
+            if (!payload.property_id) { if (msgEl) { msgEl.textContent = 'Select a property'; msgEl.className = 'text-sm text-red-400'; } return; }
+            try {
+                if (msgEl) { msgEl.textContent = 'Saving...'; msgEl.className = 'text-sm text-gray-400'; }
+                await fetchData(editId ? '/admin/api/maintenance/' + editId : '/admin/api/maintenance', {
+                    method: editId ? 'PUT' : 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                ceoToggleMaintenanceForm(true, prefix);
+                await loadMaintenanceRecords(prefix);
+            } catch(err) { if (msgEl) { msgEl.textContent = err.message || 'Error saving record'; msgEl.className = 'text-sm text-red-400'; } }
+        }
+
+        function mgrEditMaint(id) {
+            const r = _mgrMaintCache.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('mgrMaintEditId').value = r.id;
+            document.getElementById('mgrMaintFormProperty').value = r.property_id;
+            document.getElementById('mgrMaintDate').value = r.maintenance_date || '';
+            document.getElementById('mgrMaintTitle').value = r.title || '';
+            document.getElementById('mgrMaintFormCategory').value = r.category || 'general';
+            document.getElementById('mgrMaintStatus').value = r.status || 'completed';
+            document.getElementById('mgrMaintVendor').value = r.vendor_name || '';
+            document.getElementById('mgrMaintCost').value = r.cost || '';
+            document.getElementById('mgrMaintDesc').value = r.description || '';
+            document.getElementById('mgrMaintFormTitle').textContent = 'Edit Record';
+            ceoToggleMaintenanceForm(false, 'mgr');
+        }
+
+        async function mgrDeleteMaint(id) {
+            if (!confirm('Remove this maintenance record?')) return;
+            try {
+                await fetchData('/admin/api/maintenance/' + id, { method: 'DELETE' });
+                await loadMaintenanceRecords('mgr');
+            } catch(e) { alert(e.message || 'Error deleting record'); }
         }
 
         async function updateMgrUnitStatus(unitId, newStatus) {

@@ -36,9 +36,12 @@
   <meta name="twitter:site" content="@brightwave__" />
 
   <!-- Icons / theme color -->
-  <link rel="icon" type="image/png" sizes="192x192" href="/assets/images/icon-192.png?v=2" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
-  <link rel="manifest" href="/site.webmanifest?v=2" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=3" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=3" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/images/icon-192.png?v=3" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
+  <link rel="manifest" href="/site.webmanifest?v=3" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BrightWave" />
@@ -143,6 +146,12 @@
 </head>
 <body class="font-sans text-white">
   <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Announcement Banner (shown when enabled via CMS) -->
+  <div id="announcementBanner" class="hidden bg-emerald-700 text-white text-sm text-center py-2.5 px-4 relative">
+    <span id="announcementText"></span>
+    <button onclick="document.getElementById('announcementBanner').classList.add('hidden')" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-lg leading-none" aria-label="Dismiss">&times;</button>
+  </div>
 
   <!-- Navigation Bar -->
   <header class="bg-slate-900/95 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-slate-700/50">
@@ -321,6 +330,22 @@
     </div>
   </section>
 
+  <!-- Homepage Video Section (shown when enabled via CMS) -->
+  <section id="videoSection" class="hidden py-16 bg-slate-900" data-aos="fade-up" data-aos-duration="1000">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-10">
+        <p class="section-kicker mb-3">BrightWave in Action</p>
+        <h2 id="videoSectionTitle" class="brand-display text-4xl md:text-5xl font-semibold mb-4">See <span class="gradient-text">BrightWave</span> in Action</h2>
+      </div>
+      <div class="max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50">
+        <div id="homepageVideoWrap" class="relative w-full" style="padding-bottom:56.25%">
+          <iframe id="homepageVideoIframe" class="absolute inset-0 w-full h-full hidden" src="" title="BrightWave video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+          <video id="homepageVideoNative" class="absolute inset-0 w-full h-full hidden bg-black" style="object-fit:contain" controls playsinline preload="metadata"></video>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Services Overview Section -->
   <section id="services" class="section-shell services-section" data-aos="fade-up" data-aos-duration="1000">
     <div class="container mx-auto px-4">
@@ -493,7 +518,7 @@
               <p class="text-xs text-gray-300">Habitat Enterprise</p>
             </div>
           </div>
-          <p class="text-gray-300 text-sm mb-4">Building tomorrow's living solutions with quality, affordability, and sustainability at the heart of everything we do.</p>
+          <p data-cms="footer_desc" class="text-gray-300 text-sm mb-4">Building tomorrow's living solutions with quality, affordability, and sustainability at the heart of everything we do.</p>
         </div>
         
         <!-- Quick Links -->
@@ -525,15 +550,15 @@
           <div class="space-y-2 text-sm text-gray-300">
             <div class="flex items-center space-x-2">
               <i class="fas fa-envelope text-slate-400"></i>
-              <span>brightwavehabitat@gmail.com</span>
+              <span data-cms="contact_email">brightwavehabitat@gmail.com</span>
             </div>
             <div class="flex items-center space-x-2">
               <i class="fab fa-whatsapp text-pink-400"></i>
-              <span>+234 803 766 9462</span>
+              <span data-cms="contact_phone">+234 803 766 9462</span>
             </div>
             <div class="flex items-center space-x-2">
               <i class="fas fa-map-marker-alt text-amber-400"></i>
-              <span>Malete, Kwara State, Nigeria</span>
+              <span data-cms="contact_address">Malete, Kwara State, Nigeria</span>
             </div>
           </div>
         </div>
@@ -542,13 +567,13 @@
       <div class="border-t border-gray-700 pt-8 text-center">
         <p class="text-gray-400 text-sm mb-4">&copy; 2026 BrightWave Habitat Enterprise. All rights reserved.</p>
         <div class="flex justify-center space-x-6">
-          <a href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
+          <a data-cms="social_facebook" href="https://www.facebook.com/share/19BvJAymc3/?mibextid=wwXIfr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-facebook-f text-xl"></i>
           </a>
-          <a href="https://x.com/brightwave__?s=21" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
+          <a data-cms="social_twitter" href="https://x.com/brightwave__?s=21" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-x-twitter text-xl"></i>
           </a>
-          <a href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
+          <a data-cms="social_instagram" href="https://www.instagram.com/brightwave___?igsh=MXN3NHAzdGU1a2ppaQ%3D&utm_-source=qr" class="text-gray-400 hover:text-slate-300 transition-colors duration-300">
             <i class="fab fa-instagram text-xl"></i>
           </a>
         </div>
@@ -814,7 +839,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
       
-      fetch('/api/site-content')
+      const _cmsUrl = new URLSearchParams(location.search).get('preview') === '1' ? '/api/site-content?preview=1' : '/api/site-content';
+      fetch(_cmsUrl)
         .then(response => response.json())
         .then(content => {
           if (content['home.hero_title']) {
@@ -825,6 +851,83 @@ document.addEventListener('keydown', (e) => {
           }
           if (content['home.about_intro']) {
             document.getElementById('homeAboutIntro').textContent = content['home.about_intro'];
+          }
+          // Announcement banner
+          if (content['home.announcement_enabled'] === 'true' && content['home.announcement_text']) {
+            const banner = document.getElementById('announcementBanner');
+            const bannerText = document.getElementById('announcementText');
+            if (banner && bannerText) {
+              bannerText.textContent = content['home.announcement_text'];
+              banner.classList.remove('hidden');
+            }
+          }
+          // Services section
+          if (content['home.services_heading']) {
+            const el = document.querySelector('.services-heading');
+            if (el) el.innerHTML = content['home.services_heading'].replace('Services', '<span class="gradient-text">Services</span>');
+          }
+          if (content['home.services_lead']) {
+            const el = document.querySelector('.section-lead');
+            if (el) el.textContent = content['home.services_lead'];
+          }
+          // Footer contact info
+          const email = content['site.contact_email'];
+          const phone = content['site.contact_phone'];
+          const address = content['site.contact_address'];
+          const footerDesc = content['site.footer_company_desc'];
+          if (email) document.querySelectorAll('[data-cms="contact_email"]').forEach(el => el.textContent = email);
+          if (phone) document.querySelectorAll('[data-cms="contact_phone"]').forEach(el => el.textContent = phone);
+          if (address) document.querySelectorAll('[data-cms="contact_address"]').forEach(el => el.textContent = address);
+          if (footerDesc) document.querySelectorAll('[data-cms="footer_desc"]').forEach(el => el.textContent = footerDesc);
+          // Social links
+          const fbUrl = content['site.social_facebook'];
+          const twUrl = content['site.social_twitter'];
+          const igUrl = content['site.social_instagram'];
+          if (fbUrl) document.querySelectorAll('[data-cms="social_facebook"]').forEach(el => el.href = fbUrl);
+          if (twUrl) document.querySelectorAll('[data-cms="social_twitter"]').forEach(el => el.href = twUrl);
+          if (igUrl) document.querySelectorAll('[data-cms="social_instagram"]').forEach(el => el.href = igUrl);
+          // WhatsApp speed dial numbers
+          const waHostel = content['site.wa_number_hostel'];
+          const waLand = content['site.wa_number_land'];
+          const waHome = content['site.wa_number_home'];
+          if (waHostel) WA_NUMBERS.hostel = waHostel;
+          if (waLand) WA_NUMBERS.land = waLand;
+          if (waHome) WA_NUMBERS.home = waHome;
+          // Custom hero background image
+          const heroBgPath = content['home.hero_bg_path'];
+          if (heroBgPath) {
+            const slidesWrap = document.getElementById('heroSlides');
+            if (slidesWrap) {
+              // Prepend as the first (active) slide
+              const newSlide = document.createElement('div');
+              newSlide.className = 'hero-slide active';
+              newSlide.style.backgroundImage = "url('/assets/" + heroBgPath + "')";
+              // Remove active from the previously first slide
+              const firstSlide = slidesWrap.querySelector('.hero-slide.active');
+              if (firstSlide) firstSlide.classList.remove('active');
+              slidesWrap.insertBefore(newSlide, slidesWrap.firstChild);
+            }
+          }
+          // Homepage video section
+          const videoEnabled = content['home.video_section_enabled'] === 'true';
+          const videoUrl = content['home.video_url'];
+          const videoSectionEl = document.getElementById('videoSection');
+          if (videoEnabled && videoUrl && videoSectionEl) {
+            videoSectionEl.classList.remove('hidden');
+            const isLocalFile = videoUrl.startsWith('/assets/') || /\.(mp4|webm|ogg|mov|m4v)(\?|$)/i.test(videoUrl);
+            const iframe = document.getElementById('homepageVideoIframe');
+            const videoNative = document.getElementById('homepageVideoNative');
+            if (isLocalFile) {
+              if (videoNative) { videoNative.src = videoUrl; videoNative.classList.remove('hidden'); }
+              if (iframe) iframe.classList.add('hidden');
+            } else {
+              if (iframe) { iframe.src = videoUrl; iframe.classList.remove('hidden'); }
+              if (videoNative) videoNative.classList.add('hidden');
+            }
+            const titleEl = document.getElementById('videoSectionTitle');
+            if (titleEl && content['home.video_section_title']) {
+              titleEl.innerHTML = content['home.video_section_title'].replace(/BrightWave/g, '<span class="gradient-text">BrightWave</span>');
+            }
           }
         })
         .catch(error => console.error('Error loading homepage content:', error));

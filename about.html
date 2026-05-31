@@ -56,7 +56,7 @@
     }
   </style>
 </head>
-<body class="font-sans text-white">
+<body class="font-sans text-white overflow-x-hidden">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50 border-b border-[var(--bw-border)]">
@@ -106,7 +106,7 @@
             <p id="aboutHeroSubtitle" class="text-lg md:text-[1.35rem] max-w-3xl text-slate-200 leading-8">BrightWave Habitat Enterprise is building a premium Nigerian property brand through student accommodation, land opportunities, residential homes, and estate development, starting with live delivery in Malete.</p>
           </div>
 
-          <div class="surface-panel rounded-[2rem] p-8" data-aos="fade-left">
+          <div class="surface-panel rounded-[2rem] p-8" data-aos="fade-up">
             <p class="section-kicker mb-3">Brand direction</p>
             <h2 class="brand-display text-3xl font-semibold mb-4">Presentation, trust, and delivery have to align.</h2>
             <p class="text-slate-300 leading-8">BrightWave should look strong enough for investors, clear enough for parents, and current enough for students who compare brands visually before they ever ask a question.</p>
@@ -147,7 +147,7 @@
             </div>
           </div>
 
-          <aside class="surface-panel rounded-[2rem] p-8" data-aos="fade-left">
+          <aside class="surface-panel rounded-[2rem] p-8" data-aos="fade-up">
             <p class="section-kicker mb-4">Operational snapshot</p>
             <div class="grid grid-cols-2 gap-4">
               <div class="brand-metric rounded-2xl p-5">
@@ -195,7 +195,7 @@
             <p class="section-lead text-lg">BrightWave’s story should read like disciplined expansion: foundation first, live delivery second, broader growth after the standard is proven.</p>
           </div>
           <div class="about-grid-line hidden lg:block h-full"></div>
-          <div class="space-y-6" data-aos="fade-left">
+          <div class="space-y-6" data-aos="fade-up">
             <article class="surface-panel rounded-[1.6rem] p-6">
               <p class="section-kicker mb-2">September 2024</p>
               <h3 class="brand-display text-2xl font-semibold mb-3">Founded</h3>
@@ -336,7 +336,8 @@
       });
     }
 
-    fetch('/api/site-content')
+    const _cmsUrl = new URLSearchParams(location.search).get('preview') === '1' ? '/api/site-content?preview=1' : '/api/site-content';
+    fetch(_cmsUrl)
       .then(response => response.json())
       .then(content => {
         if (content['about.hero_subtitle']) {
