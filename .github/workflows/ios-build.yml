@@ -33,14 +33,10 @@ jobs:
       - name: Sync Capacitor (iOS)
         run: npx cap sync ios
 
-      - name: Install CocoaPods
-        run: pod install
-        working-directory: brightwave-app/ios/App
-
-      - name: Build unsigned archive
+      - name: Build unsigned archive (SPM)
         run: |
           xcodebuild \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
