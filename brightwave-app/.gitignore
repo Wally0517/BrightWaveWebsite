@@ -1,0 +1,24 @@
+node_modules/
+.DS_Store
+*.log
+
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+android/*.iml
+android/app/*.iml
+
+# iOS build output
+ios/App/build/
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Generated splash/icon working dirs (regenerated from assets/)
+.capacitor/
