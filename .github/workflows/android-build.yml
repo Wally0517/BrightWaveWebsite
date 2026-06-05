@@ -41,6 +41,10 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        working-directory: brightwave-app/android
+
       - name: Build debug APK
         run: ./gradlew assembleDebug
         working-directory: brightwave-app/android
