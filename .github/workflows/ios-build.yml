@@ -1,59 +1,59 @@
 name: Build iOS (unsigned)
 
-  on:
-    workflow_dispatch:
-    push:
-      branches: [main, master]
-      paths:
-        - 'brightwave-app/ios/**'
-        - 'brightwave-app/capacitor.config.json'
-        - '.github/workflows/ios-build.yml'
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'brightwave-app/ios/**'
+      - 'brightwave-app/capacitor.config.json'
+      - '.github/workflows/ios-build.yml'
 
-  jobs:
-    build:
-      runs-on: macos-latest
-      defaults:
-        run:
-          working-directory: brightwave-app
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: brightwave-app
 
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Set up Node 20
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
-            cache: 'npm'
-            cache-dependency-path: brightwave-app/package-lock.json
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: brightwave-app/package-lock.json
 
-        - name: Install dependencies
-          run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-        - name: Sync Capacitor (iOS)
-          run: npx cap sync ios
+      - name: Sync Capacitor (iOS)
+        run: npx cap sync ios
 
-        - name: Install CocoaPods
-          run: pod install
-          working-directory: brightwave-app/ios/App
+      - name: Install CocoaPods
+        run: pod install
+        working-directory: brightwave-app/ios/App
 
-        - name: Build unsigned archive
-          run: |
-            xcodebuild \
-              -workspace App.xcworkspace \
-              -scheme App \
-              -configuration Release \
-              -destination 'generic/platform=iOS' \
-              -archivePath build/App.xcarchive \
-              CODE_SIGN_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO \
-              archive
-          working-directory: brightwave-app/ios/App
+      - name: Build unsigned archive
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+        working-directory: brightwave-app/ios/App
 
-        - name: Upload archive
-          uses: actions/upload-artifact@v4
-          with:
-            name: brightwave-habitat-ios-archive
-            path: brightwave-app/ios/App/build/App.xcarchive
-            if-no-files-found: error
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: brightwave-habitat-ios-archive
+          path: brightwave-app/ios/App/build/App.xcarchive
+          if-no-files-found: error
