@@ -1,53 +1,53 @@
 name: Build Android APK
 
-  on:
-    push:
-      branches: [main, master]
-      paths:
-        - 'brightwave-app/**'
-        - '.github/workflows/android-build.yml'
-    workflow_dispatch:
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'brightwave-app/**'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
 
-  jobs:
-    build:
-      runs-on: ubuntu-latest
-      defaults:
-        run:
-          working-directory: brightwave-app
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: brightwave-app
 
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Set up Node 20
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
-            cache: 'npm'
-            cache-dependency-path: brightwave-app/package-lock.json
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: brightwave-app/package-lock.json
 
-        - name: Set up JDK 21
-          uses: actions/setup-java@v4
-          with:
-            distribution: 'temurin'
-            java-version: '21'
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
 
-        - name: Set up Android SDK
-          uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-        - name: Install dependencies
-          run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-        - name: Sync Capacitor
-          run: npx cap sync android
+      - name: Sync Capacitor
+        run: npx cap sync android
 
-        - name: Build debug APK
-          run: ./gradlew assembleDebug
-          working-directory: brightwave-app/android
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+        working-directory: brightwave-app/android
 
-        - name: Upload APK artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: brightwave-habitat-debug.apk
-            path: brightwave-app/android/app/build/outputs/apk/debug/app-debug.apk
-            if-no-files-found: error
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: brightwave-habitat-debug.apk
+          path: brightwave-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
