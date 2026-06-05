@@ -1,0 +1,20 @@
+{
+  "appId": "com.brightwavehabitat.app",
+  "appName": "Brightwave Habitat",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.brightwavehabitat.com",
+    "cleartext": false,
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "scrollEnabled": true
+  }
+}
