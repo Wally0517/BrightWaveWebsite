@@ -370,6 +370,19 @@ class PayrollPayment(db.Model):
     user = db.relationship('Admin', foreign_keys=[user_id])
 
 
+class SalaryHistory(db.Model):
+    """Records every salary change so past payroll months stay frozen."""
+    __tablename__ = 'salary_history'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    monthly_salary = db.Column(db.Float, nullable=False, default=0.0)
+    effective_from = db.Column(db.Date, nullable=False, default=date_type.today)
+    effective_to = db.Column(db.Date, nullable=True)  # NULL = currently active
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(80), nullable=True)
+    user = db.relationship('Admin', foreign_keys=[user_id])
+
+
 class PasswordResetToken(db.Model):
     __tablename__ = 'password_reset_token'
     id = db.Column(db.Integer, primary_key=True)
@@ -591,6 +604,9 @@ def ensure_runtime_schema_updates():
         db.create_all()
 
     if not inspector.has_table('pending_signup'):
+        db.create_all()
+
+    if not inspector.has_table('salary_history'):
         db.create_all()
 
     db.session.commit()
@@ -3887,9 +3903,12 @@ def admin_account_detail(account_id):
             if 'monthly_salary' in data:
                 try:
                     sal = float(data['monthly_salary'] or 0)
-                    account.monthly_salary = sal if sal >= 0 else 0.0
+                    new_salary = sal if sal >= 0 else 0.0
                 except (TypeError, ValueError):
-                    pass
+                    new_salary = None
+                if new_salary is not None and abs(new_salary - float(account.monthly_salary or 0)) > 0.001:
+                    _record_salary_change(account, new_salary, ceo)
+                    account.monthly_salary = new_salary
             if data.get('new_password') and len(data['new_password']) >= 8:
                 account.password_hash = generate_password_hash(data['new_password'])
             db.session.commit()
@@ -4232,6 +4251,51 @@ PAYROLL_COMMISSION_RATE = 0.10
 PAYROLL_COMMISSION_ROLES = {'MANAGER', 'REALTOR'}
 
 
+def _record_salary_change(account, new_salary, ceo):
+    """Close any open SalaryHistory row for the user and insert a new one.
+    Called whenever Admin.monthly_salary is updated.
+    """
+    today = date_type.today()
+    open_row = (
+        SalaryHistory.query
+        .filter(SalaryHistory.user_id == account.id, SalaryHistory.effective_to.is_(None))
+        .order_by(SalaryHistory.effective_from.desc())
+        .first()
+    )
+    if open_row is not None:
+        # Close it the day before the new salary takes effect (or same day if same day)
+        open_row.effective_to = today
+    db.session.add(SalaryHistory(
+        user_id=account.id,
+        monthly_salary=float(new_salary or 0),
+        effective_from=today,
+        effective_to=None,
+        created_by=(ceo.display_name or ceo.username) if ceo else None,
+    ))
+
+
+def get_effective_monthly_salary(user, year, month):
+    """Salary in effect at the end of (year, month).
+    Uses SalaryHistory rows if any exist; falls back to Admin.monthly_salary
+    for users with no history yet (back-compat).
+    """
+    if not user:
+        return 0.0
+    # Last day of the requested month
+    import calendar
+    last_day = calendar.monthrange(year, month)[1]
+    end_of_month = date_type(year, month, last_day)
+    row = (
+        SalaryHistory.query
+        .filter(SalaryHistory.user_id == user.id, SalaryHistory.effective_from <= end_of_month)
+        .order_by(SalaryHistory.effective_from.desc(), SalaryHistory.id.desc())
+        .first()
+    )
+    if row is not None:
+        return float(row.monthly_salary or 0)
+    return float(user.monthly_salary or 0)
+
+
 def _user_qualifies_for_commission(user):
     if not user:
         return False
@@ -4269,7 +4333,7 @@ def compute_user_payroll(user, year, month):
                 'commission': commission,
             })
 
-    salary = float(user.monthly_salary or 0)
+    salary = get_effective_monthly_salary(user, year, month)
 
     payments_q = (
         PayrollPayment.query
@@ -4423,6 +4487,41 @@ def admin_payroll_history():
         return jsonify({'success': True, 'year': year, 'month': month, 'payments': out})
     except Exception as e:
         logger.error(f"Error fetching payroll history: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/salary', methods=['POST'])
+@login_required
+@ceo_required
+def admin_payroll_set_salary():
+    """Inline salary set from the Payroll tab. Writes a SalaryHistory row."""
+    try:
+        ceo = get_current_admin()
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        amount = data.get('monthly_salary')
+        if not user_id or amount in (None, ''):
+            return jsonify({"success": False, "message": "user_id and monthly_salary are required"}), 400
+        try:
+            user_id = int(user_id)
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid numeric value"}), 400
+        if amount < 0:
+            return jsonify({"success": False, "message": "Salary cannot be negative"}), 400
+        user = Admin.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+        if (user.role or '').upper() == 'CEO':
+            return jsonify({"success": False, "message": "CEO is not on payroll"}), 400
+        if abs(amount - float(user.monthly_salary or 0)) > 0.001:
+            _record_salary_change(user, amount, ceo)
+            user.monthly_salary = amount
+            db.session.commit()
+        return jsonify({"success": True, "message": "Salary updated", "monthly_salary": amount})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error setting salary: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
@@ -9071,17 +9170,25 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         : '';
                     const outstandingColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
                     const payDisabled = r.outstanding <= 0 ? 'opacity-40 pointer-events-none' : '';
+                    const salaryCell = r.qualifies_for_commission
+                        ? `<span class="text-gray-600 text-xs italic">— commission only —</span>`
+                        : `<input type="number" min="0" step="1000" value="${r.salary || 0}" data-user-id="${r.user_id}" onchange="saveInlineSalary(this)" onblur="saveInlineSalary(this)" class="w-28 text-right bg-gray-700 border border-gray-600 rounded px-2 py-1 text-blue-300 text-sm" title="Set monthly salary — saves on blur">`;
                     return `
                         <tr class="border-b border-gray-700">
                             <td class="py-2 pr-3 text-gray-200">${r.display_name}</td>
                             <td class="py-2 pr-3 text-gray-400 text-xs">${r.role}</td>
                             <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
-                            <td class="py-2 pr-3 text-right text-blue-400">${fmtNGN(r.salary)}</td>
+                            <td class="py-2 pr-3 text-right">${salaryCell}</td>
                             <td class="py-2 pr-3 text-right text-emerald-400 font-semibold">${fmtNGN(r.total_earned)}</td>
                             <td class="py-2 pr-3 text-right text-gray-300">${fmtNGN(r.already_paid)}${histToggle}</td>
                             <td class="py-2 pr-3 text-right ${outstandingColor} font-semibold">${fmtNGN(r.outstanding)}</td>
                             <td class="py-2 pl-3">
-                                <button onclick='openPayrollPayModal(${idx})' class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded ${payDisabled}">Pay</button>
+                                <div class="flex gap-1 items-center">
+                                    <button onclick='openPayrollPayModal(${idx})' class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded ${payDisabled}">Pay</button>
+                                    <button onclick='terminateEmployee(${r.user_id}, ${JSON.stringify(r.display_name).replace(/"/g,"&quot;")})' title="Terminate (remove from payroll)" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-2 py-1 rounded">
+                                        <i class="fas fa-user-slash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         ${linesRow}
@@ -9112,6 +9219,45 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const modal = document.getElementById('payrollPayModal');
             modal.style.display = 'none';
             modal.classList.add('hidden');
+        }
+
+        // Track last-saved value per input so blur doesn't double-save
+        const _inlineSalaryDirty = new WeakMap();
+        async function saveInlineSalary(inputEl) {
+            const userId = inputEl.getAttribute('data-user-id');
+            const newVal = parseFloat(inputEl.value || '0');
+            if (!(newVal >= 0)) { alert('Salary must be 0 or positive'); return; }
+            const lastSaved = _inlineSalaryDirty.get(inputEl);
+            if (lastSaved !== undefined && Math.abs(lastSaved - newVal) < 0.001) return;
+            inputEl.disabled = true;
+            try {
+                await fetchData('/admin/api/payroll/salary', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId, monthly_salary: newVal })
+                });
+                _inlineSalaryDirty.set(inputEl, newVal);
+                inputEl.classList.add('border-emerald-500');
+                setTimeout(() => inputEl.classList.remove('border-emerald-500'), 800);
+                loadPayroll();
+            } catch (e) {
+                alert(e.message || 'Error saving salary');
+                inputEl.classList.add('border-red-500');
+            } finally {
+                inputEl.disabled = false;
+            }
+        }
+
+        async function terminateEmployee(userId, displayName) {
+            if (!confirm(`Terminate ${displayName}? They'll be deactivated and dropped from payroll. You can reactivate them later from the Accounts tab.`)) return;
+            try {
+                await fetchData('/admin/api/accounts/' + userId, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ is_active: false })
+                });
+                loadPayroll();
+                if (typeof loadAccounts === 'function') loadAccounts();
+            } catch (e) { alert(e.message || 'Error terminating employee'); }
         }
 
         async function editPayrollPayment(id, currentAmount, currentKind, currentNotes) {
@@ -13209,6 +13355,20 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
 </body>
 </html>
 """
+
+# Boot-time schema migration — runs on every gunicorn worker import.
+# Lazy `ensure_runtime_state()` is still kept for backfill safety, but this
+# guarantees schema is up-to-date the moment a worker starts taking traffic.
+try:
+    with app.app_context():
+        db.create_all()
+        ensure_runtime_schema_updates()
+except Exception as _boot_err:
+    try:
+        logger.error(f"Boot-time schema migration failed: {_boot_err}")
+    except Exception:
+        pass
+
 
 if __name__ == '__main__':
     with app.app_context():
