@@ -120,6 +120,7 @@ class Admin(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     monthly_salary = db.Column(db.Float, default=0.0)  # flat fee for ACCOUNTANT / PA; 0 for commission-only roles
+    has_seen_tour = db.Column(db.Boolean, default=False)  # first-login onboarding tour shown?
 
 class Property(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -579,6 +580,8 @@ def ensure_runtime_schema_updates():
     admin_columns = {column['name'] for column in inspector.get_columns('admin')} if inspector.has_table('admin') else set()
     if admin_columns and 'monthly_salary' not in admin_columns:
         db.session.execute(text(f'ALTER TABLE admin ADD COLUMN monthly_salary {float_type} DEFAULT 0'))
+    if admin_columns and 'has_seen_tour' not in admin_columns:
+        db.session.execute(text('ALTER TABLE admin ADD COLUMN has_seen_tour BOOLEAN DEFAULT 0'))
 
     tenant_columns = {column['name'] for column in inspector.get_columns('tenant')} if inspector.has_table('tenant') else set()
     if tenant_columns and 'serviced_by_id' not in tenant_columns:
@@ -2744,6 +2747,7 @@ def admin_dashboard():
             user_role='CEO',
             user_name=user_name,
             pending_sigs_count=pending_sigs_count,
+            has_seen_tour=bool(admin.has_seen_tour),
         ))
         for k, v in no_cache_headers.items():
             resp.headers[k] = v
@@ -2791,6 +2795,7 @@ def admin_dashboard():
         contract_title=contract_title,
         contract_body=contract_body,
         investor_profile=investor_profile,
+        has_seen_tour=bool(admin.has_seen_tour),
     ))
     for k, v in no_cache_headers.items():
         resp.headers[k] = v
@@ -4266,16 +4271,23 @@ def compute_user_payroll(user, year, month):
 
     salary = float(user.monthly_salary or 0)
 
-    already_paid = (
-        db.session.query(db.func.coalesce(db.func.sum(PayrollPayment.amount), 0.0))
-        .filter(
-            PayrollPayment.user_id == user.id,
-            PayrollPayment.period_year == year,
-            PayrollPayment.period_month == month,
-        )
-        .scalar()
-    ) or 0.0
-    already_paid = float(already_paid)
+    payments_q = (
+        PayrollPayment.query
+        .filter(PayrollPayment.user_id == user.id,
+                PayrollPayment.period_year == year,
+                PayrollPayment.period_month == month)
+        .order_by(PayrollPayment.paid_at.desc())
+        .all()
+    )
+    payment_history = [{
+        'id': p.id,
+        'amount': float(p.amount or 0),
+        'kind': p.kind,
+        'notes': p.notes or '',
+        'paid_by': p.paid_by or '',
+        'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+    } for p in payments_q]
+    already_paid = float(sum(p['amount'] for p in payment_history))
 
     total_earned = commission_total + salary
     return {
@@ -4291,6 +4303,7 @@ def compute_user_payroll(user, year, month):
         'total_earned': total_earned,
         'already_paid': already_paid,
         'outstanding': max(total_earned - already_paid, 0.0),
+        'payment_history': payment_history,
     }
 
 
@@ -4309,7 +4322,8 @@ def admin_payroll_summary():
             return jsonify({"success": False, "message": "Month must be 1-12"}), 400
 
         users = Admin.query.filter_by(is_active=True).order_by(Admin.role.asc(), Admin.username.asc()).all()
-        rows = [compute_user_payroll(u, year, month) for u in users if (u.role or '').upper() != 'INVESTOR']
+        # CEO and INVESTOR roles are not on payroll
+        rows = [compute_user_payroll(u, year, month) for u in users if (u.role or '').upper() not in ('CEO', 'INVESTOR')]
 
         totals = {
             'commission_total': sum(r['commission_total'] for r in rows),
@@ -4409,6 +4423,50 @@ def admin_payroll_history():
         return jsonify({'success': True, 'year': year, 'month': month, 'payments': out})
     except Exception as e:
         logger.error(f"Error fetching payroll history: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/pay/<int:payment_id>', methods=['PUT', 'DELETE'])
+@login_required
+@ceo_required
+def admin_payroll_pay_detail(payment_id):
+    try:
+        payment = PayrollPayment.query.get_or_404(payment_id)
+        if request.method == 'DELETE':
+            db.session.delete(payment)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Payment removed"})
+
+        data = request.get_json() or {}
+        if 'amount' in data:
+            try:
+                amt = float(data['amount'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid amount"}), 400
+            if amt <= 0:
+                return jsonify({"success": False, "message": "Amount must be positive"}), 400
+            payment.amount = amt
+        if 'kind' in data:
+            kind = (data['kind'] or '').strip().lower()
+            if kind in ('commission', 'salary'):
+                payment.kind = kind
+        if 'notes' in data:
+            payment.notes = (data['notes'] or '').strip() or None
+        if 'period_year' in data or 'period_month' in data:
+            try:
+                y = int(data.get('period_year', payment.period_year))
+                m = int(data.get('period_month', payment.period_month))
+                if not (1 <= m <= 12):
+                    raise ValueError
+                payment.period_year = y
+                payment.period_month = m
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid period"}), 400
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment updated"})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error editing payroll payment {payment_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
@@ -4517,7 +4575,8 @@ def admin_investor_detail(profile_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 def _serialize_investor_profile(profile):
-    project_property = profile.property if profile.property_id else get_investor_project_property()
+    project_assigned = bool(profile.property_id)
+    project_property = profile.property if project_assigned else get_investor_project_property()
     updates = []
     if project_property:
         updates = ConstructionUpdate.query.filter_by(
@@ -4542,6 +4601,7 @@ def _serialize_investor_profile(profile):
         'total_distributed': profile.total_distributed,
         'investment_term_years': profile.investment_term_years,
         'notes': profile.notes or '',
+        'project_assigned': project_assigned,
         'project_property_id': project_property.id if project_property else None,
         'project_property_title': project_property.title if project_property else '',
         'project_property_price': project_property.price if project_property else None,
@@ -4555,6 +4615,22 @@ def _serialize_investor_profile(profile):
         'projected_total_payout': debt_schedule['projected_total_payout'] if debt_schedule else None,
         'payout_schedule': debt_schedule['schedule'] if debt_schedule else [],
     }
+
+@app.route('/admin/api/me/mark-tour-seen', methods=['POST'])
+@login_required
+def mark_tour_seen():
+    try:
+        admin = get_current_admin()
+        if not admin:
+            return jsonify({"success": False, "message": "Not authenticated"}), 401
+        admin.has_seen_tour = True
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error marking tour seen: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
 
 @app.route('/admin/api/my-investment', methods=['GET'])
 @login_required
@@ -5228,7 +5304,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Primary Role</label>
-                        <select id="editAccRole" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white">
+                        <select id="editAccRole" onchange="updateSalaryVisibility('editAccRole','editAccSalaryWrap')" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white">
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
@@ -5239,7 +5315,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <label class="block text-xs font-medium mb-1 text-gray-400">New Password <span class="text-gray-500 font-normal">(blank = unchanged)</span></label>
                         <input type="password" id="editAccPassword" placeholder="Min 8 characters" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
                     </div>
-                    <div>
+                    <div id="editAccSalaryWrap">
                         <label class="block text-xs font-medium mb-1 text-gray-400">Monthly Salary (₦) <span class="text-gray-500 font-normal">payroll flat fee</span></label>
                         <input type="number" id="editAccMonthlySalary" min="0" step="1000" placeholder="0" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
                     </div>
@@ -5281,7 +5357,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1 text-gray-400">Role *</label>
-                        <select id="accRole" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <select id="accRole" required onchange="updateSalaryVisibility('accRole','accSalaryWrap')" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                             <option value="">Select Role</option>
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
@@ -5298,7 +5374,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <p class="text-xs text-gray-600 mt-1">Cannot add CEO or same as primary role. Investor cannot have secondary roles.</p>
                     </div>
-                    <div>
+                    <div id="accSalaryWrap">
                         <label class="block text-xs font-medium mb-1 text-gray-400">Monthly Salary (₦) <span class="text-gray-500">payroll</span></label>
                         <input type="number" id="accMonthlySalary" min="0" step="1000" value="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                         <p class="text-[10px] text-gray-500 mt-1">Flat fee for Accountant / PA. Leave 0 for commission-only roles.</p>
@@ -8311,6 +8387,19 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) { alert('Error deleting account'); }
         }
 
+        function updateSalaryVisibility(roleSelectId, wrapId) {
+            const role = (document.getElementById(roleSelectId)?.value || '').toUpperCase();
+            const wrap = document.getElementById(wrapId);
+            if (!wrap) return;
+            const commissionRole = (role === 'MANAGER' || role === 'REALTOR');
+            wrap.classList.toggle('hidden', commissionRole);
+            // Zero out the salary so it isn't sent if hidden
+            if (commissionRole) {
+                const inp = wrap.querySelector('input');
+                if (inp) inp.value = 0;
+            }
+        }
+
         function editAccount(a) {
             const currentSecondary = a.secondary_roles || [];
             document.getElementById('editAccId').value = a.id;
@@ -8325,6 +8414,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.querySelectorAll('.edit-sec-role').forEach(cb => {
                 cb.checked = currentSecondary.includes(cb.value);
             });
+            updateSalaryVisibility('editAccRole', 'editAccSalaryWrap');
             const panel = document.getElementById('editAccountPanel');
             panel.classList.remove('hidden');
             panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -8949,15 +9039,34 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 }
                 tbody.innerHTML = _payrollLastRows.map((r, idx) => {
                     const linesId = `prLines_${r.user_id}`;
+                    const histId = `prHist_${r.user_id}`;
                     const hasLines = r.commission_lines && r.commission_lines.length;
+                    const hasHistory = r.payment_history && r.payment_history.length;
                     const linesToggle = hasLines
                         ? `<button onclick="document.getElementById('${linesId}').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 ml-1">[${r.commission_lines.length}]</button>`
+                        : '';
+                    const histToggle = hasHistory
+                        ? `<button onclick="document.getElementById('${histId}').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 ml-1">[${r.payment_history.length}]</button>`
                         : '';
                     const linesRow = hasLines
                         ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
                                 <p class="text-xs text-gray-400 mb-2">Breakdown — Yearly Rent stored on tenant is the gross total (base + 10% markup). Manager earns the markup; company keeps the base.</p>
                                 <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base (company)</th><th class="text-right py-1">Commission (10%)</th></tr></thead>
                                 <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${l.tenant_name}</td><td class="py-1 text-gray-400">${l.unit_number || '—'}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
+                           </td></tr>`
+                        : '';
+                    const histRow = hasHistory
+                        ? `<tr id="${histId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
+                                <p class="text-xs text-gray-400 mb-2">Payment history for this month — edit a mistake or remove an entry:</p>
+                                <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Paid</th><th class="text-left py-1">Kind</th><th class="text-right py-1">Amount</th><th class="text-left py-1 pl-3">Notes</th><th class="text-left py-1">By</th><th class="text-left py-1 pl-3">Actions</th></tr></thead>
+                                <tbody>${r.payment_history.map(p => `<tr class="border-t border-gray-700/40">
+                                    <td class="py-1 text-gray-400">${(p.paid_at || '').slice(0,10)}</td>
+                                    <td class="py-1 text-gray-300">${p.kind}</td>
+                                    <td class="py-1 text-right text-emerald-400">${fmtNGN(p.amount)}</td>
+                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${p.notes || '—'}</td>
+                                    <td class="py-1 text-gray-500 text-[11px]">${p.paid_by || '—'}</td>
+                                    <td class="py-1 pl-3"><button onclick="editPayrollPayment(${p.id}, ${p.amount}, '${p.kind}', '${(p.notes||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" class="text-blue-400 hover:text-blue-300 mr-2">Edit</button><button onclick="deletePayrollPayment(${p.id})" class="text-red-400 hover:text-red-300">Delete</button></td>
+                                </tr>`).join('')}</tbody></table>
                            </td></tr>`
                         : '';
                     const outstandingColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
@@ -8969,13 +9078,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
                             <td class="py-2 pr-3 text-right text-blue-400">${fmtNGN(r.salary)}</td>
                             <td class="py-2 pr-3 text-right text-emerald-400 font-semibold">${fmtNGN(r.total_earned)}</td>
-                            <td class="py-2 pr-3 text-right text-gray-300">${fmtNGN(r.already_paid)}</td>
+                            <td class="py-2 pr-3 text-right text-gray-300">${fmtNGN(r.already_paid)}${histToggle}</td>
                             <td class="py-2 pr-3 text-right ${outstandingColor} font-semibold">${fmtNGN(r.outstanding)}</td>
                             <td class="py-2 pl-3">
                                 <button onclick='openPayrollPayModal(${idx})' class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded ${payDisabled}">Pay</button>
                             </td>
                         </tr>
                         ${linesRow}
+                        ${histRow}
                     `;
                 }).join('');
             } catch (e) {
@@ -9002,6 +9112,34 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const modal = document.getElementById('payrollPayModal');
             modal.style.display = 'none';
             modal.classList.add('hidden');
+        }
+
+        async function editPayrollPayment(id, currentAmount, currentKind, currentNotes) {
+            const newAmountStr = prompt('New amount (₦):', String(currentAmount));
+            if (newAmountStr === null) return;
+            const newAmount = parseFloat(newAmountStr);
+            if (!(newAmount > 0)) { alert('Amount must be positive'); return; }
+            const newKindStr = prompt('Kind (commission or salary):', currentKind);
+            if (newKindStr === null) return;
+            const newKind = newKindStr.trim().toLowerCase();
+            if (newKind !== 'commission' && newKind !== 'salary') { alert('Kind must be commission or salary'); return; }
+            const newNotesStr = prompt('Notes (optional):', currentNotes || '');
+            if (newNotesStr === null) return;
+            try {
+                await fetchData('/admin/api/payroll/pay/' + id, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ amount: newAmount, kind: newKind, notes: newNotesStr })
+                });
+                loadPayroll();
+            } catch (e) { alert(e.message || 'Error editing payment'); }
+        }
+
+        async function deletePayrollPayment(id) {
+            if (!confirm('Permanently remove this payment record? This will increase the outstanding balance.')) return;
+            try {
+                await fetchData('/admin/api/payroll/pay/' + id, { method: 'DELETE' });
+                loadPayroll();
+            } catch (e) { alert(e.message || 'Error removing payment'); }
         }
 
         async function submitPayrollPayment() {
@@ -9667,6 +9805,86 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
         </div>
     </div>
 
+    <!-- ====== FIRST-LOGIN ONBOARDING TOUR (Shepherd.js) ====== -->
+    <script>
+    (function() {
+        const HAS_SEEN_TOUR = {{ has_seen_tour | tojson }};
+        if (HAS_SEEN_TOUR) return;
+
+        function loadCSS(href) {
+            return new Promise((resolve, reject) => {
+                const l = document.createElement('link');
+                l.rel = 'stylesheet'; l.href = href;
+                l.onload = resolve; l.onerror = reject;
+                document.head.appendChild(l);
+            });
+        }
+        function loadJS(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src; s.onload = resolve; s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        async function markSeen() {
+            try {
+                await fetch('/admin/api/me/mark-tour-seen', {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'X-CSRF-Token': adminCsrfToken || '' },
+                });
+            } catch (e) { /* non-blocking */ }
+        }
+
+        async function startCEOTour() {
+            await loadCSS('https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css');
+            await loadJS('https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/js/shepherd.min.js');
+            const tour = new Shepherd.Tour({
+                useModalOverlay: true,
+                defaultStepOptions: {
+                    cancelIcon: { enabled: true },
+                    classes: 'shadow-md bg-gray-800 text-white',
+                    scrollTo: { behavior: 'smooth', block: 'center' },
+                },
+            });
+            const nextBtn = { text: 'Next', action() { return tour.next(); } };
+            const skipBtn = { text: 'Skip tour', classes: 'shepherd-button-secondary', action() { return tour.cancel(); } };
+            const doneBtn = { text: 'Got it', action() { return tour.complete(); } };
+
+            tour.addStep({
+                id: 'welcome', title: 'Welcome back, Wally',
+                text: 'Quick 4-step tour of the new bits. You can skip any time.',
+                buttons: [skipBtn, nextBtn],
+            });
+            tour.addStep({
+                id: 'approvals', title: 'Approvals',
+                text: 'New signups land here. Approve to activate an account; reject with a note. The red badge shows how many are waiting.',
+                attachTo: { element: 'button[onclick*="approvalsSection"]', on: 'right' },
+                buttons: [skipBtn, nextBtn],
+            });
+            tour.addStep({
+                id: 'payroll', title: 'Payroll',
+                text: 'Tracks 10% commission per unit serviced by a Manager/Realtor + flat salary for Accountant/PA. CEO and Investors are excluded automatically.',
+                attachTo: { element: 'button[onclick*="payrollSection"]', on: 'right' },
+                buttons: [skipBtn, nextBtn],
+            });
+            tour.addStep({
+                id: 'tenants', title: 'Tenants → Serviced By',
+                text: 'When you add a tenant, set "Serviced By" to the Manager/Realtor who closed it. That feeds Payroll automatically.',
+                attachTo: { element: 'button[onclick*="tenantsSection"]', on: 'right' },
+                buttons: [skipBtn, doneBtn],
+            });
+            tour.on('complete', markSeen);
+            tour.on('cancel', markSeen);
+            setTimeout(() => tour.start(), 600);
+        }
+
+        if (USER_ROLE === 'CEO') {
+            document.addEventListener('DOMContentLoaded', startCEOTour);
+        }
+    })();
+    </script>
+
 </body>
 </html>
 """
@@ -9883,13 +10101,35 @@ ROLE_DASHBOARD_TEMPLATE = """
             </div>
 
             <!-- Main dashboard -->
-            <div id="investorDashboard" class="hidden space-y-4 sm:space-y-6">
+            <div id="investorDashboard" class="hidden space-y-4 sm:space-y-6 pb-20 md:pb-0">
+
+                <!-- Pending property assignment banner (visible only when CEO hasn't assigned a property yet) -->
+                <div id="invPendingAssignment" class="hidden bg-amber-900/30 border border-amber-700/40 rounded-2xl p-4 flex items-start gap-3">
+                    <div class="w-9 h-9 bg-amber-900/60 border border-amber-700/40 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-hourglass-half text-amber-400 text-sm"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-semibold text-amber-300 text-sm">Property assignment pending</p>
+                        <p class="text-xs text-amber-100/70 mt-1">The CEO will set up your project shortly after your onboarding chat. The figures below are based on the current flagship project until then.</p>
+                    </div>
+                </div>
 
                 <!-- Project selector (shown only when investor has multiple projects) -->
                 <div id="invProjectSelector" class="hidden bg-gray-800 border border-gray-700/60 rounded-2xl p-4">
                     <p class="text-xs text-gray-400 uppercase tracking-wide mb-3 font-medium">Your Investments</p>
                     <div id="invProjectTabs" class="flex flex-wrap gap-2"></div>
                 </div>
+
+                <!-- TAB NAV (top, visible md+) -->
+                <div class="hidden md:flex items-center gap-1 bg-gray-800/60 border border-gray-700/40 rounded-xl p-1">
+                    <button data-inv-tab="overview" onclick="switchInvestorScreen('overview')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-white bg-slate-700"><i class="fas fa-home mr-2"></i>Overview</button>
+                    <button data-inv-tab="returns" onclick="switchInvestorScreen('returns')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-gray-400 hover:text-white"><i class="fas fa-chart-line mr-2"></i>Returns</button>
+                    <button data-inv-tab="project" onclick="switchInvestorScreen('project')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-gray-400 hover:text-white"><i class="fas fa-hard-hat mr-2"></i>Project</button>
+                    <button data-inv-tab="profile" onclick="switchInvestorScreen('profile')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-gray-400 hover:text-white"><i class="fas fa-user mr-2"></i>Profile</button>
+                </div>
+
+                <!-- === SCREEN: OVERVIEW === -->
+                <div class="inv-screen" data-inv-screen="overview">
 
                 <!-- 1. HERO / WELCOME CARD -->
                 <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 border border-slate-600/60 rounded-2xl p-5 sm:p-8">
@@ -9946,6 +10186,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                 </div>
 
+                </div><!-- /SCREEN: OVERVIEW -->
+
+                <!-- === SCREEN: PROJECT === -->
+                <div class="inv-screen hidden" data-inv-screen="project">
+
                 <!-- 2. CONSTRUCTION PROGRESS -->
                 <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
                     <div class="flex items-center justify-between gap-3 mb-4 sm:mb-6">
@@ -9964,6 +10209,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div id="invMilestones"></div>
                 </div>
 
+                </div><!-- /SCREEN: PROJECT -->
+
+                <!-- === SCREEN: RETURNS === -->
+                <div class="inv-screen hidden" data-inv-screen="returns">
+
                 <!-- 3. RETURN SCHEDULE -->
                 <div class="bg-gray-800 border border-gray-700/60 rounded-2xl p-5 sm:p-7">
                     <div class="flex items-start justify-between gap-3 mb-4 sm:mb-6">
@@ -9975,6 +10225,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                     <div id="invReturnSchedule"></div>
                 </div>
+                </div><!-- /SCREEN: RETURNS -->
+
+                <!-- === SCREEN: PROFILE === -->
+                <div class="inv-screen hidden" data-inv-screen="profile">
 
                 <!-- 4. DETAILS + DOCUMENTS -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -10038,6 +10292,24 @@ ROLE_DASHBOARD_TEMPLATE = """
                         </a>
                     </div>
                 </div>
+
+                </div><!-- /SCREEN: PROFILE -->
+
+                <!-- BOTTOM NAV (mobile only) -->
+                <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-700/60 z-40 flex items-stretch">
+                    <button data-inv-tab="overview" onclick="switchInvestorScreen('overview')" class="inv-tab-btn-mobile flex-1 flex flex-col items-center gap-0.5 py-2.5 text-emerald-400">
+                        <i class="fas fa-home text-base"></i><span class="text-[10px] font-medium">Overview</span>
+                    </button>
+                    <button data-inv-tab="returns" onclick="switchInvestorScreen('returns')" class="inv-tab-btn-mobile flex-1 flex flex-col items-center gap-0.5 py-2.5 text-gray-500">
+                        <i class="fas fa-chart-line text-base"></i><span class="text-[10px] font-medium">Returns</span>
+                    </button>
+                    <button data-inv-tab="project" onclick="switchInvestorScreen('project')" class="inv-tab-btn-mobile flex-1 flex flex-col items-center gap-0.5 py-2.5 text-gray-500">
+                        <i class="fas fa-hard-hat text-base"></i><span class="text-[10px] font-medium">Project</span>
+                    </button>
+                    <button data-inv-tab="profile" onclick="switchInvestorScreen('profile')" class="inv-tab-btn-mobile flex-1 flex flex-col items-center gap-0.5 py-2.5 text-gray-500">
+                        <i class="fas fa-user text-base"></i><span class="text-[10px] font-medium">Profile</span>
+                    </button>
+                </nav>
 
             </div>
 
@@ -11281,10 +11553,34 @@ ROLE_DASHBOARD_TEMPLATE = """
             renderInvestorProfile(idx);
         }
 
+        function switchInvestorScreen(name) {
+            document.querySelectorAll('.inv-screen').forEach(el => {
+                el.classList.toggle('hidden', el.getAttribute('data-inv-screen') !== name);
+            });
+            // Desktop tabs
+            document.querySelectorAll('.inv-tab-btn').forEach(btn => {
+                const active = btn.getAttribute('data-inv-tab') === name;
+                btn.classList.toggle('bg-slate-700', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+            // Mobile bottom nav
+            document.querySelectorAll('.inv-tab-btn-mobile').forEach(btn => {
+                const active = btn.getAttribute('data-inv-tab') === name;
+                btn.classList.toggle('text-emerald-400', active);
+                btn.classList.toggle('text-gray-500', !active);
+            });
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
         function renderInvestorProfile(idx) {
             const profile = _investorProfiles[idx];
             if (!profile) return;
             document.getElementById('investorDashboard').classList.remove('hidden');
+
+            // Property assignment pending banner
+            const pendingEl = document.getElementById('invPendingAssignment');
+            if (pendingEl) pendingEl.classList.toggle('hidden', !!profile.project_assigned);
 
             // Project selector
             const selectorEl = document.getElementById('invProjectSelector');
@@ -12831,6 +13127,84 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
             </div>
         </div>
     </div>
+
+    <!-- ====== FIRST-LOGIN ONBOARDING TOUR (Shepherd.js) ====== -->
+    <script>
+    (function() {
+        const HAS_SEEN_TOUR = {{ has_seen_tour | tojson }};
+        if (HAS_SEEN_TOUR) return;
+
+        function loadCSS(href) {
+            return new Promise((resolve) => {
+                const l = document.createElement('link');
+                l.rel = 'stylesheet'; l.href = href; l.onload = resolve; l.onerror = resolve;
+                document.head.appendChild(l);
+            });
+        }
+        function loadJS(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src; s.onload = resolve; s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        async function markSeen() {
+            try {
+                await fetch('/admin/api/me/mark-tour-seen', {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'X-CSRF-Token': adminCsrfToken || '' },
+                });
+            } catch (e) {}
+        }
+
+        function buildStepsForRole() {
+            const role = USER_ROLE;
+            const skip = { text: 'Skip tour', classes: 'shepherd-button-secondary', action() { return _tour.cancel(); } };
+            const next = { text: 'Next', action() { return _tour.next(); } };
+            const done = { text: 'Got it', action() { return _tour.complete(); } };
+
+            if (role === 'INVESTOR') {
+                return [
+                    { id: 'welcome', title: 'Welcome to your portal', text: 'Quick 4-step tour so you know where everything lives. You can skip any time.', buttons: [skip, next] },
+                    { id: 'overview', title: 'Overview', text: 'Headline numbers — what you invested, your net ROI, what\\'s been paid out, and site progress.', attachTo: { element: '[data-inv-tab="overview"]', on: 'bottom' }, buttons: [skip, next] },
+                    { id: 'returns', title: 'Returns', text: 'Year-by-year payout schedule with paid/scheduled status. For equity investors, your stake and projected revenue.', attachTo: { element: '[data-inv-tab="returns"]', on: 'bottom' }, buttons: [skip, next] },
+                    { id: 'project', title: 'Project', text: 'Live construction progress and milestones posted by the project team.', attachTo: { element: '[data-inv-tab="project"]', on: 'bottom' }, buttons: [skip, next] },
+                    { id: 'profile', title: 'Profile', text: 'Your investment details, signed agreement, and direct line to the CEO.', attachTo: { element: '[data-inv-tab="profile"]', on: 'bottom' }, buttons: [skip, done] },
+                ];
+            }
+            if (role === 'MANAGER' || role === 'REALTOR') {
+                return [
+                    { id: 'welcome', title: 'Welcome aboard', text: 'A quick 2-step tour. Skip any time.', buttons: [skip, next] },
+                    { id: 'tenants', title: 'Tenants & Commission', text: 'Each tenant you sign gets recorded with you as "Serviced By". You earn 10% of every unit. Track it in real time.', buttons: [skip, done] },
+                ];
+            }
+            return [
+                { id: 'welcome', title: 'Welcome to BrightWave', text: 'Your dashboard is ready. Use the sidebar to navigate. Reach out to the CEO any time.', buttons: [done] },
+            ];
+        }
+
+        let _tour;
+        async function startTour() {
+            await loadCSS('https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css');
+            await loadJS('https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/js/shepherd.min.js');
+            _tour = new Shepherd.Tour({
+                useModalOverlay: true,
+                defaultStepOptions: {
+                    cancelIcon: { enabled: true },
+                    classes: 'shadow-md',
+                    scrollTo: { behavior: 'smooth', block: 'center' },
+                },
+            });
+            const steps = buildStepsForRole();
+            steps.forEach(s => _tour.addStep(s));
+            _tour.on('complete', markSeen);
+            _tour.on('cancel', markSeen);
+            setTimeout(() => _tour.start(), 800);
+        }
+
+        document.addEventListener('DOMContentLoaded', startTour);
+    })();
+    </script>
 
 </body>
 </html>
