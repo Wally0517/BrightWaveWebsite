@@ -119,6 +119,7 @@ class Admin(db.Model):
     contract_signed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    monthly_salary = db.Column(db.Float, default=0.0)  # flat fee for ACCOUNTANT / PA; 0 for commission-only roles
 
 class Property(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -335,8 +336,10 @@ class Tenant(db.Model):
     monthly_rent = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='active')
     notes = db.Column(db.Text, nullable=True)
+    serviced_by_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     unit_type = db.relationship('PropertyUnitType', backref='tenants', foreign_keys=[unit_type_id])
+    serviced_by = db.relationship('Admin', foreign_keys=[serviced_by_id])
 
 class PaymentRecord(db.Model):
     __tablename__ = 'payment_record'
@@ -349,6 +352,21 @@ class PaymentRecord(db.Model):
     description = db.Column(db.Text, nullable=True)
     recorded_by = db.Column(db.String(80), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class PayrollPayment(db.Model):
+    __tablename__ = 'payroll_payment'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    period_year = db.Column(db.Integer, nullable=False)
+    period_month = db.Column(db.Integer, nullable=False)  # 1-12
+    amount = db.Column(db.Float, nullable=False)
+    kind = db.Column(db.String(20), nullable=False, default='commission')  # 'commission' | 'salary'
+    source_tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
+    paid_by = db.Column(db.String(80), nullable=True)
+    user = db.relationship('Admin', foreign_keys=[user_id])
 
 
 class PasswordResetToken(db.Model):
@@ -369,6 +387,25 @@ class ContractTemplate(db.Model):
     body = db.Column(db.Text, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = db.Column(db.String(80), nullable=True)
+
+
+class PendingSignup(db.Model):
+    __tablename__ = 'pending_signup'
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    phone = db.Column(db.String(40), nullable=True)
+    role = db.Column(db.String(30), nullable=False)  # INVESTOR | MANAGER | ACCOUNTANT | REALTOR | PA
+    password_hash = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending | approved | rejected
+    role_data = db.Column(db.JSON, default=dict)  # investor: {amount, type, term_years}; staff: {experience, availability}
+    rejection_reason = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by = db.Column(db.String(80), nullable=True)
+    created_admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
@@ -538,6 +575,20 @@ def ensure_runtime_schema_updates():
     content_columns = {column['name'] for column in inspector.get_columns('site_content')} if inspector.has_table('site_content') else set()
     if content_columns and 'draft_value' not in content_columns:
         db.session.execute(text('ALTER TABLE site_content ADD COLUMN draft_value TEXT'))
+
+    admin_columns = {column['name'] for column in inspector.get_columns('admin')} if inspector.has_table('admin') else set()
+    if admin_columns and 'monthly_salary' not in admin_columns:
+        db.session.execute(text(f'ALTER TABLE admin ADD COLUMN monthly_salary {float_type} DEFAULT 0'))
+
+    tenant_columns = {column['name'] for column in inspector.get_columns('tenant')} if inspector.has_table('tenant') else set()
+    if tenant_columns and 'serviced_by_id' not in tenant_columns:
+        db.session.execute(text('ALTER TABLE tenant ADD COLUMN serviced_by_id INTEGER REFERENCES admin(id)'))
+
+    if not inspector.has_table('payroll_payment'):
+        db.create_all()
+
+    if not inspector.has_table('pending_signup'):
+        db.create_all()
 
     db.session.commit()
 
@@ -2547,6 +2598,101 @@ def admin_logout():
     session.pop('csrf_token', None)
     return redirect(url_for('admin_login'))
 
+
+# ========== PUBLIC SIGNUP ==========
+SIGNUP_ALLOWED_ROLES = {'INVESTOR', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA'}
+
+
+@app.route('/signup', methods=['GET'])
+def public_signup_page():
+    return render_template_string(SIGNUP_TEMPLATE)
+
+
+@app.route('/api/signup', methods=['POST'])
+@limiter.limit("5 per hour")
+def api_public_signup():
+    try:
+        data = request.get_json() or {}
+        full_name = (data.get('full_name') or '').strip()
+        email = (data.get('email') or '').strip().lower()
+        phone = (data.get('phone') or '').strip() or None
+        role = (data.get('role') or '').strip().upper()
+        password = data.get('password') or ''
+
+        if not full_name or not email or not role or not password:
+            return jsonify({"success": False, "message": "All required fields must be filled"}), 400
+        if role not in SIGNUP_ALLOWED_ROLES:
+            return jsonify({"success": False, "message": "Invalid role"}), 400
+        if '@' not in email or '.' not in email.split('@')[-1]:
+            return jsonify({"success": False, "message": "Invalid email"}), 400
+        if len(password) < 8:
+            return jsonify({"success": False, "message": "Password must be at least 8 characters"}), 400
+
+        # Reject if email already used by an Admin or pending signup
+        if Admin.query.filter_by(email=email).first():
+            return jsonify({"success": False, "message": "An account with this email already exists. Please log in instead."}), 409
+        existing_pending = PendingSignup.query.filter_by(email=email).first()
+        if existing_pending and existing_pending.status == 'pending':
+            return jsonify({"success": False, "message": "You already have a pending request under review."}), 409
+
+        # Role-specific data
+        role_data = {}
+        if role == 'INVESTOR':
+            try:
+                amount = float(data.get('investment_amount') or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+            if amount <= 0:
+                return jsonify({"success": False, "message": "Please enter an intended investment amount"}), 400
+            inv_type = (data.get('investment_type') or 'DEBT').strip().upper()
+            if inv_type not in ('DEBT', 'EQUITY'):
+                inv_type = 'DEBT'
+            try:
+                term_years = int(data.get('term_years') or 0) or None
+            except (TypeError, ValueError):
+                term_years = None
+            role_data = {
+                'investment_amount': amount,
+                'investment_type': inv_type,
+                'term_years': term_years,
+                'notes': (data.get('notes') or '').strip() or None,
+            }
+        else:
+            role_data = {
+                'experience': (data.get('experience') or '').strip() or None,
+                'availability': (data.get('availability') or '').strip() or None,
+                'notes': (data.get('notes') or '').strip() or None,
+            }
+
+        # Replace any prior rejected request from same email
+        if existing_pending and existing_pending.status == 'rejected':
+            db.session.delete(existing_pending)
+            db.session.flush()
+
+        signup = PendingSignup(
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            role=role,
+            password_hash=generate_password_hash(password),
+            role_data=role_data,
+            ip_address=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:64] or None,
+        )
+        db.session.add(signup)
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "message": "Request submitted. The CEO will review it shortly — you'll be able to log in once approved.",
+        })
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "A request with this email is already pending."}), 409
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error submitting signup: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
 @app.route('/admin/api/update-password', methods=['POST'])
 @login_required
 def update_admin_password():
@@ -3477,6 +3623,153 @@ def ceo_sign_contract(contract_id):
         logger.error(f"Error CEO signing contract {contract_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
+# ========== SIGNUP APPROVALS API ==========
+def _serialize_pending_signup(s):
+    return {
+        'id': s.id,
+        'full_name': s.full_name,
+        'email': s.email,
+        'phone': s.phone or '',
+        'role': s.role,
+        'status': s.status,
+        'role_data': s.role_data or {},
+        'rejection_reason': s.rejection_reason or '',
+        'ip_address': s.ip_address or '',
+        'created_at': s.created_at.strftime('%Y-%m-%d %H:%M UTC') if s.created_at else None,
+        'reviewed_at': s.reviewed_at.strftime('%Y-%m-%d %H:%M UTC') if s.reviewed_at else None,
+        'reviewed_by': s.reviewed_by or '',
+        'created_admin_id': s.created_admin_id,
+    }
+
+
+def _generate_username_for_signup(s):
+    base = ''.join(ch for ch in (s.email.split('@')[0] or s.full_name).lower() if ch.isalnum()) or 'user'
+    base = base[:60]
+    candidate = base
+    n = 1
+    while Admin.query.filter_by(username=candidate).first():
+        n += 1
+        candidate = f"{base}{n}"
+        if n > 50:
+            candidate = f"{base}{secrets.token_hex(3)}"
+            break
+    return candidate
+
+
+@app.route('/admin/api/signups')
+@login_required
+@ceo_required
+def admin_signups_list():
+    try:
+        status = (request.args.get('status') or 'pending').lower()
+        q = PendingSignup.query
+        if status and status != 'all':
+            q = q.filter_by(status=status)
+        rows = q.order_by(PendingSignup.created_at.desc()).all()
+        pending_count = PendingSignup.query.filter_by(status='pending').count()
+        return jsonify({'success': True, 'signups': [_serialize_pending_signup(s) for s in rows], 'pending_count': pending_count})
+    except Exception as e:
+        logger.error(f"Error listing signups: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/signups/<int:signup_id>/approve', methods=['POST'])
+@login_required
+@ceo_required
+def admin_signup_approve(signup_id):
+    try:
+        ceo = get_current_admin()
+        signup = PendingSignup.query.get_or_404(signup_id)
+        if signup.status != 'pending':
+            return jsonify({"success": False, "message": f"Signup already {signup.status}"}), 400
+
+        # Sanity: email collision can occur if an Admin was manually created in the gap
+        if Admin.query.filter_by(email=signup.email).first():
+            return jsonify({"success": False, "message": "An Admin with this email already exists"}), 409
+
+        username = _generate_username_for_signup(signup)
+        new_admin = Admin(
+            username=username,
+            email=signup.email,
+            password_hash=signup.password_hash,
+            role=signup.role if signup.role != 'PA' else 'ACCOUNTANT',  # PA stored as ACCOUNTANT-class for now
+            secondary_roles=[],
+            display_name=signup.full_name,
+            is_active=True,
+            has_signed_contract=False,
+            monthly_salary=0.0,
+        )
+        # PA isn't a top-level role in valid_roles list; tag it via secondary_roles for visibility
+        if signup.role == 'PA':
+            new_admin.secondary_roles = ['PA']
+        db.session.add(new_admin)
+        db.session.flush()  # get new_admin.id
+
+        # Investor: create InvestorProfile from role_data
+        if signup.role == 'INVESTOR':
+            rd = signup.role_data or {}
+            try:
+                amount = float(rd.get('investment_amount') or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+            inv_type = (rd.get('investment_type') or 'DEBT').upper()
+            term = rd.get('term_years')
+            try:
+                term = int(term) if term else None
+            except (TypeError, ValueError):
+                term = None
+            profile = InvestorProfile(
+                user_id=new_admin.id,
+                investment_type=inv_type,
+                investment_amount=amount,
+                investment_term_years=term,
+                notes=rd.get('notes') or None,
+            )
+            db.session.add(profile)
+
+        # Staff: kick off contract signing
+        if signup.role in ('MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR'):
+            contract_type = signup.role if signup.role != 'PA' else 'ACCOUNTANT'
+            contract = UserContract(user_id=new_admin.id, contract_type=contract_type, status='pending_user_signature')
+            db.session.add(contract)
+
+        signup.status = 'approved'
+        signup.reviewed_at = datetime.utcnow()
+        signup.reviewed_by = ceo.display_name or ceo.username if ceo else None
+        signup.created_admin_id = new_admin.id
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Approved. {signup.full_name} can now log in as @{username}.", "admin_id": new_admin.id, "username": username})
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Username/email collision while creating account"}), 409
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error approving signup {signup_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/signups/<int:signup_id>/reject', methods=['POST'])
+@login_required
+@ceo_required
+def admin_signup_reject(signup_id):
+    try:
+        ceo = get_current_admin()
+        signup = PendingSignup.query.get_or_404(signup_id)
+        if signup.status != 'pending':
+            return jsonify({"success": False, "message": f"Signup already {signup.status}"}), 400
+        data = request.get_json() or {}
+        signup.status = 'rejected'
+        signup.rejection_reason = (data.get('reason') or '').strip() or None
+        signup.reviewed_at = datetime.utcnow()
+        signup.reviewed_by = ceo.display_name or ceo.username if ceo else None
+        db.session.commit()
+        return jsonify({"success": True, "message": "Signup rejected."})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error rejecting signup {signup_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
 # ========== TEAM ACCOUNTS API ==========
 @app.route('/admin/api/accounts', methods=['GET', 'POST'])
 @login_required
@@ -3498,6 +3791,7 @@ def admin_accounts():
                     'is_active': a.is_active,
                     'has_signed_contract': a.has_signed_contract,
                     'contract_status': contract.status if contract else 'no_contract',
+                    'monthly_salary': float(a.monthly_salary or 0),
                     'created_at': a.created_at.strftime('%Y-%m-%d'),
                 })
             return jsonify(result)
@@ -3517,6 +3811,13 @@ def admin_accounts():
         raw_secondary = data.get('secondary_roles') or []
         secondary = [r for r in raw_secondary if r in valid_roles and r != data['role'] and r != 'CEO']
 
+        try:
+            monthly_salary_val = float(data.get('monthly_salary') or 0)
+            if monthly_salary_val < 0:
+                monthly_salary_val = 0.0
+        except (TypeError, ValueError):
+            monthly_salary_val = 0.0
+
         new_admin = Admin(
             username=data['username'].strip(),
             email=data['email'].strip().lower(),
@@ -3524,6 +3825,7 @@ def admin_accounts():
             role=data['role'],
             secondary_roles=secondary,
             display_name=(data.get('display_name') or '').strip() or None,
+            monthly_salary=monthly_salary_val,
             is_active=True,
             has_signed_contract=False,
         )
@@ -3577,6 +3879,12 @@ def admin_account_detail(account_id):
                 valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
                 primary = data.get('role', account.role)
                 account.secondary_roles = [r for r in (data['secondary_roles'] or []) if r in valid_roles and r != primary and r != 'CEO']
+            if 'monthly_salary' in data:
+                try:
+                    sal = float(data['monthly_salary'] or 0)
+                    account.monthly_salary = sal if sal >= 0 else 0.0
+                except (TypeError, ValueError):
+                    pass
             if data.get('new_password') and len(data['new_password']) >= 8:
                 account.password_hash = generate_password_hash(data['new_password'])
             db.session.commit()
@@ -3732,6 +4040,8 @@ def admin_tenants():
                 'monthly_rent': t.monthly_rent or 0,
                 'status': t.status,
                 'notes': t.notes or '',
+                'serviced_by_id': t.serviced_by_id,
+                'serviced_by_name': (t.serviced_by.display_name or t.serviced_by.username) if t.serviced_by else '',
                 'created_at': t.created_at.strftime('%Y-%m-%d'),
             } for t in tenants])
 
@@ -3753,6 +4063,7 @@ def admin_tenants():
                 if rent_val in (None, '', 0, '0'):
                     rent_val = ut.annual_price
 
+        serviced_by_id = data.get('serviced_by_id') or None
         tenant = Tenant(
             name=data['name'].strip(),
             email=(data.get('email') or '').strip() or None,
@@ -3765,6 +4076,7 @@ def admin_tenants():
             monthly_rent=float(rent_val or 0),
             status=data.get('status', 'active'),
             notes=(data.get('notes') or '').strip() or None,
+            serviced_by_id=int(serviced_by_id) if serviced_by_id else None,
         )
         db.session.add(tenant)
         db.session.commit()
@@ -3811,6 +4123,9 @@ def admin_tenant_detail(tenant_id):
             tenant.lease_start = date_type.fromisoformat(data['lease_start'])
         if data.get('lease_end'):
             tenant.lease_end = date_type.fromisoformat(data['lease_end'])
+        if 'serviced_by_id' in data:
+            sb = data.get('serviced_by_id')
+            tenant.serviced_by_id = int(sb) if sb else None
         db.session.commit()
         sync_property_units_from_tenants()
         return jsonify({"success": True, "message": "Tenant updated"})
@@ -3899,6 +4214,203 @@ def admin_payment_detail(payment_id):
     except Exception as e:
         logger.error(f"Error updating payment {payment_id}: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+# ========== PAYROLL ==========
+# Pricing model: the Yearly Rent stored on a tenant is the GROSS total the tenant pays
+# (base + 10% markup bundled). The 10% markup is the Manager/Realtor commission —
+# funded by the tenant, not deducted from company revenue.
+#   base       = total / 1.10
+#   commission = total - base   (== total / 11)
+# Accountant / PA / any other role earns the flat `Admin.monthly_salary` for the month.
+PAYROLL_COMMISSION_RATE = 0.10
+PAYROLL_COMMISSION_ROLES = {'MANAGER', 'REALTOR'}
+
+
+def _user_qualifies_for_commission(user):
+    if not user:
+        return False
+    if (user.role or '').upper() in PAYROLL_COMMISSION_ROLES:
+        return True
+    for sr in (user.secondary_roles or []):
+        if (sr or '').upper() in PAYROLL_COMMISSION_ROLES:
+            return True
+    return False
+
+
+def compute_user_payroll(user, year, month):
+    """Return commission + salary breakdown for a single user in a (year, month)."""
+    from sqlalchemy import extract
+
+    commission_lines = []
+    commission_total = 0.0
+    if _user_qualifies_for_commission(user):
+        tenants = Tenant.query.filter(
+            Tenant.serviced_by_id == user.id,
+            extract('year', Tenant.created_at) == year,
+            extract('month', Tenant.created_at) == month,
+        ).all()
+        for t in tenants:
+            total_paid = float(t.monthly_rent or 0)  # legacy field name; stores gross yearly total
+            base = total_paid / (1 + PAYROLL_COMMISSION_RATE)
+            commission = total_paid - base
+            commission_total += commission
+            commission_lines.append({
+                'tenant_id': t.id,
+                'tenant_name': t.name,
+                'unit_number': t.unit_number,
+                'annual_rent': total_paid,
+                'base_rent': base,
+                'commission': commission,
+            })
+
+    salary = float(user.monthly_salary or 0)
+
+    already_paid = (
+        db.session.query(db.func.coalesce(db.func.sum(PayrollPayment.amount), 0.0))
+        .filter(
+            PayrollPayment.user_id == user.id,
+            PayrollPayment.period_year == year,
+            PayrollPayment.period_month == month,
+        )
+        .scalar()
+    ) or 0.0
+    already_paid = float(already_paid)
+
+    total_earned = commission_total + salary
+    return {
+        'user_id': user.id,
+        'username': user.username,
+        'display_name': user.display_name or user.username,
+        'role': user.role,
+        'secondary_roles': user.secondary_roles or [],
+        'qualifies_for_commission': _user_qualifies_for_commission(user),
+        'commission_lines': commission_lines,
+        'commission_total': commission_total,
+        'salary': salary,
+        'total_earned': total_earned,
+        'already_paid': already_paid,
+        'outstanding': max(total_earned - already_paid, 0.0),
+    }
+
+
+@app.route('/admin/api/payroll/summary')
+@login_required
+@ceo_required
+def admin_payroll_summary():
+    try:
+        today = date_type.today()
+        try:
+            year = int(request.args.get('year', today.year))
+            month = int(request.args.get('month', today.month))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid year or month"}), 400
+        if not (1 <= month <= 12):
+            return jsonify({"success": False, "message": "Month must be 1-12"}), 400
+
+        users = Admin.query.filter_by(is_active=True).order_by(Admin.role.asc(), Admin.username.asc()).all()
+        rows = [compute_user_payroll(u, year, month) for u in users if (u.role or '').upper() != 'INVESTOR']
+
+        totals = {
+            'commission_total': sum(r['commission_total'] for r in rows),
+            'salary_total': sum(r['salary'] for r in rows),
+            'earned_total': sum(r['total_earned'] for r in rows),
+            'paid_total': sum(r['already_paid'] for r in rows),
+            'outstanding_total': sum(r['outstanding'] for r in rows),
+        }
+        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals})
+    except Exception as e:
+        logger.error(f"Error in payroll summary: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/pay', methods=['POST'])
+@login_required
+@ceo_required
+def admin_payroll_pay():
+    try:
+        admin = get_current_admin()
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        amount = data.get('amount')
+        if not user_id or amount in (None, ''):
+            return jsonify({"success": False, "message": "user_id and amount are required"}), 400
+        try:
+            user_id = int(user_id)
+            amount = float(amount)
+            year = int(data.get('year') or date_type.today().year)
+            month = int(data.get('month') or date_type.today().month)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid numeric value"}), 400
+        if amount <= 0:
+            return jsonify({"success": False, "message": "Amount must be positive"}), 400
+        if not (1 <= month <= 12):
+            return jsonify({"success": False, "message": "Month must be 1-12"}), 400
+
+        user = Admin.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        kind = (data.get('kind') or 'commission').strip().lower()
+        if kind not in ('commission', 'salary'):
+            kind = 'commission'
+
+        payment = PayrollPayment(
+            user_id=user.id,
+            period_year=year,
+            period_month=month,
+            amount=amount,
+            kind=kind,
+            source_tenant_id=int(data['source_tenant_id']) if data.get('source_tenant_id') else None,
+            notes=(data.get('notes') or '').strip() or None,
+            paid_by=admin.display_name or admin.username if admin else None,
+        )
+        db.session.add(payment)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payroll payment recorded", "id": payment.id})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error recording payroll payment: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/history')
+@login_required
+@ceo_required
+def admin_payroll_history():
+    try:
+        try:
+            year = int(request.args.get('year', date_type.today().year))
+            month = int(request.args.get('month', date_type.today().month))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid year or month"}), 400
+
+        payments = (
+            PayrollPayment.query
+            .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month)
+            .order_by(PayrollPayment.paid_at.desc())
+            .all()
+        )
+        out = []
+        for p in payments:
+            u = p.user
+            out.append({
+                'id': p.id,
+                'user_id': p.user_id,
+                'username': u.username if u else None,
+                'display_name': (u.display_name or u.username) if u else None,
+                'amount': p.amount,
+                'kind': p.kind,
+                'source_tenant_id': p.source_tenant_id,
+                'notes': p.notes,
+                'paid_by': p.paid_by,
+                'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+            })
+        return jsonify({'success': True, 'year': year, 'month': month, 'payments': out})
+    except Exception as e:
+        logger.error(f"Error fetching payroll history: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
 
 # ========== INVESTOR PROFILE API ==========
 @app.route('/admin/api/investors', methods=['GET', 'POST'])
@@ -4178,8 +4690,10 @@ LOGIN_TEMPLATE = """
                 </button>
             </div>
             <p id="errorMessage" class="text-red-500 text-sm text-center hidden"></p>
-            <div class="text-center pt-1">
+            <div class="text-center pt-1 flex items-center justify-center gap-3">
                 <button type="button" onclick="toggleForgotForm()" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Forgot password?</button>
+                <span class="text-gray-700">·</span>
+                <a href="/signup" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">New here? Request access</a>
             </div>
         </form>
         <!-- Forgot password panel -->
@@ -4245,6 +4759,164 @@ LOGIN_TEMPLATE = """
             } catch (error) {
                 errorMessage.textContent = 'An error occurred. Please try again.';
                 errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
+SIGNUP_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Access — BrightWave Habitat</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#475569">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center py-10 px-4">
+    <div class="max-w-xl w-full bg-gray-800 p-8 rounded-xl shadow-2xl">
+        <div class="text-center mb-6">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-16 h-16 rounded-full object-cover mx-auto mb-3 ring-2 ring-slate-500/50">
+            <h1 class="text-xl font-bold text-slate-200">Request Access</h1>
+            <p class="text-gray-400 mt-1 text-sm">Tell us who you are. The CEO reviews each request before activation.</p>
+        </div>
+
+        <form id="signupForm" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Full Name *</label>
+                    <input type="text" id="su_name" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Email *</label>
+                    <input type="email" id="su_email" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Phone</label>
+                    <input type="text" id="su_phone" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">I am joining as *</label>
+                    <select id="su_role" required onchange="suSwitchRole()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                        <option value="">-- Select role --</option>
+                        <option value="INVESTOR">Investor</option>
+                        <option value="MANAGER">Manager</option>
+                        <option value="ACCOUNTANT">Accountant</option>
+                        <option value="REALTOR">Realtor</option>
+                        <option value="PA">Personal Assistant (PA)</option>
+                    </select>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Password *</label>
+                    <input type="password" id="su_password" required minlength="8" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                    <p class="text-[10px] text-gray-500 mt-1">Min 8 characters. You'll use this to log in once approved.</p>
+                </div>
+            </div>
+
+            <!-- INVESTOR fields -->
+            <div id="suInvestorFields" class="hidden border-t border-gray-700 pt-4">
+                <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide mb-3">Investor Details</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Intended Investment (₦) *</label>
+                        <input type="number" id="su_invAmount" min="0" step="10000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-slate-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Type</label>
+                        <select id="su_invType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                            <option value="DEBT">Debt (fixed return)</option>
+                            <option value="EQUITY">Equity (project share)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Term (years)</label>
+                        <input type="number" id="su_invTerm" min="1" max="20" placeholder="e.g. 3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- STAFF fields -->
+            <div id="suStaffFields" class="hidden border-t border-gray-700 pt-4">
+                <p class="text-xs text-amber-400 font-medium uppercase tracking-wide mb-3">Background</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Prior experience</label>
+                        <textarea id="su_experience" rows="2" placeholder="Brief on your relevant background" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Availability</label>
+                        <input type="text" id="su_availability" placeholder="e.g. Mon–Fri full-time" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium mb-1 text-gray-400">Anything else? (optional)</label>
+                <textarea id="su_notes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
+            </div>
+
+            <button type="submit" class="w-full bg-slate-600 hover:bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg focus:outline-none transition-colors">Submit Request</button>
+            <p id="suMessage" class="text-sm text-center hidden"></p>
+        </form>
+
+        <p class="text-xs text-gray-500 text-center mt-6">
+            Already approved? <a href="/admin/login" class="text-slate-300 hover:text-white underline">Log in</a>
+        </p>
+    </div>
+
+    <script>
+        function suSwitchRole() {
+            const role = document.getElementById('su_role').value;
+            document.getElementById('suInvestorFields').classList.toggle('hidden', role !== 'INVESTOR');
+            document.getElementById('suStaffFields').classList.toggle('hidden', !role || role === 'INVESTOR');
+        }
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('suMessage');
+            msg.classList.remove('hidden');
+            msg.textContent = 'Submitting...';
+            msg.className = 'text-sm text-center text-gray-400';
+            const role = document.getElementById('su_role').value;
+            const payload = {
+                full_name: document.getElementById('su_name').value,
+                email: document.getElementById('su_email').value,
+                phone: document.getElementById('su_phone').value,
+                role: role,
+                password: document.getElementById('su_password').value,
+                notes: document.getElementById('su_notes').value,
+            };
+            if (role === 'INVESTOR') {
+                payload.investment_amount = document.getElementById('su_invAmount').value;
+                payload.investment_type = document.getElementById('su_invType').value;
+                payload.term_years = document.getElementById('su_invTerm').value;
+            } else {
+                payload.experience = document.getElementById('su_experience').value;
+                payload.availability = document.getElementById('su_availability').value;
+            }
+            try {
+                const res = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    msg.textContent = data.message || 'Submission failed.';
+                    msg.className = 'text-sm text-center text-red-400';
+                    return;
+                }
+                msg.textContent = data.message;
+                msg.className = 'text-sm text-center text-emerald-400';
+                document.getElementById('signupForm').reset();
+                suSwitchRole();
+            } catch(err) {
+                msg.textContent = 'Network error. Please try again.';
+                msg.className = 'text-sm text-center text-red-400';
             }
         });
     </script>
@@ -4388,6 +5060,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </button>
             <button onclick="showSection('accountsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-users w-5 text-center flex-shrink-0"></i><span class="sb-label">Accounts</span>
+            </button>
+            <button onclick="showSection('payrollSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-hand-holding-usd w-5 text-center flex-shrink-0"></i><span class="sb-label">Payroll</span>
+            </button>
+            <button onclick="showSection('approvalsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-user-check w-5 text-center flex-shrink-0"></i><span class="sb-label flex items-center gap-2">Approvals <span id="approvalsBadge" class="hidden bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full leading-none">0</span></span>
             </button>
             <button onclick="showSection('investorsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-chart-pie w-5 text-center flex-shrink-0"></i><span class="sb-label">Investors</span>
@@ -4561,6 +5239,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <label class="block text-xs font-medium mb-1 text-gray-400">New Password <span class="text-gray-500 font-normal">(blank = unchanged)</span></label>
                         <input type="password" id="editAccPassword" placeholder="Min 8 characters" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
                     </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Monthly Salary (₦) <span class="text-gray-500 font-normal">payroll flat fee</span></label>
+                        <input type="number" id="editAccMonthlySalary" min="0" step="1000" placeholder="0" class="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-sm text-white placeholder-gray-500">
+                    </div>
                 </div>
                 <div class="mb-4">
                     <label class="block text-xs font-medium mb-1 text-gray-400">Additional Roles</label>
@@ -4616,7 +5298,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <p class="text-xs text-gray-600 mt-1">Cannot add CEO or same as primary role. Investor cannot have secondary roles.</p>
                     </div>
-                    <div class="flex items-end">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Monthly Salary (₦) <span class="text-gray-500">payroll</span></label>
+                        <input type="number" id="accMonthlySalary" min="0" step="1000" value="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        <p class="text-[10px] text-gray-500 mt-1">Flat fee for Accountant / PA. Leave 0 for commission-only roles.</p>
+                    </div>
+                    <div class="flex items-end md:col-span-2">
                         <button type="submit" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-2 px-4 rounded-lg w-full">Create Account</button>
                     </div>
                 </form>
@@ -4633,6 +5320,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <th class="py-2 text-left">Email</th>
                                 <th class="py-2 text-left">Primary Role</th>
                                 <th class="py-2 text-left">Also</th>
+                                <th class="py-2 text-left">Salary/mo</th>
                                 <th class="py-2 text-left">Contract</th>
                                 <th class="py-2 text-left">Status</th>
                                 <th class="py-2 text-left">Actions</th>
@@ -4650,6 +5338,106 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 </div>
                 <div id="resetRequestsList"><p class="text-gray-500 text-sm text-center py-3">Loading...</p></div>
             </div>
+        </section>
+
+        <!-- PAYROLL SECTION -->
+        <section id="payrollSection" class="mb-8 hidden">
+            <div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                <div>
+                    <h2 class="text-xl font-semibold">Payroll</h2>
+                    <p class="text-xs text-gray-400 mt-1">Manager/Realtor: 10% commission per unit they serviced this month. Accountant/PA: flat monthly salary set on Accounts tab.</p>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Year</label>
+                        <select id="payrollYear" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Month</label>
+                        <select id="payrollMonth" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
+                    </div>
+                    <button onclick="loadPayroll()" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg">Refresh</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission</p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">—</p></div>
+                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries</p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">—</p></div>
+                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned</p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">—</p></div>
+                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid</p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-300">—</p></div>
+                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding</p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">—</p></div>
+            </div>
+
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm min-w-[760px]">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="py-2 text-left">User</th>
+                                <th class="py-2 text-left">Role</th>
+                                <th class="py-2 text-right">Commission</th>
+                                <th class="py-2 text-right">Salary</th>
+                                <th class="py-2 text-right">Total Earned</th>
+                                <th class="py-2 text-right">Paid</th>
+                                <th class="py-2 text-right">Outstanding</th>
+                                <th class="py-2 text-left pl-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payrollTable"><tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pay Modal -->
+            <div id="payrollPayModal" class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4" style="display:none;">
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-md w-full">
+                    <h3 class="text-lg font-semibold text-white mb-3">Record Payroll Payment</h3>
+                    <p id="prPayWho" class="text-sm text-gray-400 mb-3"></p>
+                    <input type="hidden" id="prPayUserId">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Amount (₦) *</label>
+                            <input type="number" id="prPayAmount" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Kind</label>
+                            <select id="prPayKind" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                                <option value="commission">Commission</option>
+                                <option value="salary">Salary</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs text-gray-400 mb-1">Notes</label>
+                        <textarea id="prPayNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
+                    </div>
+                    <p id="prPayMsg" class="text-sm hidden mb-2"></p>
+                    <div class="flex gap-2">
+                        <button onclick="submitPayrollPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg">Record Payment</button>
+                        <button onclick="closePayrollPayModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- APPROVALS SECTION -->
+        <section id="approvalsSection" class="mb-8 hidden">
+            <div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                <div>
+                    <h2 class="text-xl font-semibold">Signup Approvals</h2>
+                    <p class="text-xs text-gray-400 mt-1">Self-service signups land here. Approve to activate the account (their password is preserved); reject to discard.</p>
+                </div>
+                <div class="flex items-end gap-2">
+                    <select id="approvalsStatusFilter" onchange="loadApprovals()" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white">
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="all">All</option>
+                    </select>
+                    <button onclick="loadApprovals()" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg">Refresh</button>
+                </div>
+            </div>
+            <div id="approvalsContainer" class="space-y-3"><p class="text-gray-500 text-sm text-center py-6">Loading...</p></div>
         </section>
 
         <!-- INVESTORS SECTION -->
@@ -4828,6 +5616,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="active">Active</option><option value="vacated">Vacated</option>
                         </select>
                     </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Serviced By <span class="text-gray-500">(payroll)</span></label>
+                        <select id="tnServicedBy" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                            <option value="">-- Not tracked --</option>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-1">Yearly Rent is the gross (base + 10%). Manager/Realtor earns the 10% portion; company keeps the base.</p>
+                    </div>
                     <div class="md:col-span-3"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label><textarea id="tnNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                     <div class="flex items-end gap-3">
                         <button type="submit" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium py-2 px-4 rounded-lg">Add Tenant</button>
@@ -4956,6 +5750,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <input type="date" id="tnEditLeaseStart" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Lease End</label>
                         <input type="date" id="tnEditLeaseEnd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
+                    <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Serviced By <span class="text-gray-500">(payroll)</span></label>
+                        <select id="tnEditServicedBy" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                            <option value="">-- Not tracked --</option>
+                        </select></div>
                     <div class="md:col-span-2"><label class="block text-xs font-medium mb-1 text-gray-400">Notes</label>
                         <textarea id="tnEditNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea></div>
                     <p id="tnEditMsg" class="text-sm hidden md:col-span-2"></p>
@@ -6798,7 +7596,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId, skipCollapse = false) {
-            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -6812,8 +7610,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
             if (sectionId === 'signaturesSection') { loadPendingContracts(); loadCompletedContracts(); }
             if (sectionId === 'accountsSection') { loadAccounts(); loadInvestorAccountOptions(); loadResetRequests(); }
+            if (sectionId === 'payrollSection') { loadPayroll(); }
+            if (sectionId === 'approvalsSection') { loadApprovals(); }
             if (sectionId === 'investorsSection') { loadInvestors(); loadInvestorAccountOptions(); loadInvestorPropertyDropdowns(); }
-            if (sectionId === 'tenantsSection') { loadTenants(); tnPopulatePropertyDropdown(); tnUtRefreshForProperty(); }
+            if (sectionId === 'tenantsSection') { loadTenants(); tnPopulatePropertyDropdown(); tnUtRefreshForProperty(); fillServicedBySelect(document.getElementById('tnServicedBy')); }
             if (sectionId === 'unitTypesSection') { loadPropertiesForUnitTypeForm(); loadUnitTypes(); }
             if (sectionId === 'paymentsSection') { loadPayments(); loadTenantOptions(); }
             if (sectionId === 'constructionSection') { loadConstructionPropertyOptions(); loadConstructionUpdates(); }
@@ -7431,6 +8231,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const statusLabels = {completed:'Signed',pending_ceo_signature:'Awaiting CEO',pending_user_signature:'Awaiting User',no_contract:'No Contract'};
                 document.getElementById('accountsTable').innerHTML = accounts.map(a => {
                     const secondary = (a.secondary_roles || []).map(r => `<span class="text-xs px-1.5 py-0.5 rounded text-white ${roleColors[r] || 'bg-gray-600'} mr-1">${r}</span>`).join('');
+                    const salaryCell = (a.monthly_salary && a.monthly_salary > 0)
+                        ? `<span class="text-emerald-400 text-xs">${fmtNGN(a.monthly_salary)}</span>`
+                        : '<span class="text-xs text-gray-600">—</span>';
                     return `
                     <tr class="border-b border-gray-700 hover:bg-gray-750">
                         <td class="py-2 pr-3">${a.display_name || '-'}</td>
@@ -7438,17 +8241,18 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <td class="py-2 pr-3 text-gray-400 text-xs">${a.email}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${roleColors[a.role] || 'bg-gray-600'}">${a.role}</span></td>
                         <td class="py-2 pr-3">${secondary || '<span class="text-xs text-gray-600">—</span>'}</td>
+                        <td class="py-2 pr-3">${salaryCell}</td>
                         <td class="py-2 pr-3 text-xs ${statusColors[a.contract_status] || 'text-gray-500'}">${statusLabels[a.contract_status] || a.contract_status}</td>
                         <td class="py-2 pr-3"><span class="text-xs ${a.is_active ? 'text-green-400' : 'text-red-400'}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
                         <td class="py-2 flex gap-2 flex-wrap">
-                            <button onclick="editAccount(${a.id}, ${JSON.stringify(a.display_name || a.username).replace(/"/g, '&quot;')}, '${a.role}', ${JSON.stringify(a.secondary_roles || []).replace(/"/g, '&quot;')}, ${JSON.stringify(a.username).replace(/"/g, '&quot;')}, ${JSON.stringify(a.email||'').replace(/"/g, '&quot;')}, ${JSON.stringify(a.display_name||'').replace(/"/g, '&quot;')})" class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                            <button onclick='editAccount(${JSON.stringify(a).replace(/'/g, "&#39;")})' class="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                             <button onclick="toggleAccount(${a.id}, ${!a.is_active})" class="text-xs ${a.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}">${a.is_active ? 'Deactivate' : 'Activate'}</button>
 <button onclick="deleteAccount(${a.id})" class="text-xs text-red-500 hover:text-red-400 ml-1">Remove</button>
                         </td>
                     </tr>`;
                 }).join('');
             } catch (e) {
-                document.getElementById('accountsTable').innerHTML = '<tr><td colspan="7" class="text-red-400 py-2">Error loading accounts</td></tr>';
+                document.getElementById('accountsTable').innerHTML = '<tr><td colspan="9" class="text-red-400 py-2">Error loading accounts</td></tr>';
             }
         }
 
@@ -7507,14 +8311,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) { alert('Error deleting account'); }
         }
 
-        function editAccount(id, name, currentRole, currentSecondary, username, email, displayName) {
-            document.getElementById('editAccId').value = id;
-            document.getElementById('editAccName').textContent = name;
-            document.getElementById('editAccRole').value = currentRole;
-            document.getElementById('editAccUsername').value = username || '';
-            document.getElementById('editAccEmail').value = email || '';
-            document.getElementById('editAccDisplayName').value = displayName || '';
+        function editAccount(a) {
+            const currentSecondary = a.secondary_roles || [];
+            document.getElementById('editAccId').value = a.id;
+            document.getElementById('editAccName').textContent = a.display_name || a.username;
+            document.getElementById('editAccRole').value = a.role;
+            document.getElementById('editAccUsername').value = a.username || '';
+            document.getElementById('editAccEmail').value = a.email || '';
+            document.getElementById('editAccDisplayName').value = a.display_name || '';
             document.getElementById('editAccPassword').value = '';
+            const salaryEl = document.getElementById('editAccMonthlySalary');
+            if (salaryEl) salaryEl.value = a.monthly_salary || 0;
             document.querySelectorAll('.edit-sec-role').forEach(cb => {
                 cb.checked = currentSecondary.includes(cb.value);
             });
@@ -7547,6 +8354,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (username) payload.username = username;
             if (email) payload.email = email;
             if (newPassword) payload.new_password = newPassword;
+            const salaryEl = document.getElementById('editAccMonthlySalary');
+            if (salaryEl && salaryEl.value !== '') payload.monthly_salary = salaryEl.value;
             try {
                 const res = await fetchData('/admin/api/accounts/' + id, {
                     method: 'PUT', headers: {'Content-Type':'application/json'},
@@ -7577,6 +8386,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         password: document.getElementById('accPassword').value,
                         role: document.getElementById('accRole').value,
                         secondary_roles: secondaryRoles,
+                        monthly_salary: document.getElementById('accMonthlySalary')?.value || 0,
                     })
                 });
                 msgEl.textContent = res.message;
@@ -7753,7 +8563,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs">
                             <div>
                                 <p class="text-gray-500 mb-1">Property</p>
                                 <p class="text-gray-300">${t.property_name || '—'}</p>
@@ -7773,6 +8583,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <div>
                                 <p class="text-gray-500 mb-1">Lease Period</p>
                                 <p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → '+t.lease_end : ''}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Serviced By</p>
+                                <p class="text-gray-300">${t.serviced_by_name || '—'}</p>
                             </div>
                         </div>
                         <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
@@ -7816,6 +8630,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         lease_end: document.getElementById('tnLeaseEnd').value,
                         status: document.getElementById('tnStatus').value,
                         notes: document.getElementById('tnNotes').value,
+                        serviced_by_id: document.getElementById('tnServicedBy')?.value || null,
                     })
                 });
                 msgEl.textContent = res.message;
@@ -8037,6 +8852,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 document.getElementById('tnEditLeaseStart').value = t.lease_start || '';
                 document.getElementById('tnEditLeaseEnd').value = t.lease_end || '';
                 document.getElementById('tnEditNotes').value = t.notes || '';
+                await fillServicedBySelect(document.getElementById('tnEditServicedBy'), t.serviced_by_id);
                 document.getElementById('tnEditMsg').classList.add('hidden');
                 const modal = document.getElementById('tenantEditModal');
                 modal.style.display = 'flex';
@@ -8073,6 +8889,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         lease_start: document.getElementById('tnEditLeaseStart').value,
                         lease_end: document.getElementById('tnEditLeaseEnd').value,
                         notes: document.getElementById('tnEditNotes').value,
+                        serviced_by_id: document.getElementById('tnEditServicedBy').value || null,
                     })
                 });
                 msgEl.textContent = res.message || 'Saved';
@@ -8085,6 +8902,264 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 msgEl.className = 'text-xs text-red-400 md:col-span-2';
             }
         });
+
+        // ===== PAYROLL TAB =====
+        const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        let _payrollLastRows = [];
+
+        function _initPayrollPickers() {
+            const yearSel = document.getElementById('payrollYear');
+            const monthSel = document.getElementById('payrollMonth');
+            if (!yearSel || yearSel.options.length) return;
+            const now = new Date();
+            const startYear = now.getFullYear() - 2;
+            for (let y = now.getFullYear() + 1; y >= startYear; y--) {
+                const opt = document.createElement('option');
+                opt.value = y; opt.textContent = y;
+                if (y === now.getFullYear()) opt.selected = true;
+                yearSel.appendChild(opt);
+            }
+            for (let m = 1; m <= 12; m++) {
+                const opt = document.createElement('option');
+                opt.value = m; opt.textContent = MONTH_NAMES[m-1];
+                if (m === now.getMonth() + 1) opt.selected = true;
+                monthSel.appendChild(opt);
+            }
+        }
+
+        async function loadPayroll() {
+            _initPayrollPickers();
+            const year = document.getElementById('payrollYear').value;
+            const month = document.getElementById('payrollMonth').value;
+            const tbody = document.getElementById('payrollTable');
+            tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr>';
+            try {
+                const res = await fetchData(`/admin/api/payroll/summary?year=${year}&month=${month}`);
+                if (!res.success) throw new Error(res.message || 'Failed');
+                _payrollLastRows = res.rows || [];
+                document.getElementById('pr_commTotal').textContent = fmtNGN(res.totals.commission_total);
+                document.getElementById('pr_salTotal').textContent = fmtNGN(res.totals.salary_total);
+                document.getElementById('pr_earnTotal').textContent = fmtNGN(res.totals.earned_total);
+                document.getElementById('pr_paidTotal').textContent = fmtNGN(res.totals.paid_total);
+                document.getElementById('pr_outTotal').textContent = fmtNGN(res.totals.outstanding_total);
+
+                if (!_payrollLastRows.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No payroll-eligible staff for this month</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = _payrollLastRows.map((r, idx) => {
+                    const linesId = `prLines_${r.user_id}`;
+                    const hasLines = r.commission_lines && r.commission_lines.length;
+                    const linesToggle = hasLines
+                        ? `<button onclick="document.getElementById('${linesId}').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 ml-1">[${r.commission_lines.length}]</button>`
+                        : '';
+                    const linesRow = hasLines
+                        ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
+                                <p class="text-xs text-gray-400 mb-2">Breakdown — Yearly Rent stored on tenant is the gross total (base + 10% markup). Manager earns the markup; company keeps the base.</p>
+                                <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base (company)</th><th class="text-right py-1">Commission (10%)</th></tr></thead>
+                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${l.tenant_name}</td><td class="py-1 text-gray-400">${l.unit_number || '—'}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
+                           </td></tr>`
+                        : '';
+                    const outstandingColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
+                    const payDisabled = r.outstanding <= 0 ? 'opacity-40 pointer-events-none' : '';
+                    return `
+                        <tr class="border-b border-gray-700">
+                            <td class="py-2 pr-3 text-gray-200">${r.display_name}</td>
+                            <td class="py-2 pr-3 text-gray-400 text-xs">${r.role}</td>
+                            <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
+                            <td class="py-2 pr-3 text-right text-blue-400">${fmtNGN(r.salary)}</td>
+                            <td class="py-2 pr-3 text-right text-emerald-400 font-semibold">${fmtNGN(r.total_earned)}</td>
+                            <td class="py-2 pr-3 text-right text-gray-300">${fmtNGN(r.already_paid)}</td>
+                            <td class="py-2 pr-3 text-right ${outstandingColor} font-semibold">${fmtNGN(r.outstanding)}</td>
+                            <td class="py-2 pl-3">
+                                <button onclick='openPayrollPayModal(${idx})' class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded ${payDisabled}">Pay</button>
+                            </td>
+                        </tr>
+                        ${linesRow}
+                    `;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-red-400">${e.message || 'Error loading payroll'}</td></tr>`;
+            }
+        }
+
+        function openPayrollPayModal(idx) {
+            const row = _payrollLastRows[idx];
+            if (!row) return;
+            document.getElementById('prPayUserId').value = row.user_id;
+            document.getElementById('prPayWho').textContent = `${row.display_name} — outstanding ${fmtNGN(row.outstanding)}`;
+            document.getElementById('prPayAmount').value = Math.round(row.outstanding);
+            document.getElementById('prPayKind').value = row.commission_total > 0 ? 'commission' : 'salary';
+            document.getElementById('prPayNotes').value = '';
+            const msg = document.getElementById('prPayMsg');
+            msg.classList.add('hidden'); msg.textContent = '';
+            const modal = document.getElementById('payrollPayModal');
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+
+        function closePayrollPayModal() {
+            const modal = document.getElementById('payrollPayModal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+
+        async function submitPayrollPayment() {
+            const user_id = document.getElementById('prPayUserId').value;
+            const amount = document.getElementById('prPayAmount').value;
+            const kind = document.getElementById('prPayKind').value;
+            const notes = document.getElementById('prPayNotes').value;
+            const year = document.getElementById('payrollYear').value;
+            const month = document.getElementById('payrollMonth').value;
+            const msg = document.getElementById('prPayMsg');
+            msg.classList.remove('hidden');
+            msg.textContent = 'Saving...';
+            msg.className = 'text-sm text-gray-400';
+            try {
+                const res = await fetchData('/admin/api/payroll/pay', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id, amount, kind, notes, year, month })
+                });
+                msg.textContent = res.message || 'Recorded';
+                msg.className = 'text-sm text-emerald-400';
+                setTimeout(() => { closePayrollPayModal(); loadPayroll(); }, 700);
+            } catch (e) {
+                msg.textContent = e.message || 'Error recording payment';
+                msg.className = 'text-sm text-red-400';
+            }
+        }
+
+        // ===== SIGNUP APPROVALS =====
+        const APPROVAL_ROLE_COLORS = { INVESTOR:'bg-emerald-700', MANAGER:'bg-blue-700', ACCOUNTANT:'bg-green-700', REALTOR:'bg-amber-700', PA:'bg-purple-700' };
+
+        async function loadApprovals() {
+            const container = document.getElementById('approvalsContainer');
+            const status = document.getElementById('approvalsStatusFilter').value;
+            container.innerHTML = '<p class="text-gray-500 text-sm text-center py-6">Loading...</p>';
+            try {
+                const res = await fetchData('/admin/api/signups?status=' + encodeURIComponent(status));
+                if (!res.success) throw new Error(res.message || 'Failed');
+                const badge = document.getElementById('approvalsBadge');
+                if (badge) {
+                    badge.textContent = res.pending_count;
+                    badge.classList.toggle('hidden', !res.pending_count);
+                }
+                if (!res.signups.length) {
+                    container.innerHTML = `<p class="text-gray-500 text-sm text-center py-6">No ${status} signups.</p>`;
+                    return;
+                }
+                container.innerHTML = res.signups.map(s => renderApprovalCard(s)).join('');
+            } catch (e) {
+                container.innerHTML = `<p class="text-red-400 text-sm py-3">${e.message || 'Error loading signups'}</p>`;
+            }
+        }
+
+        function renderApprovalCard(s) {
+            const roleColor = APPROVAL_ROLE_COLORS[s.role] || 'bg-gray-600';
+            const rd = s.role_data || {};
+            let detailsHtml = '';
+            if (s.role === 'INVESTOR') {
+                detailsHtml = `
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-2">
+                        <div><p class="text-gray-500">Intended Amount</p><p class="text-emerald-400 font-semibold">${rd.investment_amount ? fmtNGN(rd.investment_amount) : '—'}</p></div>
+                        <div><p class="text-gray-500">Type</p><p class="text-gray-300">${rd.investment_type || '—'}</p></div>
+                        <div><p class="text-gray-500">Term (yrs)</p><p class="text-gray-300">${rd.term_years || '—'}</p></div>
+                        <div><p class="text-gray-500">Submitted</p><p class="text-gray-400 text-[11px]">${s.created_at || '—'}</p></div>
+                    </div>`;
+            } else {
+                detailsHtml = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
+                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${rd.experience || '—'}</p></div>
+                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${rd.availability || '—'}</p></div>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-2">Submitted ${s.created_at || '—'}</p>`;
+            }
+            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${rd.notes}"</p>` : '';
+
+            let actionsHtml = '';
+            if (s.status === 'pending') {
+                actionsHtml = `
+                    <div class="flex gap-2 pt-3 border-t border-gray-700/50 mt-3">
+                        <button onclick="approveSignup(${s.id})" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium py-1.5 rounded-lg"><i class="fas fa-check mr-1"></i>Approve</button>
+                        <button onclick="rejectSignup(${s.id})" class="flex-1 bg-red-700 hover:bg-red-600 text-white text-sm font-medium py-1.5 rounded-lg"><i class="fas fa-times mr-1"></i>Reject</button>
+                    </div>`;
+            } else if (s.status === 'approved') {
+                actionsHtml = `<p class="text-xs text-emerald-400 mt-3 pt-3 border-t border-gray-700/50">✓ Approved ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}</p>`;
+            } else if (s.status === 'rejected') {
+                actionsHtml = `<p class="text-xs text-red-400 mt-3 pt-3 border-t border-gray-700/50">✕ Rejected ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}${s.rejection_reason ? ' — ' + s.rejection_reason : ''}</p>`;
+            }
+
+            return `
+                <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-3 flex-wrap">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-white">${s.full_name} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">${s.email}${s.phone ? ' · ' + s.phone : ''}</p>
+                        </div>
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${s.status === 'pending' ? 'bg-amber-900/50 text-amber-300' : s.status === 'approved' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}">${s.status}</span>
+                    </div>
+                    ${detailsHtml}
+                    ${notesHtml}
+                    ${actionsHtml}
+                </div>`;
+        }
+
+        async function approveSignup(id) {
+            if (!confirm('Approve this signup? This creates an active account immediately.')) return;
+            try {
+                const res = await fetchData('/admin/api/signups/' + id + '/approve', { method: 'POST' });
+                alert(res.message || 'Approved');
+                loadApprovals();
+                if (typeof loadAccounts === 'function') loadAccounts();
+            } catch (e) { alert(e.message || 'Error approving'); }
+        }
+
+        async function rejectSignup(id) {
+            const reason = prompt('Reason for rejection (optional, shown to no one but you):', '');
+            if (reason === null) return;  // cancelled
+            try {
+                const res = await fetchData('/admin/api/signups/' + id + '/reject', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ reason })
+                });
+                alert(res.message || 'Rejected');
+                loadApprovals();
+            } catch (e) { alert(e.message || 'Error rejecting'); }
+        }
+
+        // Poll pending-count once at dashboard load (best-effort, doesn't block)
+        (function pollApprovalsBadge() {
+            try {
+                fetch('/admin/api/signups?status=pending').then(r => r.json()).then(d => {
+                    if (!d || !d.success) return;
+                    const badge = document.getElementById('approvalsBadge');
+                    if (badge) { badge.textContent = d.pending_count; badge.classList.toggle('hidden', !d.pending_count); }
+                }).catch(() => {});
+            } catch (e) {}
+        })();
+
+        // ===== PAYROLL HELPERS (shared across tenant form + payroll tab) =====
+        let _servicedByCache = null;
+        async function fetchServicedByCandidates() {
+            if (_servicedByCache) return _servicedByCache;
+            try {
+                const accts = await fetchData('/admin/api/accounts');
+                _servicedByCache = (accts || []).filter(a => {
+                    const r = (a.role || '').toUpperCase();
+                    const sr = (a.secondary_roles || []).map(x => (x || '').toUpperCase());
+                    return r === 'MANAGER' || r === 'REALTOR' || sr.includes('MANAGER') || sr.includes('REALTOR');
+                });
+            } catch (e) { _servicedByCache = []; }
+            return _servicedByCache;
+        }
+        async function fillServicedBySelect(selectEl, selectedId) {
+            if (!selectEl) return;
+            const cands = await fetchServicedByCandidates();
+            selectEl.innerHTML = '<option value="">-- Not tracked --</option>' +
+                cands.map(a => `<option value="${a.id}">${(a.display_name || a.username)} — ${a.role}</option>`).join('');
+            if (selectedId != null) selectEl.value = String(selectedId);
+        }
 
         // ===== PAYMENTS =====
         window._ceoPmtTenantMap = {};
