@@ -2614,6 +2614,13 @@ def admin_team_member_detail(member_id):
 def upload_image():
     """Handle property image uploads"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        # Images are small; cap this route at 10MB even though the global limit is
+        # 200MB (that ceiling exists only for the hero-video upload route).
+        if request.content_length and request.content_length > 10 * 1024 * 1024:
+            return jsonify({"success": False, "message": "Image too large (max 10MB)"}), 413
         if 'file' not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400
         file = request.files['file']
@@ -2637,6 +2644,9 @@ def upload_expense_receipt():
         admin = get_current_admin()
         if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+        # Receipts are small images/PDFs; cap at 15MB (global 200MB is video-only).
+        if request.content_length and request.content_length > 15 * 1024 * 1024:
+            return jsonify({"success": False, "message": "Receipt too large (max 15MB)"}), 413
         if 'file' not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400
         file = request.files['file']
