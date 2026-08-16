@@ -12582,6 +12582,20 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (window._mgrRevChart) { window._mgrRevChart.data.labels = d.labels; window._mgrRevChart.data.datasets[0].data = d.revenue; window._mgrRevChart.data.datasets[1].data = d.capital; window._mgrRevChart.update(); }
         }
 
+        async function updateInquiry(id, status) {
+            try {
+                await fetchData(`/admin/api/inquiries/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (activeRole === 'REALTOR') { await loadRealtorDashboard(); }
+                else { await loadManagerDashboard(); }
+            } catch (error) {
+                alert('Error updating inquiry');
+            }
+        }
+
         async function loadManagerDashboard() {
             try {
                 const [stats, inquiries, props, units, tenants] = await Promise.all([
