@@ -394,6 +394,16 @@ class PasswordResetToken(db.Model):
     used = db.Column(db.Boolean, default=False)
     user = db.relationship('Admin', backref='reset_tokens')
 
+class LoginAudit(db.Model):
+    """Records every admin login attempt for auditing and failed-attempt lockout."""
+    __tablename__ = 'login_audit'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), index=True)
+    ip = db.Column(db.String(64))
+    success = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
 class ContractTemplate(db.Model):
     __tablename__ = 'contract_template'
     id = db.Column(db.Integer, primary_key=True)
@@ -2760,6 +2770,11 @@ def cancel_reset_request(req_id):
     db.session.commit()
     return jsonify({"success": True, "message": "Reset request cancelled"})
 
+# Failed-login lockout thresholds (username-keyed, backed by LoginAudit).
+LOGIN_MAX_FAILS = 5
+LOGIN_LOCKOUT_MINUTES = 15
+
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def admin_login():
@@ -2768,21 +2783,42 @@ def admin_login():
         try:
             ensure_runtime_state()
             data = request.get_json()
-            username = data.get('username')
-            password = data.get('password')
-            
+            username = (data.get('username') or '').strip()
+            password = data.get('password') or ''
+
             if not username or not password:
                 return jsonify({"success": False, "message": "Username and password required"}), 400
-            
+
+            ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()[:64] or 'unknown'
+
+            # Failed-attempt lockout: block a username after too many recent failures.
+            # Keyed on username so IP spoofing (no ProxyFix in front) can't bypass it.
+            window_start = datetime.utcnow() - timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+            recent_fails = LoginAudit.query.filter(
+                LoginAudit.username == username,
+                LoginAudit.success == False,
+                LoginAudit.created_at >= window_start,
+            ).count()
+            if recent_fails >= LOGIN_MAX_FAILS:
+                logger.warning(f"Login blocked (locked out): '{username}' from {ip}")
+                return jsonify({"success": False, "message": f"Too many failed attempts. Try again in about {LOGIN_LOCKOUT_MINUTES} minutes."}), 429
+
             admin = Admin.query.filter_by(username=username, is_active=True).first()
-            
-            if admin and check_password_hash(admin.password_hash, password):
+            ok = bool(admin and check_password_hash(admin.password_hash, password))
+
+            # Record every attempt for the audit trail (best-effort; never blocks login).
+            try:
+                db.session.add(LoginAudit(username=username[:80], ip=ip, success=ok))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+            if ok:
                 session['admin_id'] = admin.id
                 session['admin_role'] = admin.role
                 session['csrf_token'] = secrets.token_urlsafe(32)
                 return jsonify({"success": True, "message": "Login successful", "redirect": "/admin/dashboard"})
-            else:
-                return jsonify({"success": False, "message": "Invalid credentials"}), 401
+            return jsonify({"success": False, "message": "Invalid credentials"}), 401
         except Exception as e:
             logger.error(f"Error during login: {str(e)}")
             return jsonify({"success": False, "message": "Internal server error"}), 500
