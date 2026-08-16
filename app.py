@@ -3093,6 +3093,27 @@ def admin_property_detail(property_id):
             return jsonify({"success": True, "message": "Property updated successfully"})
         
         elif request.method == 'DELETE':
+            # Deleting a property with dependent NOT-NULL children would fail the
+            # FK constraint (500) or destroy financial history. Refuse and tell the
+            # CEO to archive instead. Nullable links (inquiries, investor profiles)
+            # are auto-detached by the ORM.
+            blockers = []
+            for label, model in (
+                ("unit(s)", PropertyUnit),
+                ("unit type(s)", PropertyUnitType),
+                ("expense(s)", ProjectExpense),
+                ("construction update(s)", ConstructionUpdate),
+                ("maintenance record(s)", MaintenanceRecord),
+            ):
+                cnt = model.query.filter_by(property_id=property_id).count()
+                if cnt:
+                    blockers.append(f"{cnt} {label}")
+            if blockers:
+                return jsonify({
+                    "success": False,
+                    "message": "Cannot delete: property still has " + ", ".join(blockers)
+                               + ". Set its status to inactive/archived, or remove those records first."
+                }), 409
             db.session.delete(property)
             db.session.commit()
             return jsonify({"success": True, "message": "Property deleted successfully"})
@@ -3348,6 +3369,10 @@ def admin_project_expense_detail(expense_id):
 
         expense = ProjectExpense.query.get_or_404(expense_id)
         if request.method == 'DELETE':
+            # Permanent deletion of a capital expense is CEO-only, so an already
+            # approved expense cannot be quietly erased by Manager/Accountant.
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete a capital expense. Edit it instead to correct a mistake."}), 403
             db.session.delete(expense)
             db.session.commit()
             return jsonify({"success": True, "message": "Project expense removed"})
@@ -4045,10 +4070,23 @@ def admin_account_detail(account_id):
             if 'is_active' in data:
                 if account.id == ceo.id and not data['is_active']:
                     return jsonify({"success": False, "message": "Cannot deactivate your own account"}), 400
+                if account.role == 'CEO' and not data['is_active']:
+                    other_active_ceos = Admin.query.filter(
+                        Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+                    ).count()
+                    if other_active_ceos == 0:
+                        return jsonify({"success": False, "message": "Cannot deactivate the last CEO account"}), 400
                 account.is_active = bool(data['is_active'])
             if 'role' in data and account.id != ceo.id:
                 valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
                 if data['role'] in valid_roles:
+                    # Don't demote the last active CEO out of the CEO role.
+                    if account.role == 'CEO' and data['role'] != 'CEO':
+                        other_active_ceos = Admin.query.filter(
+                            Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+                        ).count()
+                        if other_active_ceos == 0:
+                            return jsonify({"success": False, "message": "Cannot demote the last CEO account"}), 400
                     account.role = data['role']
             if 'secondary_roles' in data and account.id != ceo.id:
                 valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
@@ -4071,7 +4109,11 @@ def admin_account_detail(account_id):
         if account.id == ceo.id:
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
         if account.role == 'CEO':
-            return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+            other_active_ceos = Admin.query.filter(
+                Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+            ).count()
+            if other_active_ceos == 0:
+                return jsonify({"success": False, "message": "Cannot delete the last CEO account"}), 403
         # Clean up rows that FK to admin.id before deleting the Admin row
         UserContract.query.filter_by(user_id=account.id).delete()
         InvestorProfile.query.filter_by(user_id=account.id).delete()
@@ -4301,6 +4343,11 @@ def admin_tenant_detail(tenant_id):
             if request.args.get('hard') == '1':
                 if not admin_has_any_role(_tenant_admin, 'CEO'):
                     return jsonify({"success": False, "message": "CEO access required"}), 403
+                # Detach financial history so payment/payroll records survive the
+                # delete instead of becoming dangling references (SQLite FK
+                # enforcement is off). Amounts stay counted in revenue/reports.
+                PaymentRecord.query.filter_by(tenant_id=tenant_id).update({'tenant_id': None})
+                PayrollPayment.query.filter_by(source_tenant_id=tenant_id).update({'source_tenant_id': None})
                 db.session.delete(tenant)
                 db.session.commit()
                 sync_property_units_from_tenants()
@@ -4385,6 +4432,10 @@ def admin_payment_detail(payment_id):
 
         payment = PaymentRecord.query.get_or_404(payment_id)
         if request.method == 'DELETE':
+            # Permanent deletion of a financial record is CEO-only. Manager/
+            # Accountant can correct a payment via edit (PUT) but cannot erase it.
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete a payment record. Edit it instead to correct a mistake."}), 403
             db.session.delete(payment)
             db.session.commit()
             return jsonify({"success": True, "message": "Payment removed"})
