@@ -7666,6 +7666,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadInquiries() {
             try {
                 const inquiries = await fetchData('/admin/api/inquiries');
+                window._inqCache = inquiries;
                 document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
                         <td class="py-2">${escapeHtml(inq.full_name)}</td>
@@ -7694,6 +7695,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadMessages() {
             try {
                 const messages = await fetchData('/admin/api/contact-messages');
+                window._msgCache = messages;
                 document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
                         <td class="py-2">${escapeHtml(msg.full_name)}</td>
@@ -8074,14 +8076,50 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function _showRecordModal(title, rows) {
+            const existing = document.getElementById('recordModalOverlay');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'recordModalOverlay';
+            overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            const body = rows
+                .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+                .map(([label, value]) => `
+                    <div class="mb-3">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500 mb-0.5">${escapeHtml(label)}</p>
+                        <p class="text-sm text-gray-200 whitespace-pre-wrap break-words">${escapeHtml(value)}</p>
+                    </div>`).join('');
+            overlay.innerHTML = `
+                <div class="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white">${escapeHtml(title)}</h3>
+                        <button onclick="document.getElementById('recordModalOverlay').remove()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                    </div>
+                    ${body || '<p class="text-sm text-gray-500">No details recorded.</p>'}
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+
         function viewInquiry(id) {
-            // Simple modal implementation - you can enhance this
-            alert('Inquiry details would be shown in a modal. ID: ' + id);
+            const inq = (window._inqCache || []).find(x => x.id === id);
+            if (!inq) { alert('Inquiry not found — reload the list and try again.'); return; }
+            _showRecordModal('Inquiry · ' + (inq.full_name || ''), [
+                ['Name', inq.full_name], ['Email', inq.email], ['Phone', inq.phone],
+                ['Property', inq.property_title], ['Type', inq.inquiry_type], ['Status', inq.status],
+                ['Budget', inq.budget_range], ['Preferred move date', inq.preferred_move_date],
+                ['Message', inq.message], ['Notes', inq.inquiry_notes], ['Received', inq.created_at],
+            ]);
         }
 
         function viewMessage(id) {
-            // Simple modal implementation - you can enhance this
-            alert('Message details would be shown in a modal. ID: ' + id);
+            const msg = (window._msgCache || []).find(x => x.id === id);
+            if (!msg) { alert('Message not found — reload the list and try again.'); return; }
+            _showRecordModal('Message · ' + (msg.full_name || ''), [
+                ['Name', msg.full_name], ['Email', msg.email], ['Phone', msg.phone],
+                ['Source', msg.form_origin], ['Subject', msg.subject], ['Status', msg.status],
+                ['Message', msg.message], ['Received', msg.created_at],
+            ]);
         }
 
         // Tab switching
@@ -12523,10 +12561,16 @@ ROLE_DASHBOARD_TEMPLATE = """
 
                 const amount = profile.investment_amount || 0;
                 const type = profile.investment_type || 'DEBT';
-                const roi = parseFloat(profile.roi_rate) || 3.5;
-                const equity = profile.equity_percentage || 0;
+                // Use the CEO-set values as-is. Do NOT invent a rate/term — showing a
+                // fabricated 3.5% / 4-year figure reads as agreed terms the investor
+                // never signed. Null means "to be confirmed".
+                const roiRaw = profile.roi_rate;
+                const roi = (roiRaw === null || roiRaw === undefined || roiRaw === '') ? null : parseFloat(roiRaw);
+                const equityRaw = profile.equity_percentage;
+                const equity = (equityRaw === null || equityRaw === undefined || equityRaw === '') ? null : parseFloat(equityRaw);
                 const distributed = profile.total_distributed || 0;
-                const termYears = profile.investment_term_years || 4;
+                const termRaw = profile.investment_term_years;
+                const termYears = (termRaw === null || termRaw === undefined || termRaw === '' || Number(termRaw) <= 0) ? null : Number(termRaw);
                 const annualPrincipal = profile.annual_principal_component || 0;
                 const annualRoiAmount = profile.annual_roi_amount || 0;
                 const payoutSchedule = profile.payout_schedule || [];
@@ -12540,7 +12584,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                     (profile.project_property_title || 'BrightWave Phase 1') +
                     (profile.investment_date ? ' · Since ' + profile.investment_date : '');
 
-                const badgeText = type === 'DEBT' ? 'DEBT · ' + roi + '% p.a.' : 'EQUITY · ' + equity + '%';
+                const badgeText = type === 'DEBT'
+                    ? 'DEBT · ' + (roi !== null ? roi + '% p.a.' : 'rate TBC')
+                    : 'EQUITY · ' + (equity !== null ? equity + '%' : 'TBC');
                 const badgeClasses = type === 'DEBT'
                     ? 'bg-blue-900/70 text-blue-300 border border-blue-700/50'
                     : 'bg-emerald-900/70 text-emerald-300 border border-emerald-700/50';
@@ -12553,12 +12599,17 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('invHeroProgress').textContent = latestProgress + '%';
 
                 if (type === 'DEBT') {
-                    const netRoiTotal = annualRoiAmount * termYears;
-                    document.getElementById('invHeroReturn').textContent = formatNGN(netRoiTotal);
-                    document.getElementById('invHeroReturnNote').textContent =
-                        formatNGN(annualRoiAmount) + '/yr × ' + termYears + ' yrs · Total payout ' + formatNGN(profile.projected_total_payout || 0) + ' (incl. capital)';
+                    if (termYears && annualRoiAmount) {
+                        const netRoiTotal = annualRoiAmount * termYears;
+                        document.getElementById('invHeroReturn').textContent = formatNGN(netRoiTotal);
+                        document.getElementById('invHeroReturnNote').textContent =
+                            formatNGN(annualRoiAmount) + '/yr × ' + termYears + ' yrs · Total payout ' + formatNGN(profile.projected_total_payout || 0) + ' (incl. capital)';
+                    } else {
+                        document.getElementById('invHeroReturn').textContent = 'TBC';
+                        document.getElementById('invHeroReturnNote').textContent = 'Your return schedule appears once the CEO confirms your rate and term.';
+                    }
                 } else {
-                    document.getElementById('invHeroReturn').textContent = equity + '% ownership';
+                    document.getElementById('invHeroReturn').textContent = equity !== null ? equity + '% ownership' : 'Ownership TBC';
                     document.getElementById('invHeroReturnNote').textContent = 'Proportional to project revenue';
                 }
 
@@ -12594,7 +12645,9 @@ ROLE_DASHBOARD_TEMPLATE = """
 
                 // --- Return schedule ---
                 const roiTagEl = document.getElementById('invRoiTag');
-                roiTagEl.textContent = type === 'DEBT' ? roi + '% p.a.' : 'Equity · ' + equity + '%';
+                roiTagEl.textContent = type === 'DEBT'
+                    ? (roi !== null ? roi + '% p.a.' : 'Rate TBC')
+                    : 'Equity · ' + (equity !== null ? equity + '%' : 'TBC');
 
                 const scheduleEl = document.getElementById('invReturnSchedule');
                 if (type === 'DEBT' && payoutSchedule.length) {
@@ -12697,8 +12750,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const detailRows = [
                     ['Investment Type', type === 'DEBT' ? 'Debt (Fixed Return)' : 'Equity (Revenue Share)'],
                     ['Amount Invested', formatNGN(amount)],
-                    type === 'DEBT' ? ['Annual Return Rate', roi + '% per annum'] : ['Equity Stake', equity + '% ownership'],
-                    ['Investment Term', termYears + ' year' + (termYears !== 1 ? 's' : '')],
+                    type === 'DEBT' ? ['Annual Return Rate', roi !== null ? roi + '% per annum' : 'To be confirmed'] : ['Equity Stake', equity !== null ? equity + '% ownership' : 'To be confirmed'],
+                    ['Investment Term', termYears ? termYears + ' year' + (termYears !== 1 ? 's' : '') : 'To be confirmed'],
                     type === 'DEBT' ? ['Annual Principal Return', formatNGN(annualPrincipal)] : null,
                     type === 'DEBT' ? ['Annual ROI Cashflow', formatNGN(annualRoiAmount)] : null,
                     type === 'DEBT' ? ['Projected Total Payout', formatNGN(profile.projected_total_payout || 0)] : null,
