@@ -2335,7 +2335,7 @@ def admin_stats():
             rec_exp_q = rec_exp_q.filter(ProjectExpense.property_id == filter_prop_id)
         recent_expenses = rec_exp_q.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).limit(5).all()
 
-        return jsonify({
+        stats_payload = {
             'total_properties': total_properties,
             'active_properties': active_properties,
             'property_breakdown': {
@@ -2408,7 +2408,23 @@ def admin_stats():
                     'expense_date': e.expense_date.strftime('%Y-%m-%d') if e.expense_date else ''
                 } for e in recent_expenses]
             }
-        })
+        }
+
+        # Realtor is a sales role: strip company-wide financials, capital figures,
+        # revenue trends, and the payment/expense/tenant activity feed. They keep
+        # property/unit counts, occupancy, and their leads. Closes the leak at the
+        # API layer, not just by hiding UI.
+        if not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            for k in ('monthly_revenue', 'total_revenue', 'caution_held',
+                      'monthly_capital_spent', 'total_capital_spent', 'approved_capital_spent',
+                      'pending_capital_spent', 'rejected_capital_spent', 'total_capital_budget',
+                      'capital_budget_remaining', 'monthly_trend', 'yearly_trend'):
+                stats_payload.pop(k, None)
+            ra = stats_payload.get('recent_activity') or {}
+            ra.pop('payments', None)
+            ra.pop('expenses', None)
+            ra.pop('tenants', None)
+        return jsonify(stats_payload)
     except Exception as e:
         logger.error(f"Error fetching stats: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -3615,11 +3631,19 @@ def admin_update_inquiry(inquiry_id):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
         if request.method == 'DELETE':
+            # Realtors work leads but cannot permanently delete them (organic
+            # website leads are shared company assets). CEO/Manager only.
+            if not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+                return jsonify({"success": False, "message": "Only CEO or Manager can delete a lead."}), 403
             db.session.delete(inquiry)
             db.session.commit()
             return jsonify({"success": True, "message": "Lead removed"})
         data = request.get_json() or {}
-        if 'status' in data: inquiry.status = data['status']
+        _VALID_INQUIRY_STATUS = {'new', 'contacted', 'viewing_scheduled', 'offer_made', 'qualified', 'closed', 'rejected'}
+        if 'status' in data:
+            if data['status'] not in _VALID_INQUIRY_STATUS:
+                return jsonify({"success": False, "message": "Invalid status"}), 400
+            inquiry.status = data['status']
         if 'priority' in data: inquiry.priority = data['priority']
         if 'inquiry_notes' in data: inquiry.inquiry_notes = (data['inquiry_notes'] or '').strip() or None
         if 'full_name' in data: inquiry.full_name = data['full_name'].strip()
@@ -4599,6 +4623,36 @@ def compute_user_payroll(user, year, month):
         'outstanding': max(total_earned - already_paid, 0.0),
         'payment_history': payment_history,
     }
+
+
+@app.route('/admin/api/my-commission')
+@login_required
+def admin_my_commission():
+    """Self-scoped earnings for the current month — what payroll would actually pay
+    this user. Realtor/Manager see commission only on the leases THEY serviced
+    (Tenant.serviced_by_id), using the real base+markup model (commission = gross/11),
+    not a company-wide ×10% estimate."""
+    try:
+        admin = get_current_admin()
+        if not admin:
+            return jsonify({"success": False, "message": "Not authenticated"}), 401
+        today = date_type.today()
+        data = compute_user_payroll(admin, today.year, today.month)
+        return jsonify({
+            'success': True,
+            'year': today.year,
+            'month': today.month,
+            'qualifies_for_commission': data['qualifies_for_commission'],
+            'commission_total': data['commission_total'],
+            'commission_lines': data['commission_lines'],
+            'salary': data['salary'],
+            'total_earned': data['total_earned'],
+            'already_paid': data['already_paid'],
+            'outstanding': data['outstanding'],
+        })
+    except Exception as e:
+        logger.error(f"Error in my-commission: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
 @app.route('/admin/api/payroll/summary')
@@ -11665,23 +11719,23 @@ ROLE_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
-                    <span class="text-xs text-gray-500">10% sale · 10% first year rent</span>
+                    <span class="text-xs text-gray-500">This month · leases you serviced</span>
                 </div>
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1 truncate">Rental Commission</p>
                         <p id="rel_rental_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-emerald-600/70 mt-0.5">10% × active leases</p>
+                        <p class="text-[11px] text-emerald-600/70 mt-0.5">on leases you serviced</p>
                     </div>
                     <div class="bg-blue-900/40 border border-blue-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1 truncate">Sale Commission</p>
                         <p id="rel_sale_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-blue-600/70 mt-0.5">10% × closed deals</p>
+                        <p class="text-[11px] text-blue-600/70 mt-0.5">settled manually by CEO</p>
                     </div>
                     <div class="bg-amber-900/40 border border-amber-700/30 rounded-xl p-3 overflow-hidden">
-                        <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total Estimated</p>
+                        <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total This Month</p>
                         <p id="rel_total_comm" class="text-base font-bold text-amber-300 truncate">—</p>
-                        <p class="text-[11px] text-amber-600/70 mt-0.5">Combined estimate</p>
+                        <p class="text-[11px] text-amber-600/70 mt-0.5">what payroll will pay</p>
                     </div>
                 </div>
                 <div id="rel_comm_detail" class="space-y-2"></div>
@@ -13122,27 +13176,30 @@ ROLE_DASHBOARD_TEMPLATE = """
                         }
                     }
                 }
-                // Commission tracker
-                const priceMap = {};
-                (props || []).forEach(p => { if (p.title) priceMap[p.title] = parseFloat(p.price) || 0; });
-                const closedInquiries = (inquiries || []).filter(i => i.status === 'closed');
-                const saleComm = closedInquiries.reduce((sum, i) => sum + (priceMap[i.property_title] || 0) * 0.10, 0);
-                const rentedUnits = (units || []).filter(u => u.status === 'occupied' && u.monthly_rent);
-                const rentalComm = rentedUnits.reduce((sum, u) => sum + (parseFloat(u.monthly_rent) || 0) * 0.10, 0);
-                const totalComm = saleComm + rentalComm;
+                // Commission tracker — real payroll figure for the current month, scoped
+                // to leases THIS realtor serviced. Uses the base+markup model
+                // (commission = gross / 11), the same math the CEO payroll pays on.
                 const relRC = document.getElementById('rel_rental_comm');
                 const relSC = document.getElementById('rel_sale_comm');
                 const relTC = document.getElementById('rel_total_comm');
                 const relCD = document.getElementById('rel_comm_detail');
-                if (relRC) relRC.textContent = formatNGN(rentalComm);
-                if (relSC) relSC.textContent = formatNGN(saleComm);
-                if (relTC) relTC.textContent = formatNGN(totalComm);
-                if (relCD) {
-                    const rows = [
-                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(i.full_name)} · <span class="text-gray-500">${escapeHtml(i.property_title)}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
-                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(u.unit_code)} · <span class="text-gray-500">${escapeHtml(u.property_title || '')}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
-                    ];
-                    relCD.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-gray-500 py-2">No closed deals or occupied units yet — commission will appear here once leases and sales are recorded.</p>';
+                try {
+                    const comm = await fetchData('/admin/api/my-commission');
+                    const lines = (comm && comm.commission_lines) || [];
+                    const commTotal = (comm && comm.commission_total) || 0;
+                    if (relRC) relRC.textContent = formatNGN(commTotal);
+                    if (relSC) relSC.textContent = '—';
+                    if (relTC) relTC.textContent = formatNGN(commTotal);
+                    if (relCD) {
+                        relCD.innerHTML = lines.length
+                            ? lines.map(l => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(l.tenant_name)} · <span class="text-gray-500">${escapeHtml(l.unit_number || '—')}</span></span><span class="text-emerald-300 font-medium">${formatNGN(l.commission)} <span class="text-gray-500">rent</span></span></div>`).join('')
+                            : '<p class="text-xs text-gray-500 py-2">No leases you serviced this month yet — commission appears here once a lease you handled is recorded and paid.</p>';
+                    }
+                } catch (e) {
+                    if (relRC) relRC.textContent = '—';
+                    if (relSC) relSC.textContent = '—';
+                    if (relTC) relTC.textContent = '—';
+                    if (relCD) relCD.innerHTML = '<p class="text-xs text-gray-500 py-2">Commission unavailable right now.</p>';
                 }
                 _relLeadsCache = inquiries || [];
                 // Populate property dropdown in Add Lead form
