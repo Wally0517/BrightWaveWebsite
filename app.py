@@ -7144,6 +7144,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         function fmtNGN(v) { return '\u20a6' + Number(v || 0).toLocaleString('en-NG'); }
+        function escapeHtml(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).replace(/[&<>"']/g, function(c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -7342,7 +7348,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Tenant</th><th class="py-1 text-left text-gray-500 font-medium">Amount</th><th class="py-1 text-left text-gray-500 font-medium">Date</th></tr></thead>
                                 <tbody>${stats.recent_activity.payments.length ? stats.recent_activity.payments.map(p => `
                                     <tr class="border-b border-gray-700/50">
-                                        <td class="py-2 text-white">${p.tenant_name}</td>
+                                        <td class="py-2 text-white">${escapeHtml(p.tenant_name)}</td>
                                         <td class="py-2 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${p.payment_date}</td>
                                     </tr>`).join('') : noRows}</tbody>
@@ -7354,7 +7360,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Name</th><th class="py-1 text-left text-gray-500 font-medium">Property</th><th class="py-1 text-left text-gray-500 font-medium">Status</th></tr></thead>
                                 <tbody>${stats.recent_activity.tenants.length ? stats.recent_activity.tenants.map(t => `
                                     <tr class="border-b border-gray-700/50">
-                                        <td class="py-2 text-white">${t.name}</td>
+                                        <td class="py-2 text-white">${escapeHtml(t.name)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${t.property_name || '—'}</td>
                                         <td class="py-2"><span class="text-xs px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-teal-800 text-teal-300' : 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
                                     </tr>`).join('') : noRows}</tbody>
@@ -7366,7 +7372,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <h4 class="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-search"></i> Latest Inquiries</h4>
                             ${stats.recent_activity.inquiries.length ? stats.recent_activity.inquiries.map(inq => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
-                                    <span class="font-semibold text-white">${inq.name}</span>
+                                    <span class="font-semibold text-white">${escapeHtml(inq.name)}</span>
                                     <span class="ml-2 text-xs bg-green-800/60 text-green-300 px-2 py-0.5 rounded-full">${inq.inquiry_type}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${inq.created_at}</span>
                                 </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
@@ -7375,8 +7381,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-envelope"></i> Latest Messages</h4>
                             ${stats.recent_activity.messages.length ? stats.recent_activity.messages.map(msg => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
-                                    <span class="font-semibold text-white">${msg.name}</span>
-                                    <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${msg.form_origin}</span>
+                                    <span class="font-semibold text-white">${escapeHtml(msg.name)}</span>
+                                    <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${escapeHtml(msg.form_origin)}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${msg.created_at}</span>
                                 </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
                         </div>
@@ -7473,12 +7479,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const properties = await fetchData('/admin/api/properties');
                 document.getElementById('propertiesTable').innerHTML = properties.map(prop => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${prop.title}</td>
+                        <td class="py-2">${escapeHtml(prop.title)}</td>
                         <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
                             prop.property_type === 'hostel' ? 'bg-slate-600' : 
                             prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
                         }">${prop.property_type === 'hostel' ? 'Apartment' : prop.property_type.charAt(0).toUpperCase() + prop.property_type.slice(1)}</span></td>
-                        <td class="py-2">${prop.location}</td>
+                        <td class="py-2">${escapeHtml(prop.location)}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
                         <td class="py-2 flex items-center gap-3">
@@ -7511,8 +7517,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const inquiries = await fetchData('/admin/api/inquiries');
                 document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${inq.full_name}</td>
-                        <td class="py-2">${inq.property_title}</td>
+                        <td class="py-2">${escapeHtml(inq.full_name)}</td>
+                        <td class="py-2">${escapeHtml(inq.property_title)}</td>
                         <td class="py-2">${inq.inquiry_type}</td>
                         <td class="py-2">
                             <select onchange="updateInquiry(${inq.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
@@ -7539,9 +7545,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const messages = await fetchData('/admin/api/contact-messages');
                 document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${msg.full_name}</td>
-                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${msg.form_origin}</span></td>
-                        <td class="py-2">${msg.subject || 'No Subject'}</td>
+                        <td class="py-2">${escapeHtml(msg.full_name)}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${escapeHtml(msg.form_origin)}</span></td>
+                        <td class="py-2">${escapeHtml(msg.subject || 'No Subject')}</td>
                         <td class="py-2">
                             <select onchange="updateMessage(${msg.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${msg.status === 'new' ? 'selected' : ''}>New</option>
@@ -7802,7 +7808,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const members = await fetchData('/admin/api/team-members');
                 document.getElementById('teamMembersTable').innerHTML = members.map(member => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${member.name}</td>
+                        <td class="py-2">${escapeHtml(member.name)}</td>
                         <td class="py-2">${member.role}</td>
                         <td class="py-2">${member.sort_order}</td>
                         <td class="py-2">${member.is_active ? 'Yes' : 'No'}</td>
@@ -8306,7 +8312,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadConstructionPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const ceoSel = document.getElementById('ceoConstructionProperty');
                 const mgrSel = document.getElementById('mgrConstructionProperty');
                 const ceoCurrent = ceoSel?.value || '';
@@ -8326,7 +8332,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadCapitalPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['ceoCapitalProperty', 'mgrCapitalProperty'].forEach(id => {
                     const sel = document.getElementById(id);
                     if (!sel) return;
@@ -8390,7 +8396,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const props = await fetchData('/admin/api/properties');
                 const allOpt = '<option value="">All properties</option>';
-                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['ceoMaintProperty', 'ceoMaintFormProperty', 'mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
@@ -8424,7 +8430,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 listEl.innerHTML = filtered.map(r => {
                     const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
                     const sl = statusLabels[r.status] || r.status;
-                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="ceoEditMaint(${r.id},'${prefix}')" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="ceoDeleteMaint(${r.id},'${prefix}')" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(r.title)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${escapeHtml(r.property_title || '')} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.description)}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.recorded_by || '')}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="ceoEditMaint(${r.id},'${prefix}')" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="ceoDeleteMaint(${r.id},'${prefix}')" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
                 }).join('');
             } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
         }
@@ -8516,7 +8522,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const receiptHtml = exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : '';
             const approvalBtns = `${st !== 'approved' ? `<button onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 text-xs font-medium">Approve</button>` : ''}${st !== 'rejected' ? `<button onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-rose-400 hover:text-rose-300 text-xs font-medium">Reject</button>` : ''}`;
             const paidToggle = `<button onclick="ceoTogglePaid(${exp.id},${exp.is_paid})" class="${exp.is_paid ? 'text-orange-400 hover:text-orange-300' : 'text-emerald-400 hover:text-emerald-300'} text-xs font-medium">${exp.is_paid ? 'Mark Unpaid' : 'Mark Paid'}</button>`;
-            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${stCls}">${stLbl}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} &middot; ${exp.category} &middot; ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${receiptHtml}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty '+exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' &middot; ' : ''}${exp.unit_cost ? 'Unit '+formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}<button onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button><button onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Remove</button>${approvalBtns}</div></div></div>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(exp.item_name)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${stCls}">${stLbl}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} &middot; ${exp.category} &middot; ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${escapeHtml(exp.notes)}</p>` : ''}${receiptHtml}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty '+exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' &middot; ' : ''}${exp.unit_cost ? 'Unit '+formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}<button onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button><button onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Remove</button>${approvalBtns}</div></div></div>`;
         }
 
         function renderExpensePage(prefix) {
@@ -8725,7 +8731,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0">
                             <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
                             <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
-                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
+                            <p class="text-sm text-gray-400 mt-1">${escapeHtml(latest?.property_title || '')}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
                         <div class="flex-shrink-0">
                             <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
@@ -8735,7 +8741,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
                         <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
                     </div>
-                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${escapeHtml(latest.notes)}</p>` : ''}
                 </div>
                 <div class="space-y-2">
                     ${sortedItems.map((item, idx) => `
@@ -8744,11 +8750,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(item.title)}</p>
                                         ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
                                     </div>
                                     <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
-                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
                                     <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
@@ -8794,7 +8800,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded">Pending CEO Signature</span>
                         </div>
                         <div class="bg-gray-700 p-3 rounded mb-3">
-                            <p class="text-sm text-gray-300">User signature: <strong class="text-white">"${c.user_signature}"</strong></p>
+                            <p class="text-sm text-gray-300">User signature: <strong class="text-white">"${escapeHtml(c.user_signature)}"</strong></p>
                         </div>
                         <div class="flex items-center gap-3">
                             <input type="text" id="ceoSig_${c.id}" placeholder="Type your full name to sign" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -8899,9 +8905,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         : '<span class="text-xs text-gray-600">—</span>';
                     return `
                     <tr class="border-b border-gray-700 hover:bg-gray-750">
-                        <td class="py-2 pr-3">${a.display_name || '-'}</td>
+                        <td class="py-2 pr-3">${escapeHtml(a.display_name || '-')}</td>
                         <td class="py-2 pr-3 text-gray-300">${a.username}</td>
-                        <td class="py-2 pr-3 text-gray-400 text-xs">${a.email}</td>
+                        <td class="py-2 pr-3 text-gray-400 text-xs">${escapeHtml(a.email)}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${roleColors[a.role] || 'bg-gray-600'}">${a.role}</span></td>
                         <td class="py-2 pr-3">${secondary || '<span class="text-xs text-gray-600">—</span>'}</td>
                         <td class="py-2 pr-3">${salaryCell}</td>
@@ -8925,7 +8931,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const investors = accounts.filter(a => a.role === 'INVESTOR' && a.is_active);
                 const sel = document.getElementById('invUserId');
                 if (!sel) return;
-                sel.innerHTML = '<option value="">Select Investor</option>' + investors.map(a => `<option value="${a.id}">${a.display_name || a.username} (${a.email})</option>`).join('');
+                sel.innerHTML = '<option value="">Select Investor</option>' + investors.map(a => `<option value="${a.id}">${escapeHtml(a.display_name || a.username)} (${escapeHtml(a.email)})</option>`).join('');
             } catch (e) {}
         }
 
@@ -9088,10 +9094,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadInvestorPropertyDropdowns() {
             try {
                 _investorPropertiesCache = await fetchData('/admin/api/properties');
-                const opts = '<option value="">— no specific project —</option>' + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = '<option value="">— no specific project —</option>' + _investorPropertiesCache.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['invPropertyId', 'invEditPropertyId'].forEach(id => {
                     const el = document.getElementById(id);
-                    if (el) el.innerHTML = (id === 'invPropertyId' ? '<option value="">Select project...</option>' : '<option value="">— no specific project —</option>') + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                    if (el) el.innerHTML = (id === 'invPropertyId' ? '<option value="">Select project...</option>' : '<option value="">— no specific project —</option>') + _investorPropertiesCache.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 });
             } catch (e) {}
         }
@@ -9113,7 +9119,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="font-medium">${p.investor_name}</p>
                                 <p class="text-xs text-gray-400">${p.investor_email}</p>
                             </td>
-                            <td class="py-2 pr-3 text-xs text-gray-300">${p.property_title || '<span class="text-gray-600">—</span>'}</td>
+                            <td class="py-2 pr-3 text-xs text-gray-300">${p.property_title ? escapeHtml(p.property_title) : '<span class="text-gray-600">—</span>'}</td>
                             <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${p.investment_type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700'}">${p.investment_type}</span></td>
                             <td class="py-2 pr-3 font-medium">${formatNGN(p.investment_amount)}</td>
                             <td class="py-2 pr-3 text-sm text-gray-300">${display}</td>
@@ -9234,9 +9240,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="font-semibold text-white text-sm">${t.name}</p>
-                                ${t.email ? `<p class="text-xs text-gray-400 mt-0.5">${t.email}</p>` : ''}
-                                ${t.phone ? `<p class="text-xs text-gray-400">${t.phone}</p>` : ''}
+                                <p class="font-semibold text-white text-sm">${escapeHtml(t.name)}</p>
+                                ${t.email ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(t.email)}</p>` : ''}
+                                ${t.phone ? `<p class="text-xs text-gray-400">${escapeHtml(t.phone)}</p>` : ''}
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
@@ -9247,11 +9253,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Unit Type</p>
-                                <p class="text-gray-300">${t.unit_type_name || '—'}</p>
+                                <p class="text-gray-300">${escapeHtml(t.unit_type_name || '—')}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Unit / Room</p>
-                                <p class="text-gray-300">${t.unit_number || '—'}</p>
+                                <p class="text-gray-300">${escapeHtml(t.unit_number || '—')}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Yearly Rent</p>
@@ -9372,7 +9378,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (!selectEl) return;
             const current = selectEl.value;
             selectEl.innerHTML = '<option value="">-- Select property --</option>' +
-                _propertiesCacheForUt.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                _propertiesCacheForUt.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
             if (current) selectEl.value = current;
         }
 
@@ -9390,7 +9396,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const propId = propSel.selectedOptions[0]?.dataset.id;
             const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
             utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
         }
 
         function tnOnUnitTypeChange() {
@@ -9420,10 +9426,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             ${items.map(u => `
                                 <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
                                     <div class="flex items-start justify-between gap-3 mb-2">
-                                        <p class="font-semibold text-white text-sm">${u.name}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(u.name)}</p>
                                         <p class="text-emerald-400 font-bold text-sm flex-shrink-0">${u.annual_price ? fmtNGN(u.annual_price) : '\u20a60'}<span class="text-[10px] text-gray-400 font-normal">/yr</span></p>
                                     </div>
-                                    ${u.description ? `<p class="text-xs text-gray-400 mb-3">${u.description}</p>` : ''}
+                                    ${u.description ? `<p class="text-xs text-gray-400 mb-3">${escapeHtml(u.description)}</p>` : ''}
                                     <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
                                         <span class="px-2 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">${u.occupied_count}/${u.total_count} occupied</span>
                                         <span class="text-gray-500">${u.available_count} available</span>
@@ -9535,7 +9541,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 // Build prop select with title as value (matches add form pattern)
                 const propSel = document.getElementById('tnEditProperty');
                 propSel.innerHTML = '<option value="">-- Select property --</option>' +
-                    _propertiesCacheForUt.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+                    _propertiesCacheForUt.map(p => `<option value="${escapeHtml(p.title)}" data-id="${p.id}">${escapeHtml(p.title)}</option>`).join('');
 
                 if (t.property_name) propSel.value = t.property_name;
 
@@ -9544,7 +9550,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     const utSel = document.getElementById('tnEditUnitType');
                     const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
                     utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                        filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                        filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
                     if (t.unit_type_id) utSel.value = t.unit_type_id;
                 };
                 refreshEditUt();
@@ -9670,7 +9676,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
                                 <p class="text-xs text-gray-400 mb-2">Breakdown — Yearly Rent stored on tenant is the gross total (base + 10% markup). Manager earns the markup; company keeps the base.</p>
                                 <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base (company)</th><th class="text-right py-1">Commission (10%)</th></tr></thead>
-                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${l.tenant_name}</td><td class="py-1 text-gray-400">${l.unit_number || '—'}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
+                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${escapeHtml(l.tenant_name)}</td><td class="py-1 text-gray-400">${escapeHtml(l.unit_number || '—')}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
                            </td></tr>`
                         : '';
                     const histRow = hasHistory
@@ -9681,7 +9687,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                     <td class="py-1 text-gray-400">${(p.paid_at || '').slice(0,10)}</td>
                                     <td class="py-1 text-gray-300">${p.kind}</td>
                                     <td class="py-1 text-right text-emerald-400">${fmtNGN(p.amount)}</td>
-                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${p.notes || '—'}</td>
+                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${escapeHtml(p.notes || '—')}</td>
                                     <td class="py-1 text-gray-500 text-[11px]">${p.paid_by || '—'}</td>
                                     <td class="py-1 pl-3"><button onclick="editPayrollPayment(${p.id}, ${p.amount}, '${p.kind}', '${(p.notes||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" class="text-blue-400 hover:text-blue-300 mr-2">Edit</button><button onclick="deletePayrollPayment(${p.id})" class="text-red-400 hover:text-red-300">Delete</button></td>
                                 </tr>`).join('')}</tbody></table>
@@ -9694,7 +9700,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         : `<input type="number" min="0" step="1000" value="${r.salary || 0}" data-user-id="${r.user_id}" onchange="saveInlineSalary(this)" onblur="saveInlineSalary(this)" class="w-28 text-right bg-gray-700 border border-gray-600 rounded px-2 py-1 text-blue-300 text-sm" title="Set monthly salary — saves on blur">`;
                     return `
                         <tr class="border-b border-gray-700">
-                            <td class="py-2 pr-3 text-gray-200">${r.display_name}</td>
+                            <td class="py-2 pr-3 text-gray-200">${escapeHtml(r.display_name)}</td>
                             <td class="py-2 pr-3 text-gray-400 text-xs">${r.role}</td>
                             <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
                             <td class="py-2 pr-3 text-right">${salaryCell}</td>
@@ -9723,7 +9729,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const row = _payrollLastRows[idx];
             if (!row) return;
             document.getElementById('prPayUserId').value = row.user_id;
-            document.getElementById('prPayWho').textContent = `${row.display_name} — outstanding ${fmtNGN(row.outstanding)}`;
+            document.getElementById('prPayWho').textContent = `${escapeHtml(row.display_name)} — outstanding ${fmtNGN(row.outstanding)}`;
             document.getElementById('prPayAmount').value = Math.round(row.outstanding);
             document.getElementById('prPayKind').value = row.commission_total > 0 ? 'commission' : 'salary';
             document.getElementById('prPayNotes').value = '';
@@ -9873,12 +9879,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else {
                 detailsHtml = `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
-                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${rd.experience || '—'}</p></div>
-                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${rd.availability || '—'}</p></div>
+                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${escapeHtml(rd.experience || '—')}</p></div>
+                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${escapeHtml(rd.availability || '—')}</p></div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-2">Submitted ${s.created_at || '—'}</p>`;
             }
-            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${rd.notes}"</p>` : '';
+            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${escapeHtml(rd.notes)}"</p>` : '';
 
             let actionsHtml = '';
             if (s.status === 'pending') {
@@ -9897,8 +9903,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4">
                     <div class="flex items-start justify-between gap-3 flex-wrap">
                         <div class="min-w-0">
-                            <p class="font-semibold text-white">${s.full_name} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
-                            <p class="text-xs text-gray-400 mt-0.5">${s.email}${s.phone ? ' · ' + s.phone : ''}</p>
+                            <p class="font-semibold text-white">${escapeHtml(s.full_name)} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(s.email)}${s.phone ? ' · ' + escapeHtml(s.phone) : ''}</p>
                         </div>
                         <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${s.status === 'pending' ? 'bg-amber-900/50 text-amber-300' : s.status === 'approved' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}">${s.status}</span>
                     </div>
@@ -9960,7 +9966,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (!selectEl) return;
             const cands = await fetchServicedByCandidates();
             selectEl.innerHTML = '<option value="">-- Not tracked --</option>' +
-                cands.map(a => `<option value="${a.id}">${(a.display_name || a.username)} — ${a.role}</option>`).join('');
+                cands.map(a => `<option value="${a.id}">${escapeHtml(a.display_name || a.username)} — ${a.role}</option>`).join('');
             if (selectedId != null) selectEl.value = String(selectedId);
         }
 
@@ -9975,7 +9981,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const sel = document.getElementById('pmtTenantId');
                 if (!sel) return;
                 sel.innerHTML = '<option value="">-- Select tenant --</option>' + tenants.map(t =>
-                    `<option value="${t.id}">${t.name}${t.property_name ? ' — ' + t.property_name : ''}${t.unit_number ? ' / ' + t.unit_number : ''}</option>`
+                    `<option value="${t.id}">${escapeHtml(t.name)}${t.property_name ? ' — ' + t.property_name : ''}${t.unit_number ? ' / ' + escapeHtml(t.unit_number) : ''}</option>`
                 ).join('');
             } catch (e) {}
         }
@@ -10000,7 +10006,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const sel = document.getElementById('tnProperty');
                 if (!sel) return;
                 sel.innerHTML = '<option value="">-- Select property --</option>' +
-                    props.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+                    props.map(p => `<option value="${escapeHtml(p.title)}" data-id="${p.id}">${escapeHtml(p.title)}</option>`).join('');
             } catch(e) {}
         }
 
@@ -10019,7 +10025,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const opts = units.map(u => {
                     // Price comes from Unit Type now, so only show room number + status (if not available)
                     const label = u.unit_code + (u.status !== 'available' ? ' (' + u.status + ')' : '');
-                    return `<option value="${u.unit_code}" data-status="${u.status}">${label}</option>`;
+                    return `<option value="${escapeHtml(u.unit_code)}" data-status="${u.status}">${label}</option>`;
                 });
                 unitSel.innerHTML = '<option value="">-- Select unit --</option>' + opts.join('');
                 unitSel.disabled = false;
@@ -10055,8 +10061,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     return `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
                         <div class="flex items-start justify-between gap-3 mb-3">
                             <div>
-                                <p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>
-                                ${meta.notes ? `<p class="text-xs text-gray-400 mt-0.5">${meta.notes}</p>` : ''}
+                                <p class="font-semibold text-white text-sm">${escapeHtml(p.tenant_name || '—')}</p>
+                                ${meta.notes ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(meta.notes)}</p>` : ''}
                             </div>
                             <p class="text-emerald-400 font-bold text-base flex-shrink-0">${fmtNGN(p.amount)}</p>
                         </div>
@@ -10066,7 +10072,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 ${meta.unit ? `<span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">Unit ${meta.unit}</span>` : ''}
                                 ${meta.period ? `<span class="px-2 py-1 rounded-full bg-indigo-900/50 text-indigo-300">${meta.period}</span>` : ''}
                                 <span class="text-gray-400">${p.payment_date}</span>
-                                ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                                ${p.recorded_by ? `<span class="text-gray-500">by ${escapeHtml(p.recorded_by)}</span>` : ''}
                             </div>
                             <div class="flex items-center gap-3">
                                 <button type="button" onclick="startCeoPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
@@ -10235,7 +10241,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     try {
                         const props = await fetchData('/admin/api/properties');
                         sel.innerHTML = '<option value="">General (all properties)</option>' +
-                            props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                            props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                         sel.dataset.loaded = '1';
                     } catch (e) { /* keep General-only dropdown */ }
                 }
@@ -11692,6 +11698,12 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+        function escapeHtml(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).replace(/[&<>"']/g, function(c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -11731,7 +11743,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadCapitalPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const sel = document.getElementById('mgrCapitalProperty');
                 if (sel) {
                     const cur = sel.value;
@@ -11788,7 +11800,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const countEl = document.getElementById('accPaymentCount');
             if (countEl) countEl.textContent = filtered.length < accountantPaymentsCache.length ? `${filtered.length} of ${accountantPaymentsCache.length} shown` : `${filtered.length} total`;
             document.getElementById('acc_paymentsContainer').innerHTML = filtered.slice(0, 30).map(p =>
-                `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
+                `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${escapeHtml(p.tenant_name || '—')}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(p.description)}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${escapeHtml(p.recorded_by)}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
             ).join('') || `<div class="text-center py-8"><svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>${accountantPaymentsCache.length === 0 ? '<p class="text-gray-300 text-sm font-medium">No payments recorded yet</p><p class="text-gray-500 text-xs mt-1">Use the form on the left to log the first payment</p>' : '<p class="text-gray-400 text-sm">No payments match this filter</p>'}</div>`;
         }
 
@@ -11858,7 +11870,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     datalist.id = 'expensePayeeOptions';
                     document.body.appendChild(datalist);
                 }
-                datalist.innerHTML = vendorOptionsCache.map(v => `<option value="${v.name}">${v.contact_type}</option>`).join('');
+                datalist.innerHTML = vendorOptionsCache.map(v => `<option value="${escapeHtml(v.name)}">${v.contact_type}</option>`).join('');
             } catch (e) {}
         }
 
@@ -11935,7 +11947,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const managementActions = prefix !== 'acc'
                 ? `<button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>`
                 : '';
-            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}${managementActions}${statusActions}</div></div></div>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(exp.item_name)}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? escapeHtml(exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${escapeHtml(exp.notes)}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${escapeHtml(exp.recorded_by || '')}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}${managementActions}${statusActions}</div></div></div>`;
         }
 
         function updateExpenseForm(prefix) {
@@ -12181,7 +12193,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div class="flex-1 min-w-0 pt-0.5">
                             <div class="flex items-start justify-between gap-2 mb-1">
                                 <div>
-                                    <p class="text-sm font-semibold text-white leading-tight">${item.title}${isLatest ? ' <span class="ml-1 text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Latest</span>' : ''}</p>
+                                    <p class="text-sm font-semibold text-white leading-tight">${escapeHtml(item.title)}${isLatest ? ' <span class="ml-1 text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Latest</span>' : ''}</p>
                                     <p class="text-xs text-gray-500 mt-0.5">${item.happened_on || 'Date pending'}</p>
                                 </div>
                                 <span class="text-xs font-bold flex-shrink-0 ${labelColor}">${pct}%</span>
@@ -12189,7 +12201,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="w-full bg-gray-700 rounded-full h-1 mb-1.5">
                                 <div class="h-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" style="width:${pct}%"></div>
                             </div>
-                            ${item.notes ? `<p class="text-xs text-gray-400 leading-relaxed">${item.notes}</p>` : ''}
+                            ${item.notes ? `<p class="text-xs text-gray-400 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                         </div>
                     </div>`;
                 }).join('') + '</div>';
@@ -12203,7 +12215,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = `<tr><td colspan="${showProperty ? 5 : 4}" class="text-gray-400 py-3 text-center">No units found</td></tr>`;
                 return;
             }
-            el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${unit.property_title}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${unit.unit_code}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${unit.notes || '—'}</td></tr>`).join('');
+            el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${escapeHtml(unit.property_title)}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${escapeHtml(unit.unit_code)}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${escapeHtml(unit.notes || '—')}</td></tr>`).join('');
         }
 
         function populateManagerUnitSelect(units, filterPropertyId) {
@@ -12213,7 +12225,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const matchProp = !filterPropertyId || String(unit.property_id) === String(filterPropertyId);
                 return matchProp && (unit.status === 'available' || unit.status === 'reserved');
             });
-            select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${unit.unit_code}">${unit.unit_code} · ${unit.property_title} · ${unit.status}</option>`).join('');
+            select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${escapeHtml(unit.unit_code)}">${escapeHtml(unit.unit_code)} · ${escapeHtml(unit.property_title)} · ${unit.status}</option>`).join('');
         }
 
         // Manager Unit Type cascade (mirrors CEO behaviour)
@@ -12228,7 +12240,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
             const filtered = propId ? window._mgrUnitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
             utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + formatNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + formatNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
         }
 
         function mgrTnOnUnitTypeChange() {
@@ -12248,7 +12260,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = '<p class="text-gray-400 py-4 text-center text-sm">No tenants yet</p>';
                 return;
             }
-            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-2"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-600/40"><div><p class="text-gray-500">Unit Type</p><p class="text-gray-300 truncate">${t.unit_type_name || '—'}</p></div><div><p class="text-gray-500">Yearly Rent</p><p class="text-emerald-400 font-semibold">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</p></div><div><p class="text-gray-500">Lease</p><p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → ' + t.lease_end : ''}</p></div></div></div>`).join('');
+            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-2"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${escapeHtml(t.name)}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + escapeHtml(t.unit_number) : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${escapeHtml(t.phone)}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-600/40"><div><p class="text-gray-500">Unit Type</p><p class="text-gray-300 truncate">${escapeHtml(t.unit_type_name || '—')}</p></div><div><p class="text-gray-500">Yearly Rent</p><p class="text-emerald-400 font-semibold">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</p></div><div><p class="text-gray-500">Lease</p><p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → ' + t.lease_end : ''}</p></div></div></div>`).join('');
         }
 
         function editRoleTenant(id) {
@@ -12268,7 +12280,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (tenant.unit_number && unitSelect && !Array.from(unitSelect.options).some(opt => opt.value === tenant.unit_number)) {
                 const option = document.createElement('option');
                 option.value = tenant.unit_number;
-                option.textContent = `${tenant.unit_number} • occupied`;
+                option.textContent = `${escapeHtml(tenant.unit_number)} • occupied`;
                 unitSelect.appendChild(option);
             }
             if (unitSelect) unitSelect.value = tenant.unit_number || '';
@@ -12633,8 +12645,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
                 document.getElementById('mgr_inquiriesTable').innerHTML = safeInquiries.map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="mgrToggleInqDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
                         <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
@@ -12646,16 +12658,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="mgrInqDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email || '—')}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
                             </div>
                             ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
                         </td>
                     </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center text-sm">No inquiries yet</td></tr>';
-                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${escapeHtml(p.title)}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${escapeHtml(p.location)}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 // Units table with status action column
                 const phase1Units = Array.isArray(units) ? units : [];
                 const mgrUnitsCountEl = document.getElementById('mgrUnitsCount');
@@ -12664,11 +12676,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const unitTableEl = document.getElementById('mgr_unitsTable');
                 if (unitTableEl) unitTableEl.innerHTML = phase1Units.length ? phase1Units.map(u => `
                     <tr class="border-b border-gray-700" id="unitRow_${u.id}">
-                        <td class="py-2 pr-2 text-xs text-gray-400 max-w-[120px] truncate">${u.property_title || '—'}</td>
-                        <td class="py-2 pr-3 font-medium text-white">${u.unit_code}</td>
+                        <td class="py-2 pr-2 text-xs text-gray-400 max-w-[120px] truncate">${escapeHtml(u.property_title || '—')}</td>
+                        <td class="py-2 pr-3 font-medium text-white">${escapeHtml(u.unit_code)}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[u.status] || 'bg-gray-700 text-gray-300'}">${u.status}</span></td>
                         <td class="py-2 pr-3 text-xs text-gray-300">${u.monthly_rent ? formatNGN(u.monthly_rent) : '—'}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[120px] truncate">${u.notes || '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[120px] truncate">${escapeHtml(u.notes || '—')}</td>
                         <td class="py-2">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
@@ -12745,12 +12757,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const mgrPropSel = document.getElementById('mgrTenantProperty');
                 if (mgrPropSel) {
                     const curPropVal = mgrPropSel.value;
-                    mgrPropSel.innerHTML = '<option value="">Select property</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                    mgrPropSel.innerHTML = '<option value="">Select property</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                     if (curPropVal) mgrPropSel.value = curPropVal;
                 }
                 // Populate inquiry form property dropdown
                 const mgrInqPropSel = document.getElementById('mgrInqProperty');
-                if (mgrInqPropSel) mgrInqPropSel.innerHTML = '<option value="">General</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                if (mgrInqPropSel) mgrInqPropSel.innerHTML = '<option value="">General</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const activeMgrTenants = tenants.filter(t => t.status === 'active');
                 renderTenantCards('mgr_tenantsList', activeMgrTenants);
                 const mgrRentTotal = activeMgrTenants.reduce((s, t) => s + (parseFloat(t.monthly_rent) || 0), 0);
@@ -12939,8 +12951,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
                 const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
-                if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
-                if (expensePropertySelect) expensePropertySelect.innerHTML = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}" ${String(expenseFilters.propertyId || '') === String(p.id) ? 'selected' : ''}>${p.title}</option>`).join('');
+                if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${escapeHtml(t.name)}${t.unit_number ? ' • ' + escapeHtml(t.unit_number) : ''}</option>`).join('');
+                if (expensePropertySelect) expensePropertySelect.innerHTML = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}" ${String(expenseFilters.propertyId || '') === String(p.id) ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
                 const expenseCategorySummary = Object.entries(expensesData.by_category || {})
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 4)
@@ -12965,9 +12977,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                             const leaseEndDate = t.lease_end ? new Date(t.lease_end) : null;
                             const isExpiringSoon = leaseEndDate && (leaseEndDate - new Date()) < 60 * 24 * 60 * 60 * 1000;
                             return `<tr class="border-b border-gray-700/60">
-                                <td class="py-2.5 pr-3 font-medium text-white text-sm">${t.name}</td>
-                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_type_name || '—'}</td>
-                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_number || '—'}</td>
+                                <td class="py-2.5 pr-3 font-medium text-white text-sm">${escapeHtml(t.name)}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${escapeHtml(t.unit_type_name || '—')}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${escapeHtml(t.unit_number || '—')}</td>
                                 <td class="py-2.5 pr-3 text-sm text-emerald-300 font-medium">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</td>
                                 <td class="py-2.5 pr-3 text-xs text-gray-400">${t.lease_start || '—'}</td>
                                 <td class="py-2.5 text-xs ${isExpiringSoon ? 'text-amber-400 font-medium' : 'text-gray-400'}">${t.lease_end || '—'}${isExpiringSoon ? ' ⚠' : ''}</td>
@@ -13062,25 +13074,25 @@ ROLE_DASHBOARD_TEMPLATE = """
                 if (relTC) relTC.textContent = formatNGN(totalComm);
                 if (relCD) {
                     const rows = [
-                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${i.full_name} · <span class="text-gray-500">${i.property_title}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
-                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${u.unit_code} · <span class="text-gray-500">${u.property_title || ''}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
+                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(i.full_name)} · <span class="text-gray-500">${escapeHtml(i.property_title)}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
+                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(u.unit_code)} · <span class="text-gray-500">${escapeHtml(u.property_title || '')}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
                     ];
                     relCD.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-gray-500 py-2">No closed deals or occupied units yet — commission will appear here once leases and sales are recorded.</p>';
                 }
                 _relLeadsCache = inquiries || [];
                 // Populate property dropdown in Add Lead form
                 const relPropSel = document.getElementById('relLeadProperty');
-                if (relPropSel) relPropSel.innerHTML = '<option value="">General Inquiry</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                if (relPropSel) relPropSel.innerHTML = '<option value="">General Inquiry</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const relCountEl = document.getElementById('rel_leadsCount');
                 if (relCountEl) relCountEl.textContent = inquiries.length + ' lead' + (inquiries.length !== 1 ? 's' : '');
                 renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
-                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${escapeHtml(p.title)}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${escapeHtml(p.location)}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 const statuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
                 const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
                 document.getElementById('rel_inquiriesTable').innerHTML = inquiries.length ? inquiries.slice(0, 60).map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
                         <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
@@ -13092,11 +13104,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="relDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email}</a>` : '<span class="text-gray-500">—</span>'}</div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email)}</a>` : '<span class="text-gray-500">—</span>'}</div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
+                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
                             </div>
                             <div class="flex items-end gap-3">
                                 <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
@@ -13331,7 +13343,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         loadConstructionPropertyOptions = async function() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const ceoSel = document.getElementById('ceoConstructionProperty');
                 const mgrSel = document.getElementById('mgrConstructionProperty');
                 const ceoCurrent = ceoSel?.value || '';
@@ -13384,7 +13396,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0">
                             <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
                             <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
-                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
+                            <p class="text-sm text-gray-400 mt-1">${escapeHtml(latest?.property_title || '')}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
                         <div class="flex-shrink-0">
                             <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
@@ -13394,7 +13406,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
                         <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
                     </div>
-                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${escapeHtml(latest.notes)}</p>` : ''}
                 </div>
                 <div class="space-y-2">
                     ${sortedItems.map((item, idx) => `
@@ -13403,11 +13415,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(item.title)}</p>
                                         ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
                                     </div>
                                     <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
-                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
                                     <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
@@ -13566,7 +13578,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             try {
                 const props = await fetchData('/admin/api/properties');
                 const allOpt = '<option value="">All properties</option>';
-                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
@@ -13600,7 +13612,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 listEl.innerHTML = filtered.map(r => {
                     const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
                     const sl = statusLabels[r.status] || r.status;
-                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="mgrEditMaint(${r.id})" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="mgrDeleteMaint(${r.id})" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(r.title)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${escapeHtml(r.property_title || '')} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.description)}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.recorded_by || '')}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="mgrEditMaint(${r.id})" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="mgrDeleteMaint(${r.id})" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
                 }).join('');
             } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
         }
