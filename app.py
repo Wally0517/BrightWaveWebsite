@@ -317,6 +317,7 @@ class PropertyUnitType(db.Model):
     name = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text, nullable=True)
     annual_price = db.Column(db.Float, default=0.0)
+    caution_fee = db.Column(db.Float, default=50000.0)  # refundable deposit per room, editable per unit type
     total_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -393,10 +394,31 @@ class PasswordResetToken(db.Model):
     used = db.Column(db.Boolean, default=False)
     user = db.relationship('Admin', backref='reset_tokens')
 
+class LoginAudit(db.Model):
+    """Records every admin login attempt for auditing and failed-attempt lockout."""
+    __tablename__ = 'login_audit'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), index=True)
+    ip = db.Column(db.String(64))
+    success = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
 class ContractTemplate(db.Model):
     __tablename__ = 'contract_template'
     id = db.Column(db.Integer, primary_key=True)
     role = db.Column(db.String(30), unique=True, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.String(80), nullable=True)
+
+
+class TermsDocument(db.Model):
+    """Editable legal/house-rules documents (e.g. resident terms & conditions)."""
+    __tablename__ = 'terms_document'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(60), unique=True, nullable=False)
     title = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -420,6 +442,9 @@ class PendingSignup(db.Model):
     reviewed_by = db.Column(db.String(80), nullable=True)
     created_admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
 
+
+# Refundable security deposit collected once per room at move-in (see Resident T&C)
+CAUTION_FEE_NGN = 50000
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
@@ -1044,6 +1069,126 @@ def seed_contract_templates():
             db.session.add(ct)
     db.session.commit()
 
+
+RESIDENT_TERMS_SLUG = 'resident-terms'
+DEFAULT_RESIDENT_TERMS_TITLE = 'BrightWave Habitat Resident Terms & Conditions'
+DEFAULT_RESIDENT_TERMS_BODY = """## 1. Introduction
+These Terms & Conditions ("the Rules") govern the occupation of any room or apartment ("the Premises") at Brightwave Apartment and any other property of BrightWave Habitat Enterprise ("the Company"). By paying rent and taking possession of the Premises, the Resident agrees to be bound by these Rules. These Rules form part of the tenancy agreement between the Resident and the Company.
+
+Every unit is fully self-contained (ensuite) with tiled floors, POP ceiling with fitted lightings, kitchen cabinet, and wardrobe. The property is served by a general generator, a solar-powered water pumping system, security cameras (CCTV), and a recreation area with a snooker board. These Rules exist to keep those facilities in excellent condition for everyone.
+
+## 2. Rent & Payments
+- Rent is payable yearly, in advance, before occupation or renewal of the Premises.
+- Rent covers the room/apartment only. Utility contributions, where applicable, are communicated separately by Management.
+- All payments must be made to the Company's official account and a receipt collected. Payments made to unauthorised persons are not recognised.
+- Occupation without full payment of rent and caution fee is not permitted.
+
+## 3. Caution Fee (Security Deposit)
+- A refundable caution fee of ₦50,000.00 (Fifty Thousand Naira only) is payable once per room, in addition to rent, before the Resident takes possession.
+- The caution fee is security against damage to the Premises, its fittings, and the common facilities, and against loss of keys or unpaid charges. It is NOT rent and cannot be used to offset rent.
+- Any violation of these Rules that results in damage, loss, or restoration cost will be valued and deducted from the caution fee. Residents who keep their unit in good condition lose nothing.
+- At the end of the tenancy, Management will inspect the Premises in the Resident's presence where possible, using the move-in condition of the unit as the standard.
+- Where the cost of damage exceeds the caution fee, the Resident is liable for the balance and must settle it before final checkout.
+- If the Premises are returned in good condition, the caution fee (or the balance after any deductions) will be refunded within 21 days of checkout and return of all keys.
+- Renewing Residents do not pay the caution fee again, but where deductions have been made during the tenancy, the Resident must top the caution fee back up to the full ₦50,000.00 at renewal.
+
+## 4. Care of the Room & Fittings (Strictly Prohibited)
+Each unit is handed over in good condition with tiled floors, POP ceiling and lightings, kitchen cabinet, and wardrobe. The following are strictly prohibited, and the cost of restoration will be deducted from the caution fee (repeat or serious cases may lead to termination of the tenancy):
+- Drilling holes in walls, tiles, doors, or the POP ceiling for any reason.
+- Driving nails, screws, or hooks into walls, tiles, doors, wardrobes, or cabinets.
+- Hanging, mounting, or suspending any object (fans, hangers, lines, decorations) from the POP ceiling or its light fittings.
+- Breaking, cutting, or altering any wall, partition, ceiling, or structure.
+- Writing, drawing, painting, or pasting stickers, posters, or tape on walls, doors, tiles, or windows.
+- Cracking, chipping, or staining floor and wall tiles, including dragging heavy items across tiled floors.
+- Removing, swapping, or modifying doors, windows, wardrobes, kitchen cabinets, light fittings, or any other fixture.
+- Using the kitchen cabinet or wardrobe carelessly (forcing doors, overloading shelves, water damage) beyond normal use.
+- Repainting or changing the colour of any part of the Premises without written approval from Management.
+- Changing or adding locks without written approval from Management.
+- Installing satellite dishes, antennas, air conditioners, or any external fixture without written approval from Management.
+
+## 5. Shared Facilities: Generator, Solar Water System & Recreation
+- The general generator is operated and fuelled by Management at scheduled hours. Residents must not start, stop, adjust, or connect anything directly to the generator.
+- Personal generators are not permitted inside rooms, corridors, or balconies.
+- The solar pumping machine, solar panels, water tanks, and pumping equipment must not be touched, climbed, adjusted, or tampered with. Report any water supply issue to Management instead.
+- Water is pumped for the benefit of all residents. Taps must not be left running, and hoarding or wasteful use that deprives other residents is not allowed.
+- The snooker board is provided for the enjoyment of all residents. Use it with care: no sitting or standing on it, no placing food or drinks on it, no removing the balls or cues from the recreation area, and no tearing of the felt. Damage to the snooker board or accessories will be billed to the person(s) responsible.
+- Recreation facilities close at the time set by Management, and disputes over their use should be reported rather than settled physically.
+
+## 6. Security & CCTV
+- The property is protected by security cameras (CCTV) covering common areas. Tampering with, blocking, redirecting, or disconnecting any camera is a serious violation that will be deducted from the caution fee and may lead to termination of the tenancy.
+- CCTV footage may be reviewed by Management to investigate damage, theft, or misconduct, and violations confirmed on camera will be charged to the person(s) responsible.
+- The Resident receives one set of keys at move-in. Lost keys must be reported to Management immediately; replacement of keys/locks is at the Resident's cost.
+- Doors and gates must not be left open or propped. Residents must cooperate with security personnel and any access-control measures in place.
+- The Company is not liable for the loss of, or damage to, the Resident's personal property. Residents are advised to keep valuables secure.
+
+## 7. Electrical & Fire Safety
+- Do not overload electrical sockets or use substandard extension boxes.
+- Do not tamper with electrical wiring, meters, distribution boards, or the POP ceiling lightings. Report faulty bulbs or fittings to Management; do not attempt ceiling repairs yourself.
+- Storage of petrol, kerosene, gas cylinders above the approved size, or any flammable material inside the Premises is prohibited.
+- Cooking is permitted only in the kitchen area of the Resident's self-contained unit and must never be left unattended.
+- Prepaid meter bypass or any illegal electrical connection is prohibited and will be reported to the appropriate authorities.
+
+## 8. Water, Sanitation & Cleanliness
+- The Resident must keep the Premises, including the ensuite bathroom and toilet, clean and in sanitary condition at all times.
+- Do not dispose of solids, wipes, sanitary items, or food waste in the toilet or sinks. Blockages traced to a Resident's unit will be cleared at the Resident's cost.
+- Tiled floors and bathroom walls should be cleaned with appropriate materials. Do not use acid or corrosive chemicals that etch or discolour tiles.
+- Refuse must be bagged and disposed of only at the designated refuse point.
+- Report all leaks, faulty plumbing, and water issues to Management promptly.
+
+## 9. Conduct & Noise
+- Noise must be kept at a considerate level at all times, and to a minimum between 10:00 PM and 6:00 AM.
+- Fighting, harassment, bullying, cultism, gambling for money, and the use or sale of illegal substances are strictly prohibited and will result in immediate termination of the tenancy without refund of rent.
+- Smoking is not permitted inside rooms or enclosed common areas.
+- Pets are not permitted without the written approval of Management.
+
+## 10. Guests, Visitors & Subletting
+- The Resident is fully responsible for the conduct of their guests and for any damage caused by them, including damage to shared facilities.
+- Overnight guests beyond a reasonable and occasional basis require the consent of Management.
+- Subletting, sharing for a fee, or transferring the room to another person without the Company's written consent is strictly prohibited and terminates the tenancy.
+- Only the Resident(s) named in the tenancy records may reside in the Premises.
+
+## 11. Damage, Repairs & Liability
+- The Resident must report any fault or damage in the Premises to Management within 48 hours of noticing it.
+- Damage caused by the Resident or their guests will be repaired by the Company's approved artisans and billed to the Resident or deducted from the caution fee. Residents may not carry out structural, ceiling, or electrical repairs themselves.
+- Fair wear and tear from normal, careful use is expected and will not be charged.
+- Where damage in a shared area cannot be traced to one person (including via CCTV), Management may, as a last resort, share the verified repair cost fairly among the residents of the affected block after giving notice.
+
+## 12. Inspections & Right of Entry
+- Management may inspect the Premises upon reasonable prior notice of at least 24 hours, except in emergencies (fire, flooding, security threat, suspected abandonment) where immediate entry may be necessary.
+- Routine maintenance and fumigation exercises will be communicated in advance.
+
+## 13. Vacating & Refund of Caution Fee
+- The Resident must give Management at least 30 days written notice of intention to vacate, and must vacate on or before the last day of the paid rent period.
+- Before checkout, the Resident must remove all personal belongings, clean the Premises, and return all keys.
+- A joint inspection covering walls, tiles, POP ceiling and lightings, wardrobe, kitchen cabinet, bathroom fittings, and keys will be conducted, and any deductions from the caution fee documented and communicated to the Resident.
+- Items left behind for more than 14 days after checkout may be disposed of by Management.
+
+## 14. Breach & Termination
+- A material breach of these Rules, non-payment of rent, or conduct that endangers other residents or the property may result in termination of the tenancy in line with applicable law.
+- Termination for the Resident's breach does not entitle the Resident to a refund of rent for the unexpired period, and outstanding damage costs will still be deducted from the caution fee.
+
+## 15. General
+- These Rules may be updated by the Company from time to time; the current version will be made available to Residents and takes effect from the date of communication.
+- Where any part of these Rules conflicts with a signed tenancy agreement, the signed agreement prevails.
+- These Rules are governed by the laws of the Federal Republic of Nigeria.
+
+## Acknowledgment
+I confirm that I have read and understood these Terms & Conditions, including the caution fee terms in Section 3, and I agree that the cost of any violation may be deducted from my caution fee."""
+
+
+# Small circular logo embedded so the printed/Word T&C always shows it, even offline
+RESIDENT_TERMS_LOGO_DATA_URI = "data:image/jpeg;base64,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"
+
+
+def seed_resident_terms():
+    if not TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first():
+        db.session.add(TermsDocument(
+            slug=RESIDENT_TERMS_SLUG,
+            title=DEFAULT_RESIDENT_TERMS_TITLE,
+            body=DEFAULT_RESIDENT_TERMS_BODY,
+        ))
+        db.session.commit()
+
 def ensure_unit_type_migrations():
     """Add new columns/tables to existing DB when the schema has evolved."""
     from sqlalchemy import inspect, text
@@ -1058,6 +1203,8 @@ def ensure_unit_type_migrations():
     pending = []
     if insp.has_table('tenant') and not has_column('tenant', 'unit_type_id'):
         pending.append('ALTER TABLE tenant ADD COLUMN unit_type_id INTEGER')
+    if insp.has_table('property_unit_type') and not has_column('property_unit_type', 'caution_fee'):
+        pending.append('ALTER TABLE property_unit_type ADD COLUMN caution_fee FLOAT DEFAULT 50000')
 
     for stmt in pending:
         try:
@@ -1134,6 +1281,7 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     ensure_unit_type_migrations()
     ensure_cms_baseline()
     seed_contract_templates()
+    seed_resident_terms()
     if include_sample_data:
         init_sample_data()
     seed_default_units()
@@ -2109,8 +2257,13 @@ def admin_stats():
         now = datetime.utcnow()
         month_start = date_type(now.year, now.month, 1)
 
-        def _rev_q(extra_filters=None):
+        def _rev_q(extra_filters=None, caution_only=False):
             q = db.session.query(sqlfunc.sum(PaymentRecord.amount))
+            # Caution fees are refundable deposits held in trust, not income
+            if caution_only:
+                q = q.filter(PaymentRecord.payment_type == 'caution')
+            else:
+                q = q.filter(db.or_(PaymentRecord.payment_type != 'caution', PaymentRecord.payment_type.is_(None)))
             if filter_prop_title:
                 q = q.join(Tenant, PaymentRecord.tenant_id == Tenant.id).filter(
                     Tenant.property_name.ilike(f'%{filter_prop_title}%')
@@ -2122,6 +2275,7 @@ def admin_stats():
 
         monthly_revenue = _rev_q([PaymentRecord.payment_date >= month_start])
         total_revenue = _rev_q()
+        caution_held = _rev_q(caution_only=True)
 
         # --- Capital/expense stats (filterable by property_id) ---
         def _exp_q(approval=None, extra_filters=None):
@@ -2191,7 +2345,7 @@ def admin_stats():
             rec_exp_q = rec_exp_q.filter(ProjectExpense.property_id == filter_prop_id)
         recent_expenses = rec_exp_q.order_by(ProjectExpense.expense_date.desc(), ProjectExpense.created_at.desc()).limit(5).all()
 
-        return jsonify({
+        stats_payload = {
             'total_properties': total_properties,
             'active_properties': active_properties,
             'property_breakdown': {
@@ -2211,6 +2365,8 @@ def admin_stats():
             'occupied_units': occupied_units,
             'monthly_revenue': float(monthly_revenue),
             'total_revenue': float(total_revenue),
+            'caution_held': float(caution_held),
+            'caution_fee': CAUTION_FEE_NGN,
             'monthly_capital_spent': float(monthly_capital_spent),
             'total_capital_spent': float(total_capital_spent),
             'approved_capital_spent': float(approved_capital_spent),
@@ -2262,7 +2418,23 @@ def admin_stats():
                     'expense_date': e.expense_date.strftime('%Y-%m-%d') if e.expense_date else ''
                 } for e in recent_expenses]
             }
-        })
+        }
+
+        # Realtor is a sales role: strip company-wide financials, capital figures,
+        # revenue trends, and the payment/expense/tenant activity feed. They keep
+        # property/unit counts, occupancy, and their leads. Closes the leak at the
+        # API layer, not just by hiding UI.
+        if not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            for k in ('monthly_revenue', 'total_revenue', 'caution_held',
+                      'monthly_capital_spent', 'total_capital_spent', 'approved_capital_spent',
+                      'pending_capital_spent', 'rejected_capital_spent', 'total_capital_budget',
+                      'capital_budget_remaining', 'monthly_trend', 'yearly_trend'):
+                stats_payload.pop(k, None)
+            ra = stats_payload.get('recent_activity') or {}
+            ra.pop('payments', None)
+            ra.pop('expenses', None)
+            ra.pop('tenants', None)
+        return jsonify(stats_payload)
     except Exception as e:
         logger.error(f"Error fetching stats: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -2452,6 +2624,13 @@ def admin_team_member_detail(member_id):
 def upload_image():
     """Handle property image uploads"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        # Images are small; cap this route at 10MB even though the global limit is
+        # 200MB (that ceiling exists only for the hero-video upload route).
+        if request.content_length and request.content_length > 10 * 1024 * 1024:
+            return jsonify({"success": False, "message": "Image too large (max 10MB)"}), 413
         if 'file' not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400
         file = request.files['file']
@@ -2475,6 +2654,9 @@ def upload_expense_receipt():
         admin = get_current_admin()
         if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
+        # Receipts are small images/PDFs; cap at 15MB (global 200MB is video-only).
+        if request.content_length and request.content_length > 15 * 1024 * 1024:
+            return jsonify({"success": False, "message": "Receipt too large (max 15MB)"}), 413
         if 'file' not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400
         file = request.files['file']
@@ -2494,24 +2676,32 @@ def upload_expense_receipt():
 
 @app.route('/admin/api/request-password-reset', methods=['POST'])
 def request_password_reset():
-    data = request.get_json() or {}
-    identifier = (data.get('username') or data.get('email') or '').strip().lower()
-    if not identifier:
-        return jsonify({"success": False, "message": "Username or email required"}), 400
-    user = Admin.query.filter(
-        (Admin.username == identifier) | (Admin.email == identifier)
-    ).first()
-    # Always return same message to prevent user enumeration
-    if not user or user.role == 'CEO':
-        return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
-    # Expire any existing unused tokens
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
-    token = secrets.token_urlsafe(32)
-    expires = datetime.utcnow() + timedelta(hours=24)
-    prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
-    db.session.add(prt)
-    db.session.commit()
-    return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    try:
+        data = request.get_json(silent=True) or {}
+        identifier = (data.get('username') or data.get('email') or '').strip().lower()
+        if not identifier:
+            return jsonify({"success": False, "message": "Username or email required"}), 400
+        # Ensure password_reset_token table exists on first call after deploy
+        if not inspect(db.engine).has_table('password_reset_token'):
+            db.create_all()
+        user = Admin.query.filter(
+            (Admin.username == identifier) | (Admin.email == identifier)
+        ).first()
+        # Always return same message to prevent user enumeration
+        if not user or user.role == 'CEO':
+            return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
+        # Expire any existing unused tokens
+        PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(hours=24)
+        prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
+        db.session.add(prt)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"request_password_reset error: {str(e)}")
+        return jsonify({"success": False, "message": "Could not process reset request. Please try again."}), 500
 
 @app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -2580,6 +2770,11 @@ def cancel_reset_request(req_id):
     db.session.commit()
     return jsonify({"success": True, "message": "Reset request cancelled"})
 
+# Failed-login lockout thresholds (username-keyed, backed by LoginAudit).
+LOGIN_MAX_FAILS = 5
+LOGIN_LOCKOUT_MINUTES = 15
+
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def admin_login():
@@ -2588,21 +2783,42 @@ def admin_login():
         try:
             ensure_runtime_state()
             data = request.get_json()
-            username = data.get('username')
-            password = data.get('password')
-            
+            username = (data.get('username') or '').strip()
+            password = data.get('password') or ''
+
             if not username or not password:
                 return jsonify({"success": False, "message": "Username and password required"}), 400
-            
+
+            ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()[:64] or 'unknown'
+
+            # Failed-attempt lockout: block a username after too many recent failures.
+            # Keyed on username so IP spoofing (no ProxyFix in front) can't bypass it.
+            window_start = datetime.utcnow() - timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+            recent_fails = LoginAudit.query.filter(
+                LoginAudit.username == username,
+                LoginAudit.success == False,
+                LoginAudit.created_at >= window_start,
+            ).count()
+            if recent_fails >= LOGIN_MAX_FAILS:
+                logger.warning(f"Login blocked (locked out): '{username}' from {ip}")
+                return jsonify({"success": False, "message": f"Too many failed attempts. Try again in about {LOGIN_LOCKOUT_MINUTES} minutes."}), 429
+
             admin = Admin.query.filter_by(username=username, is_active=True).first()
-            
-            if admin and check_password_hash(admin.password_hash, password):
+            ok = bool(admin and check_password_hash(admin.password_hash, password))
+
+            # Record every attempt for the audit trail (best-effort; never blocks login).
+            try:
+                db.session.add(LoginAudit(username=username[:80], ip=ip, success=ok))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+            if ok:
                 session['admin_id'] = admin.id
                 session['admin_role'] = admin.role
                 session['csrf_token'] = secrets.token_urlsafe(32)
                 return jsonify({"success": True, "message": "Login successful", "redirect": "/admin/dashboard"})
-            else:
-                return jsonify({"success": False, "message": "Invalid credentials"}), 401
+            return jsonify({"success": False, "message": "Invalid credentials"}), 401
         except Exception as e:
             logger.error(f"Error during login: {str(e)}")
             return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -2939,6 +3155,27 @@ def admin_property_detail(property_id):
             return jsonify({"success": True, "message": "Property updated successfully"})
         
         elif request.method == 'DELETE':
+            # Deleting a property with dependent NOT-NULL children would fail the
+            # FK constraint (500) or destroy financial history. Refuse and tell the
+            # CEO to archive instead. Nullable links (inquiries, investor profiles)
+            # are auto-detached by the ORM.
+            blockers = []
+            for label, model in (
+                ("unit(s)", PropertyUnit),
+                ("unit type(s)", PropertyUnitType),
+                ("expense(s)", ProjectExpense),
+                ("construction update(s)", ConstructionUpdate),
+                ("maintenance record(s)", MaintenanceRecord),
+            ):
+                cnt = model.query.filter_by(property_id=property_id).count()
+                if cnt:
+                    blockers.append(f"{cnt} {label}")
+            if blockers:
+                return jsonify({
+                    "success": False,
+                    "message": "Cannot delete: property still has " + ", ".join(blockers)
+                               + ". Set its status to inactive/archived, or remove those records first."
+                }), 409
             db.session.delete(property)
             db.session.commit()
             return jsonify({"success": True, "message": "Property deleted successfully"})
@@ -3194,6 +3431,10 @@ def admin_project_expense_detail(expense_id):
 
         expense = ProjectExpense.query.get_or_404(expense_id)
         if request.method == 'DELETE':
+            # Permanent deletion of a capital expense is CEO-only, so an already
+            # approved expense cannot be quietly erased by Manager/Accountant.
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete a capital expense. Edit it instead to correct a mistake."}), 403
             db.session.delete(expense)
             db.session.commit()
             return jsonify({"success": True, "message": "Project expense removed"})
@@ -3436,11 +3677,19 @@ def admin_update_inquiry(inquiry_id):
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
         if request.method == 'DELETE':
+            # Realtors work leads but cannot permanently delete them (organic
+            # website leads are shared company assets). CEO/Manager only.
+            if not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+                return jsonify({"success": False, "message": "Only CEO or Manager can delete a lead."}), 403
             db.session.delete(inquiry)
             db.session.commit()
             return jsonify({"success": True, "message": "Lead removed"})
         data = request.get_json() or {}
-        if 'status' in data: inquiry.status = data['status']
+        _VALID_INQUIRY_STATUS = {'new', 'contacted', 'viewing_scheduled', 'offer_made', 'qualified', 'closed', 'rejected'}
+        if 'status' in data:
+            if data['status'] not in _VALID_INQUIRY_STATUS:
+                return jsonify({"success": False, "message": "Invalid status"}), 400
+            inquiry.status = data['status']
         if 'priority' in data: inquiry.priority = data['priority']
         if 'inquiry_notes' in data: inquiry.inquiry_notes = (data['inquiry_notes'] or '').strip() or None
         if 'full_name' in data: inquiry.full_name = data['full_name'].strip()
@@ -3891,10 +4140,23 @@ def admin_account_detail(account_id):
             if 'is_active' in data:
                 if account.id == ceo.id and not data['is_active']:
                     return jsonify({"success": False, "message": "Cannot deactivate your own account"}), 400
+                if account.role == 'CEO' and not data['is_active']:
+                    other_active_ceos = Admin.query.filter(
+                        Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+                    ).count()
+                    if other_active_ceos == 0:
+                        return jsonify({"success": False, "message": "Cannot deactivate the last CEO account"}), 400
                 account.is_active = bool(data['is_active'])
             if 'role' in data and account.id != ceo.id:
                 valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
                 if data['role'] in valid_roles:
+                    # Don't demote the last active CEO out of the CEO role.
+                    if account.role == 'CEO' and data['role'] != 'CEO':
+                        other_active_ceos = Admin.query.filter(
+                            Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+                        ).count()
+                        if other_active_ceos == 0:
+                            return jsonify({"success": False, "message": "Cannot demote the last CEO account"}), 400
                     account.role = data['role']
             if 'secondary_roles' in data and account.id != ceo.id:
                 valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
@@ -3917,9 +4179,20 @@ def admin_account_detail(account_id):
         if account.id == ceo.id:
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
         if account.role == 'CEO':
-            return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+            other_active_ceos = Admin.query.filter(
+                Admin.role == 'CEO', Admin.id != account.id, Admin.is_active == True
+            ).count()
+            if other_active_ceos == 0:
+                return jsonify({"success": False, "message": "Cannot delete the last CEO account"}), 403
+        # Clean up rows that FK to admin.id before deleting the Admin row
         UserContract.query.filter_by(user_id=account.id).delete()
         InvestorProfile.query.filter_by(user_id=account.id).delete()
+        PasswordResetToken.query.filter_by(user_id=account.id).delete()
+        PayrollPayment.query.filter_by(user_id=account.id).delete()
+        SalaryHistory.query.filter_by(user_id=account.id).delete()
+        # Nullable FKs: detach rather than delete to preserve historical records
+        Tenant.query.filter_by(serviced_by_id=account.id).update({'serviced_by_id': None})
+        PendingSignup.query.filter_by(created_admin_id=account.id).update({'created_admin_id': None})
         db.session.delete(account)
         db.session.commit()
         return jsonify({"success": True, "message": "Account deleted"})
@@ -3937,6 +4210,7 @@ def _serialize_unit_type(ut):
         'name': ut.name,
         'description': ut.description or '',
         'annual_price': ut.annual_price or 0,
+        'caution_fee': ut.caution_fee if ut.caution_fee is not None else CAUTION_FEE_NGN,
         'total_count': ut.total_count or 0,
         'occupied_count': occupied,
         'available_count': max(0, (ut.total_count or 0) - occupied),
@@ -3969,13 +4243,15 @@ def admin_unit_types():
         try:
             annual_price = float(data.get('annual_price') or 0)
             total_count = int(data.get('total_count') or 0)
+            caution_fee = float(data['caution_fee']) if data.get('caution_fee') not in (None, '') else float(CAUTION_FEE_NGN)
         except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid annual_price or total_count"}), 400
+            return jsonify({"success": False, "message": "Invalid annual_price, caution_fee, or total_count"}), 400
         ut = PropertyUnitType(
             property_id=prop.id,
             name=data['name'].strip(),
             description=(data.get('description') or '').strip() or None,
             annual_price=annual_price,
+            caution_fee=caution_fee,
             total_count=total_count,
             is_active=bool(data.get('is_active', True)),
         )
@@ -4022,6 +4298,11 @@ def admin_unit_type_detail(unit_type_id):
                 ut.annual_price = float(data['annual_price'])
             except (TypeError, ValueError):
                 return jsonify({"success": False, "message": "Invalid annual_price"}), 400
+        if data.get('caution_fee') is not None and data.get('caution_fee') != '':
+            try:
+                ut.caution_fee = float(data['caution_fee'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid caution_fee"}), 400
         if data.get('total_count') is not None:
             try:
                 ut.total_count = int(data['total_count'])
@@ -4050,6 +4331,14 @@ def admin_tenants():
             if status_filter:
                 q = q.filter_by(status=status_filter)
             tenants = q.order_by(Tenant.created_at.desc()).all()
+            from sqlalchemy import func as _f
+            caution_rows = db.session.query(
+                PaymentRecord.tenant_id, _f.sum(PaymentRecord.amount)
+            ).filter(
+                PaymentRecord.payment_type == 'caution',
+                PaymentRecord.tenant_id.isnot(None)
+            ).group_by(PaymentRecord.tenant_id).all()
+            caution_map = {tid: float(total or 0) for tid, total in caution_rows}
             return jsonify([{
                 'id': t.id,
                 'name': t.name,
@@ -4066,6 +4355,8 @@ def admin_tenants():
                 'notes': t.notes or '',
                 'serviced_by_id': t.serviced_by_id,
                 'serviced_by_name': (t.serviced_by.display_name or t.serviced_by.username) if t.serviced_by else '',
+                'caution_paid': caution_map.get(t.id, 0.0),
+                'caution_fee': (t.unit_type.caution_fee if t.unit_type and t.unit_type.caution_fee is not None else CAUTION_FEE_NGN),
                 'created_at': t.created_at.strftime('%Y-%m-%d'),
             } for t in tenants])
 
@@ -4122,6 +4413,11 @@ def admin_tenant_detail(tenant_id):
             if request.args.get('hard') == '1':
                 if not admin_has_any_role(_tenant_admin, 'CEO'):
                     return jsonify({"success": False, "message": "CEO access required"}), 403
+                # Detach financial history so payment/payroll records survive the
+                # delete instead of becoming dangling references (SQLite FK
+                # enforcement is off). Amounts stay counted in revenue/reports.
+                PaymentRecord.query.filter_by(tenant_id=tenant_id).update({'tenant_id': None})
+                PayrollPayment.query.filter_by(source_tenant_id=tenant_id).update({'source_tenant_id': None})
                 db.session.delete(tenant)
                 db.session.commit()
                 sync_property_units_from_tenants()
@@ -4206,6 +4502,10 @@ def admin_payment_detail(payment_id):
 
         payment = PaymentRecord.query.get_or_404(payment_id)
         if request.method == 'DELETE':
+            # Permanent deletion of a financial record is CEO-only. Manager/
+            # Accountant can correct a payment via edit (PUT) but cannot erase it.
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete a payment record. Edit it instead to correct a mistake."}), 403
             db.session.delete(payment)
             db.session.commit()
             return jsonify({"success": True, "message": "Payment removed"})
@@ -4369,6 +4669,36 @@ def compute_user_payroll(user, year, month):
         'outstanding': max(total_earned - already_paid, 0.0),
         'payment_history': payment_history,
     }
+
+
+@app.route('/admin/api/my-commission')
+@login_required
+def admin_my_commission():
+    """Self-scoped earnings for the current month — what payroll would actually pay
+    this user. Realtor/Manager see commission only on the leases THEY serviced
+    (Tenant.serviced_by_id), using the real base+markup model (commission = gross/11),
+    not a company-wide ×10% estimate."""
+    try:
+        admin = get_current_admin()
+        if not admin:
+            return jsonify({"success": False, "message": "Not authenticated"}), 401
+        today = date_type.today()
+        data = compute_user_payroll(admin, today.year, today.month)
+        return jsonify({
+            'success': True,
+            'year': today.year,
+            'month': today.month,
+            'qualifies_for_commission': data['qualifies_for_commission'],
+            'commission_total': data['commission_total'],
+            'commission_lines': data['commission_lines'],
+            'salary': data['salary'],
+            'total_earned': data['total_earned'],
+            'already_paid': data['already_paid'],
+            'outstanding': data['outstanding'],
+        })
+    except Exception as e:
+        logger.error(f"Error in my-commission: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
 @app.route('/admin/api/payroll/summary')
@@ -4783,6 +5113,250 @@ def admin_contract_update(role):
     ct.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"success": True, "message": "Contract saved"})
+
+# ========== RESIDENT TERMS & CONDITIONS ==========
+
+def _get_resident_terms():
+    doc = TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first()
+    if not doc:
+        doc = TermsDocument(slug=RESIDENT_TERMS_SLUG, title=DEFAULT_RESIDENT_TERMS_TITLE, body=DEFAULT_RESIDENT_TERMS_BODY)
+        db.session.add(doc)
+        db.session.commit()
+    return doc
+
+
+def _render_terms_html(body):
+    """Convert the stored plain-text terms ('## ' headings, '- ' bullets) to safe HTML."""
+    from markupsafe import escape
+    parts, para, list_open = [], [], False
+
+    def close_list():
+        nonlocal list_open
+        if list_open:
+            parts.append('</ul>')
+            list_open = False
+
+    def flush_para():
+        nonlocal para
+        if para:
+            parts.append('<p>' + '<br>'.join(str(escape(x)) for x in para) + '</p>')
+            para = []
+
+    for line in (body or '').replace('\r\n', '\n').split('\n'):
+        s = line.strip()
+        if s.startswith('## '):
+            close_list()
+            flush_para()
+            parts.append('<h2>' + str(escape(s[3:])) + '</h2>')
+        elif s.startswith('- '):
+            flush_para()
+            if not list_open:
+                parts.append('<ul>')
+                list_open = True
+            parts.append('<li>' + str(escape(s[2:])) + '</li>')
+        elif not s:
+            close_list()
+            flush_para()
+        else:
+            close_list()
+            para.append(s)
+    close_list()
+    flush_para()
+    return '\n'.join(parts)
+
+
+def _resident_terms_document_html(doc, toolbar=False, download_qs=''):
+    """Full standalone document HTML shared by the print view and the Word download."""
+    from markupsafe import escape
+    title = str(escape(doc.title))
+    terms_html = _render_terms_html(doc.body)
+    updated = doc.updated_at.strftime('%d %B %Y') if doc.updated_at else ''
+    toolbar_html = ''
+    if toolbar:
+        toolbar_html = (
+            '<div class="no-print" style="position:sticky;top:0;background:#0f172a;padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:center">'
+            '<button onclick="window.print()" style="background:#0d9488;color:#fff;border:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Print / Save as PDF</button>'
+            f'<a href="/admin/resident-terms/download{download_qs}" style="background:#334155;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download for Word</a>'
+            '</div>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{title}</title>
+<style>
+    body {{ font-family: Georgia, 'Times New Roman', serif; color: #111827; background: #e5e7eb; margin: 0; }}
+    .sheet {{ max-width: 800px; margin: 0 auto; background: #ffffff; padding: 48px 56px; line-height: 1.55; }}
+    .letterhead {{ text-align: center; border-bottom: 3px double #0d9488; padding-bottom: 14px; margin-bottom: 20px; }}
+    .letterhead h1 {{ margin: 0; font-size: 21px; letter-spacing: 2px; color: #0f766e; text-transform: uppercase; }}
+    .letterhead p {{ margin: 4px 0 0; font-size: 12px; color: #475569; }}
+    .doc-title {{ text-align: center; font-size: 16px; font-weight: bold; margin: 18px 0 4px; text-transform: uppercase; }}
+    .doc-sub {{ text-align: center; font-size: 11px; color: #64748b; margin-bottom: 22px; }}
+    h2 {{ font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 22px 0 8px; }}
+    p, li {{ font-size: 12.5px; }}
+    ul {{ margin: 6px 0 10px; padding-left: 22px; }}
+    li {{ margin-bottom: 4px; }}
+    .fill-table {{ width: 100%; border-collapse: collapse; margin: 8px 0 6px; }}
+    .fill-table td {{ font-size: 12.5px; padding: 7px 6px; }}
+    .fill-line {{ display: inline-block; min-width: 230px; border-bottom: 1px dotted #64748b; }}
+    .sig-block {{ display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; }}
+    .sig {{ flex: 1; font-size: 12px; }}
+    .sig .line {{ border-bottom: 1px solid #111827; height: 34px; margin-bottom: 5px; }}
+    .footer {{ margin-top: 34px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }}
+    /* margin:0 removes the browser's own print header/footer (URL, date, time, page numbers) */
+    @page {{ size: A4; margin: 0; }}
+    @media print {{ body {{ background: #fff; }} .sheet {{ padding: 16mm 18mm; max-width: none; }} .no-print {{ display: none !important; }} }}
+</style>
+</head>
+<body>
+{toolbar_html}
+<div class="sheet">
+    <div class="letterhead">
+        <img src="{RESIDENT_TERMS_LOGO_DATA_URI}" width="58" height="58" alt="BrightWave Habitat logo" style="display:block;margin:0 auto 8px;border-radius:50%">
+        <h1>BrightWave Habitat Enterprise</h1>
+        <p>Malete, Kwara State, Nigeria &middot; brightwavehabitat.com &middot; brightwavehabitat@gmail.com</p>
+    </div>
+    <div class="doc-title">{title}</div>
+    <div class="doc-sub">{('Effective Date: ' + updated) if updated else ''}</div>
+    <table class="fill-table">
+        <tr><td><strong>Resident Name:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Property:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Room / Unit:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Move-in Date:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Caution Fee Paid:</strong> &#8358;<span class="fill-line" style="min-width:150px">&nbsp;</span></td></tr>
+        <tr><td><strong>Next of Kin:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Next of Kin Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+    </table>
+    {terms_html}
+    <div class="sig-block">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Resident Signature &amp; Date</strong>
+        </div>
+        <div class="sig">
+            <div class="line"></div>
+            <strong>For BrightWave Habitat Enterprise (Management)</strong>
+        </div>
+    </div>
+    <div class="sig-block" style="margin-top:28px">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Witness Name, Signature &amp; Date</strong>
+        </div>
+        <div class="sig"></div>
+    </div>
+    <div class="footer">BrightWave Habitat Enterprise &middot; Resident Terms &amp; Conditions{(' &middot; Last updated ' + updated) if updated else ''}</div>
+</div>
+</body>
+</html>"""
+
+
+def _terms_slug_for_property(property_id):
+    """One TermsDocument per property, keyed by slug; no property_id = the general template."""
+    return RESIDENT_TERMS_SLUG if not property_id else f'{RESIDENT_TERMS_SLUG}-prop-{int(property_id)}'
+
+
+def _resolve_terms_doc(property_id):
+    """Property-specific terms when they exist, otherwise the general template."""
+    if property_id:
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return doc
+    return _get_resident_terms()
+
+
+@app.route('/admin/api/resident-terms', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def admin_resident_terms():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return jsonify({"success": False, "message": "Access restricted"}), 403
+
+    if request.method == 'GET':
+        property_id = request.args.get('property_id', type=int)
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return jsonify({
+                'title': doc.title,
+                'body': doc.body,
+                'updated_at': doc.updated_at.isoformat() if doc.updated_at else None,
+                'updated_by': doc.updated_by,
+                'exists': True,
+                'property_id': property_id,
+            })
+        # No custom doc for this property yet — serve the general template as a starting point
+        base = _get_resident_terms()
+        title = base.title
+        if property_id:
+            prop = Property.query.get(property_id)
+            if prop:
+                title = f"{base.title} ({prop.title})"
+        return jsonify({
+            'title': title,
+            'body': base.body,
+            'updated_at': None,
+            'updated_by': None,
+            'exists': False,
+            'property_id': property_id,
+        })
+
+    if not admin_has_any_role(admin, 'CEO'):
+        return jsonify({"success": False, "message": "CEO only"}), 403
+    if not validate_csrf_token():
+        return jsonify({"success": False, "message": "Invalid CSRF token"}), 403
+
+    if request.method == 'DELETE':
+        property_id = request.args.get('property_id', type=int)
+        if not property_id:
+            return jsonify({"success": False, "message": "The general template cannot be deleted"}), 400
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if not doc:
+            return jsonify({"success": False, "message": "This property has no custom terms"}), 404
+        db.session.delete(doc)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Custom terms removed — this property now uses the general template"})
+
+    data = request.get_json() or {}
+    property_id = data.get('property_id') or None
+    slug = _terms_slug_for_property(property_id)
+    doc = TermsDocument.query.filter_by(slug=slug).first()
+    if not doc:
+        base = _get_resident_terms()
+        doc = TermsDocument(slug=slug, title=base.title, body=base.body)
+        db.session.add(doc)
+    if (data.get('title') or '').strip():
+        doc.title = data['title'].strip()
+    if (data.get('body') or '').strip():
+        doc.body = data['body']
+    doc.updated_by = admin.username
+    doc.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Terms & Conditions saved"})
+
+
+@app.route('/admin/resident-terms/print')
+@login_required
+def admin_resident_terms_print():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    pid = request.args.get('property_id', type=int)
+    doc = _resolve_terms_doc(pid)
+    return make_response(_resident_terms_document_html(doc, toolbar=True, download_qs=f'?property_id={pid}' if pid else ''))
+
+
+@app.route('/admin/resident-terms/download')
+@login_required
+def admin_resident_terms_download():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    doc = _resolve_terms_doc(request.args.get('property_id', type=int))
+    resp = make_response(_resident_terms_document_html(doc, toolbar=False))
+    resp.headers['Content-Type'] = 'application/msword'
+    resp.headers['Content-Disposition'] = 'attachment; filename="BrightWave-Resident-Terms-and-Conditions.doc"'
+    return resp
 
 # ========== ADMIN TEMPLATES ==========
 
@@ -5268,6 +5842,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </button>
             <button onclick="showSection('contractsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-file-contract w-5 text-center flex-shrink-0"></i><span class="sb-label">Contracts</span>
+            </button>
+            <button onclick="showSection('residentTermsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-file-signature w-5 text-center flex-shrink-0"></i><span class="sb-label">Resident T&amp;C</span>
             </button>
         </nav>
         <!-- Footer -->
@@ -5839,6 +6416,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <input type="number" id="utPrice" step="1000" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room)</label>
+                        <input type="number" id="utCaution" step="1000" min="0" value="50000"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                         <input type="number" id="utCount" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -5881,6 +6462,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                             <input type="number" id="utEditCount" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                         </div>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room — refundable deposit)</label>
+                        <input type="number" id="utEditCaution" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <p id="utEditMsg" class="text-sm hidden"></p>
                     <div class="flex gap-3 pt-1">
@@ -5958,7 +6542,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input type="date" id="pmtDate" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label>
                         <select id="pmtType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                            <option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
+                            <option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
                         </select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><input type="text" id="pmtUnit" placeholder="e.g. 1A, 2B" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -6645,6 +7229,50 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div id="contractsLoading" class="text-gray-400 text-sm">Loading contracts...</div>
             <div id="contractsList" class="space-y-6 hidden"></div>
         </section>
+
+        <!-- Resident Terms & Conditions -->
+        <section id="residentTermsSection" class="hidden space-y-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Resident Terms &amp; Conditions</h2>
+                    <p class="text-sm text-gray-400 mt-0.5">The house rules every resident signs before moving in — caution fee, prohibited damage, facility rules. Edit below, then print or download for signing.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a id="rtcPrintLink" href="/admin/resident-terms/print" target="_blank" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-print text-xs"></i> Preview / Print (PDF)</a>
+                    <a id="rtcDownloadLink" href="/admin/resident-terms/download" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-word text-xs"></i> Download for Word</a>
+                </div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4 sm:p-5 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Terms For</label>
+                        <select id="rtcProperty" onchange="loadResidentTerms()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                            <option value="">General (all properties)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <p id="rtcScopeHint" class="text-xs text-gray-500 pb-2.5"></p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Document Title</label>
+                    <input type="text" id="rtcTitle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-medium text-gray-400">Terms Body</label>
+                        <span class="text-[11px] text-gray-500">Formatting: start a line with <code class="bg-gray-700 px-1 rounded">## </code> for a section heading, <code class="bg-gray-700 px-1 rounded">- </code> for a bullet point.</span>
+                    </div>
+                    <textarea id="rtcBody" rows="26" spellcheck="false" class="w-full px-3 py-2.5 bg-gray-900/70 border border-gray-600 rounded-lg text-[13px] leading-relaxed font-mono contract-scroll" style="resize:vertical"></textarea>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="saveResidentTerms()" id="rtcSaveBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-5 rounded-lg"><i class="fas fa-save mr-1.5 text-xs"></i>Save Changes</button>
+                    <button onclick="deleteResidentTerms()" id="rtcDeleteBtn" class="hidden bg-red-900/70 hover:bg-red-800 text-red-200 text-sm font-medium py-2 px-4 rounded-lg"><i class="fas fa-trash mr-1.5 text-xs"></i>Remove Custom Version</button>
+                    <span id="rtcMsg" class="text-sm"></span>
+                    <span id="rtcUpdated" class="text-xs text-gray-500 ml-auto"></span>
+                </div>
+            </div>
+        </section>
         </main>
     </div><!-- end mainWrapper -->
 
@@ -6667,10 +7295,16 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         function fmtNGN(v) { return '\u20a6' + Number(v || 0).toLocaleString('en-NG'); }
+        function escapeHtml(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).replace(/[&<>"']/g, function(c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
-            if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
-            if (n >= 1e6) return '\u20a6' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
+            if (n >= 1e6) return '\u20a6' + (n/1e6).toFixed(1).replace(/\\.0$/,'') + 'M';
             if (n >= 1e3) return '\u20a6' + Math.round(n/1e3) + 'K';
             return fmtNGN(v);
         }
@@ -6778,6 +7412,16 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <p class="text-xs text-emerald-300 mt-0.5 truncate">All time: ${fmtCompact(stats.total_revenue)}</p>
                         </div>
                     </div>
+                    <div class="bg-indigo-800/60 border border-indigo-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-indigo-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-shield-halved text-indigo-300 text-sm"></i>
+                        </div>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-indigo-400 font-medium uppercase tracking-wide truncate">Caution Fees Held</p>
+                            <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.caution_held || 0)}</p>
+                            <p class="text-xs text-indigo-300 mt-0.5 truncate">Refundable deposits &middot; not counted as revenue</p>
+                        </div>
+                    </div>
                     <div class="bg-slate-700/80 border border-slate-600/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
                         <div class="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-building text-slate-300 text-sm"></i>
@@ -6855,7 +7499,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Tenant</th><th class="py-1 text-left text-gray-500 font-medium">Amount</th><th class="py-1 text-left text-gray-500 font-medium">Date</th></tr></thead>
                                 <tbody>${stats.recent_activity.payments.length ? stats.recent_activity.payments.map(p => `
                                     <tr class="border-b border-gray-700/50">
-                                        <td class="py-2 text-white">${p.tenant_name}</td>
+                                        <td class="py-2 text-white">${escapeHtml(p.tenant_name)}</td>
                                         <td class="py-2 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${p.payment_date}</td>
                                     </tr>`).join('') : noRows}</tbody>
@@ -6867,7 +7511,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Name</th><th class="py-1 text-left text-gray-500 font-medium">Property</th><th class="py-1 text-left text-gray-500 font-medium">Status</th></tr></thead>
                                 <tbody>${stats.recent_activity.tenants.length ? stats.recent_activity.tenants.map(t => `
                                     <tr class="border-b border-gray-700/50">
-                                        <td class="py-2 text-white">${t.name}</td>
+                                        <td class="py-2 text-white">${escapeHtml(t.name)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${t.property_name || '—'}</td>
                                         <td class="py-2"><span class="text-xs px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-teal-800 text-teal-300' : 'bg-gray-700 text-gray-400'}">${t.status}</span></td>
                                     </tr>`).join('') : noRows}</tbody>
@@ -6879,7 +7523,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <h4 class="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-search"></i> Latest Inquiries</h4>
                             ${stats.recent_activity.inquiries.length ? stats.recent_activity.inquiries.map(inq => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
-                                    <span class="font-semibold text-white">${inq.name}</span>
+                                    <span class="font-semibold text-white">${escapeHtml(inq.name)}</span>
                                     <span class="ml-2 text-xs bg-green-800/60 text-green-300 px-2 py-0.5 rounded-full">${inq.inquiry_type}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${inq.created_at}</span>
                                 </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
@@ -6888,8 +7532,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-3 flex items-center gap-1.5"><i class="fas fa-envelope"></i> Latest Messages</h4>
                             ${stats.recent_activity.messages.length ? stats.recent_activity.messages.map(msg => `
                                 <div class="text-sm mb-2 p-3 bg-gray-700/60 border border-gray-600/40 rounded-lg">
-                                    <span class="font-semibold text-white">${msg.name}</span>
-                                    <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${msg.form_origin}</span>
+                                    <span class="font-semibold text-white">${escapeHtml(msg.name)}</span>
+                                    <span class="ml-2 text-xs bg-blue-800/60 text-blue-300 px-2 py-0.5 rounded-full">${escapeHtml(msg.form_origin)}</span>
                                     <br><span class="text-gray-500 text-xs mt-1 block">${msg.created_at}</span>
                                 </div>`).join('') : '<p class="text-gray-500 text-sm italic">None yet</p>'}
                         </div>
@@ -6986,12 +7630,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const properties = await fetchData('/admin/api/properties');
                 document.getElementById('propertiesTable').innerHTML = properties.map(prop => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${prop.title}</td>
+                        <td class="py-2">${escapeHtml(prop.title)}</td>
                         <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
                             prop.property_type === 'hostel' ? 'bg-slate-600' : 
                             prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
                         }">${prop.property_type === 'hostel' ? 'Apartment' : prop.property_type.charAt(0).toUpperCase() + prop.property_type.slice(1)}</span></td>
-                        <td class="py-2">${prop.location}</td>
+                        <td class="py-2">${escapeHtml(prop.location)}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
                         <td class="py-2 flex items-center gap-3">
@@ -7022,10 +7666,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadInquiries() {
             try {
                 const inquiries = await fetchData('/admin/api/inquiries');
+                window._inqCache = inquiries;
                 document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${inq.full_name}</td>
-                        <td class="py-2">${inq.property_title}</td>
+                        <td class="py-2">${escapeHtml(inq.full_name)}</td>
+                        <td class="py-2">${escapeHtml(inq.property_title)}</td>
                         <td class="py-2">${inq.inquiry_type}</td>
                         <td class="py-2">
                             <select onchange="updateInquiry(${inq.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
@@ -7050,11 +7695,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadMessages() {
             try {
                 const messages = await fetchData('/admin/api/contact-messages');
+                window._msgCache = messages;
                 document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${msg.full_name}</td>
-                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${msg.form_origin}</span></td>
-                        <td class="py-2">${msg.subject || 'No Subject'}</td>
+                        <td class="py-2">${escapeHtml(msg.full_name)}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${escapeHtml(msg.form_origin)}</span></td>
+                        <td class="py-2">${escapeHtml(msg.subject || 'No Subject')}</td>
                         <td class="py-2">
                             <select onchange="updateMessage(${msg.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${msg.status === 'new' ? 'selected' : ''}>New</option>
@@ -7315,7 +7961,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const members = await fetchData('/admin/api/team-members');
                 document.getElementById('teamMembersTable').innerHTML = members.map(member => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${member.name}</td>
+                        <td class="py-2">${escapeHtml(member.name)}</td>
                         <td class="py-2">${member.role}</td>
                         <td class="py-2">${member.sort_order}</td>
                         <td class="py-2">${member.is_active ? 'Yes' : 'No'}</td>
@@ -7430,14 +8076,50 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         }
 
+        function _showRecordModal(title, rows) {
+            const existing = document.getElementById('recordModalOverlay');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'recordModalOverlay';
+            overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            const body = rows
+                .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+                .map(([label, value]) => `
+                    <div class="mb-3">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500 mb-0.5">${escapeHtml(label)}</p>
+                        <p class="text-sm text-gray-200 whitespace-pre-wrap break-words">${escapeHtml(value)}</p>
+                    </div>`).join('');
+            overlay.innerHTML = `
+                <div class="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white">${escapeHtml(title)}</h3>
+                        <button onclick="document.getElementById('recordModalOverlay').remove()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                    </div>
+                    ${body || '<p class="text-sm text-gray-500">No details recorded.</p>'}
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+
         function viewInquiry(id) {
-            // Simple modal implementation - you can enhance this
-            alert('Inquiry details would be shown in a modal. ID: ' + id);
+            const inq = (window._inqCache || []).find(x => x.id === id);
+            if (!inq) { alert('Inquiry not found — reload the list and try again.'); return; }
+            _showRecordModal('Inquiry · ' + (inq.full_name || ''), [
+                ['Name', inq.full_name], ['Email', inq.email], ['Phone', inq.phone],
+                ['Property', inq.property_title], ['Type', inq.inquiry_type], ['Status', inq.status],
+                ['Budget', inq.budget_range], ['Preferred move date', inq.preferred_move_date],
+                ['Message', inq.message], ['Notes', inq.inquiry_notes], ['Received', inq.created_at],
+            ]);
         }
 
         function viewMessage(id) {
-            // Simple modal implementation - you can enhance this
-            alert('Message details would be shown in a modal. ID: ' + id);
+            const msg = (window._msgCache || []).find(x => x.id === id);
+            if (!msg) { alert('Message not found — reload the list and try again.'); return; }
+            _showRecordModal('Message · ' + (msg.full_name || ''), [
+                ['Name', msg.full_name], ['Email', msg.email], ['Phone', msg.phone],
+                ['Source', msg.form_origin], ['Subject', msg.subject], ['Status', msg.status],
+                ['Message', msg.message], ['Received', msg.created_at],
+            ]);
         }
 
         // Tab switching
@@ -7771,7 +8453,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId, skipCollapse = false) {
-            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection','residentTermsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -7795,6 +8477,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
             if (sectionId === 'maintenanceSection') { loadMaintenancePropertyOptions(); loadMaintenanceRecords(); }
             if (sectionId === 'contractsSection') loadContracts();
+            if (sectionId === 'residentTermsSection') loadResidentTerms();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
@@ -7818,7 +8501,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadConstructionPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const ceoSel = document.getElementById('ceoConstructionProperty');
                 const mgrSel = document.getElementById('mgrConstructionProperty');
                 const ceoCurrent = ceoSel?.value || '';
@@ -7838,7 +8521,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadCapitalPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['ceoCapitalProperty', 'mgrCapitalProperty'].forEach(id => {
                     const sel = document.getElementById(id);
                     if (!sel) return;
@@ -7902,7 +8585,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const props = await fetchData('/admin/api/properties');
                 const allOpt = '<option value="">All properties</option>';
-                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['ceoMaintProperty', 'ceoMaintFormProperty', 'mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
@@ -7936,7 +8619,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 listEl.innerHTML = filtered.map(r => {
                     const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
                     const sl = statusLabels[r.status] || r.status;
-                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="ceoEditMaint(${r.id},'${prefix}')" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="ceoDeleteMaint(${r.id},'${prefix}')" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(r.title)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${escapeHtml(r.property_title || '')} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.description)}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.recorded_by || '')}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="ceoEditMaint(${r.id},'${prefix}')" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="ceoDeleteMaint(${r.id},'${prefix}')" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
                 }).join('');
             } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
         }
@@ -8028,7 +8711,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const receiptHtml = exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : '';
             const approvalBtns = `${st !== 'approved' ? `<button onclick="ceoApproveExpense(${exp.id},'approved')" class="text-emerald-400 hover:text-emerald-300 text-xs font-medium">Approve</button>` : ''}${st !== 'rejected' ? `<button onclick="ceoApproveExpense(${exp.id},'rejected')" class="text-rose-400 hover:text-rose-300 text-xs font-medium">Reject</button>` : ''}`;
             const paidToggle = `<button onclick="ceoTogglePaid(${exp.id},${exp.is_paid})" class="${exp.is_paid ? 'text-orange-400 hover:text-orange-300' : 'text-emerald-400 hover:text-emerald-300'} text-xs font-medium">${exp.is_paid ? 'Mark Unpaid' : 'Mark Paid'}</button>`;
-            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${stCls}">${stLbl}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} &middot; ${exp.category} &middot; ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${receiptHtml}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty '+exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' &middot; ' : ''}${exp.unit_cost ? 'Unit '+formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}<button onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button><button onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Remove</button>${approvalBtns}</div></div></div>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(exp.item_name)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${stCls}">${stLbl}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${exp.payee_name || 'No payee'} &middot; ${exp.category} &middot; ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${escapeHtml(exp.notes)}</p>` : ''}${receiptHtml}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty '+exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' &middot; ' : ''}${exp.unit_cost ? 'Unit '+formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}<button onclick="ceoCopyEditExpense(${exp.id})" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button><button onclick="ceoDeleteExpense(${exp.id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Remove</button>${approvalBtns}</div></div></div>`;
         }
 
         function renderExpensePage(prefix) {
@@ -8237,7 +8920,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0">
                             <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
                             <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
-                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
+                            <p class="text-sm text-gray-400 mt-1">${escapeHtml(latest?.property_title || '')}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
                         <div class="flex-shrink-0">
                             <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
@@ -8247,7 +8930,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
                         <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
                     </div>
-                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${escapeHtml(latest.notes)}</p>` : ''}
                 </div>
                 <div class="space-y-2">
                     ${sortedItems.map((item, idx) => `
@@ -8256,11 +8939,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(item.title)}</p>
                                         ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
                                     </div>
                                     <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
-                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
                                     <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
@@ -8306,7 +8989,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded">Pending CEO Signature</span>
                         </div>
                         <div class="bg-gray-700 p-3 rounded mb-3">
-                            <p class="text-sm text-gray-300">User signature: <strong class="text-white">"${c.user_signature}"</strong></p>
+                            <p class="text-sm text-gray-300">User signature: <strong class="text-white">"${escapeHtml(c.user_signature)}"</strong></p>
                         </div>
                         <div class="flex items-center gap-3">
                             <input type="text" id="ceoSig_${c.id}" placeholder="Type your full name to sign" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -8411,9 +9094,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         : '<span class="text-xs text-gray-600">—</span>';
                     return `
                     <tr class="border-b border-gray-700 hover:bg-gray-750">
-                        <td class="py-2 pr-3">${a.display_name || '-'}</td>
+                        <td class="py-2 pr-3">${escapeHtml(a.display_name || '-')}</td>
                         <td class="py-2 pr-3 text-gray-300">${a.username}</td>
-                        <td class="py-2 pr-3 text-gray-400 text-xs">${a.email}</td>
+                        <td class="py-2 pr-3 text-gray-400 text-xs">${escapeHtml(a.email)}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${roleColors[a.role] || 'bg-gray-600'}">${a.role}</span></td>
                         <td class="py-2 pr-3">${secondary || '<span class="text-xs text-gray-600">—</span>'}</td>
                         <td class="py-2 pr-3">${salaryCell}</td>
@@ -8437,7 +9120,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const investors = accounts.filter(a => a.role === 'INVESTOR' && a.is_active);
                 const sel = document.getElementById('invUserId');
                 if (!sel) return;
-                sel.innerHTML = '<option value="">Select Investor</option>' + investors.map(a => `<option value="${a.id}">${a.display_name || a.username} (${a.email})</option>`).join('');
+                sel.innerHTML = '<option value="">Select Investor</option>' + investors.map(a => `<option value="${a.id}">${escapeHtml(a.display_name || a.username)} (${escapeHtml(a.email)})</option>`).join('');
             } catch (e) {}
         }
 
@@ -8600,10 +9283,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         async function loadInvestorPropertyDropdowns() {
             try {
                 _investorPropertiesCache = await fetchData('/admin/api/properties');
-                const opts = '<option value="">— no specific project —</option>' + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = '<option value="">— no specific project —</option>' + _investorPropertiesCache.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['invPropertyId', 'invEditPropertyId'].forEach(id => {
                     const el = document.getElementById(id);
-                    if (el) el.innerHTML = (id === 'invPropertyId' ? '<option value="">Select project...</option>' : '<option value="">— no specific project —</option>') + _investorPropertiesCache.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                    if (el) el.innerHTML = (id === 'invPropertyId' ? '<option value="">Select project...</option>' : '<option value="">— no specific project —</option>') + _investorPropertiesCache.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 });
             } catch (e) {}
         }
@@ -8625,7 +9308,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="font-medium">${p.investor_name}</p>
                                 <p class="text-xs text-gray-400">${p.investor_email}</p>
                             </td>
-                            <td class="py-2 pr-3 text-xs text-gray-300">${p.property_title || '<span class="text-gray-600">—</span>'}</td>
+                            <td class="py-2 pr-3 text-xs text-gray-300">${p.property_title ? escapeHtml(p.property_title) : '<span class="text-gray-600">—</span>'}</td>
                             <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full text-white ${p.investment_type === 'DEBT' ? 'bg-blue-700' : 'bg-emerald-700'}">${p.investment_type}</span></td>
                             <td class="py-2 pr-3 font-medium">${formatNGN(p.investment_amount)}</td>
                             <td class="py-2 pr-3 text-sm text-gray-300">${display}</td>
@@ -8746,28 +9429,36 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="font-semibold text-white text-sm">${t.name}</p>
-                                ${t.email ? `<p class="text-xs text-gray-400 mt-0.5">${t.email}</p>` : ''}
-                                ${t.phone ? `<p class="text-xs text-gray-400">${t.phone}</p>` : ''}
+                                <p class="font-semibold text-white text-sm">${escapeHtml(t.name)}</p>
+                                ${t.email ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(t.email)}</p>` : ''}
+                                ${t.phone ? `<p class="text-xs text-gray-400">${escapeHtml(t.phone)}</p>` : ''}
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs">
+                        <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
                             <div>
                                 <p class="text-gray-500 mb-1">Property</p>
                                 <p class="text-gray-300">${t.property_name || '—'}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Unit Type</p>
-                                <p class="text-gray-300">${t.unit_type_name || '—'}</p>
+                                <p class="text-gray-300">${escapeHtml(t.unit_type_name || '—')}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Unit / Room</p>
-                                <p class="text-gray-300">${t.unit_number || '—'}</p>
+                                <p class="text-gray-300">${escapeHtml(t.unit_number || '—')}</p>
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Yearly Rent</p>
                                 <p class="text-emerald-400 font-semibold text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 mb-1">Caution Fee</p>
+                                ${(t.caution_paid || 0) >= (t.caution_fee || 50000)
+                                    ? `<span class="inline-block px-2 py-0.5 rounded-full bg-teal-800/60 text-teal-300 border border-teal-700/40 font-medium">Paid ${fmtNGN(t.caution_paid)}</span>`
+                                    : (t.caution_paid || 0) > 0
+                                        ? `<span class="inline-block px-2 py-0.5 rounded-full bg-amber-800/50 text-amber-300 border border-amber-700/40 font-medium">Part-paid ${fmtNGN(t.caution_paid)}</span>`
+                                        : `<span class="inline-block px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-700/40 font-medium">Due ${fmtNGN(t.caution_fee || 50000)}</span>`}
                             </div>
                             <div>
                                 <p class="text-gray-500 mb-1">Lease Period</p>
@@ -8781,6 +9472,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
                             <button onclick='openTenantEdit(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30 transition-colors"><i class="fas fa-pen mr-1"></i>Edit</button>
                             <div class="flex gap-2">
+                                ${(t.caution_paid || 0) < (t.caution_fee || 50000) && t.status === 'active' ? `<button onclick="recordCautionFee(${t.id}, ${(t.caution_fee || 50000) - (t.caution_paid || 0)})" class="text-xs text-teal-400 hover:text-teal-300 py-1 px-2 rounded hover:bg-teal-900/30 transition-colors"><i class="fas fa-shield-halved mr-1"></i>Record Caution</button>` : ''}
                                 <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
                                 <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
                             </div>
@@ -8789,6 +9481,24 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 document.getElementById('tenantsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading tenants</p>';
             }
+        }
+
+        async function recordCautionFee(tenantId, amountDue) {
+            if (!confirm('Record caution fee payment of ' + fmtNGN(amountDue) + ' for this tenant?')) return;
+            try {
+                await fetchData('/admin/api/payments', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tenant_id: tenantId,
+                        amount: amountDue,
+                        payment_type: 'caution',
+                        description: 'Caution fee (refundable security deposit)'
+                    })
+                });
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+            } catch (e) { alert('Error recording caution fee'); }
         }
 
         async function vacateTenant(id) {
@@ -8857,7 +9567,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (!selectEl) return;
             const current = selectEl.value;
             selectEl.innerHTML = '<option value="">-- Select property --</option>' +
-                _propertiesCacheForUt.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                _propertiesCacheForUt.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
             if (current) selectEl.value = current;
         }
 
@@ -8875,7 +9585,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const propId = propSel.selectedOptions[0]?.dataset.id;
             const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
             utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
         }
 
         function tnOnUnitTypeChange() {
@@ -8905,13 +9615,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             ${items.map(u => `
                                 <div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
                                     <div class="flex items-start justify-between gap-3 mb-2">
-                                        <p class="font-semibold text-white text-sm">${u.name}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(u.name)}</p>
                                         <p class="text-emerald-400 font-bold text-sm flex-shrink-0">${u.annual_price ? fmtNGN(u.annual_price) : '\u20a60'}<span class="text-[10px] text-gray-400 font-normal">/yr</span></p>
                                     </div>
-                                    ${u.description ? `<p class="text-xs text-gray-400 mb-3">${u.description}</p>` : ''}
-                                    <div class="flex items-center gap-3 text-xs mb-3">
+                                    ${u.description ? `<p class="text-xs text-gray-400 mb-3">${escapeHtml(u.description)}</p>` : ''}
+                                    <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
                                         <span class="px-2 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">${u.occupied_count}/${u.total_count} occupied</span>
                                         <span class="text-gray-500">${u.available_count} available</span>
+                                        <span class="px-2 py-1 rounded-full bg-teal-900/40 text-teal-300 border border-teal-700/40"><i class="fas fa-shield-halved mr-1"></i>Caution: ${fmtNGN(u.caution_fee !== undefined && u.caution_fee !== null ? u.caution_fee : 50000)}</span>
                                     </div>
                                     <div class="flex justify-end gap-2 pt-2 border-t border-gray-600/50">
                                         <button onclick='openUtEdit(${JSON.stringify(u).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30"><i class="fas fa-pen mr-1"></i>Edit</button>
@@ -8938,6 +9649,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utName').value,
                         description: document.getElementById('utDesc').value,
                         annual_price: document.getElementById('utPrice').value || 0,
+                        caution_fee: document.getElementById('utCaution').value || 50000,
                         total_count: document.getElementById('utCount').value || 0,
                     })
                 });
@@ -8958,6 +9670,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('utEditName').value = u.name || '';
             document.getElementById('utEditDesc').value = u.description || '';
             document.getElementById('utEditPrice').value = u.annual_price || 0;
+            document.getElementById('utEditCaution').value = (u.caution_fee !== undefined && u.caution_fee !== null) ? u.caution_fee : 50000;
             document.getElementById('utEditCount').value = u.total_count || 0;
             document.getElementById('utEditMsg').classList.add('hidden');
             const modal = document.getElementById('utEditModal');
@@ -8987,6 +9700,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utEditName').value,
                         description: document.getElementById('utEditDesc').value,
                         annual_price: document.getElementById('utEditPrice').value || 0,
+                        caution_fee: document.getElementById('utEditCaution').value || 50000,
                         total_count: document.getElementById('utEditCount').value || 0,
                     })
                 });
@@ -9016,7 +9730,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 // Build prop select with title as value (matches add form pattern)
                 const propSel = document.getElementById('tnEditProperty');
                 propSel.innerHTML = '<option value="">-- Select property --</option>' +
-                    _propertiesCacheForUt.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+                    _propertiesCacheForUt.map(p => `<option value="${escapeHtml(p.title)}" data-id="${p.id}">${escapeHtml(p.title)}</option>`).join('');
 
                 if (t.property_name) propSel.value = t.property_name;
 
@@ -9025,7 +9739,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     const utSel = document.getElementById('tnEditUnitType');
                     const filtered = propId ? _unitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
                     utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                        filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                        filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + fmtNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
                     if (t.unit_type_id) utSel.value = t.unit_type_id;
                 };
                 refreshEditUt();
@@ -9151,7 +9865,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
                                 <p class="text-xs text-gray-400 mb-2">Breakdown — Yearly Rent stored on tenant is the gross total (base + 10% markup). Manager earns the markup; company keeps the base.</p>
                                 <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base (company)</th><th class="text-right py-1">Commission (10%)</th></tr></thead>
-                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${l.tenant_name}</td><td class="py-1 text-gray-400">${l.unit_number || '—'}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
+                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${escapeHtml(l.tenant_name)}</td><td class="py-1 text-gray-400">${escapeHtml(l.unit_number || '—')}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
                            </td></tr>`
                         : '';
                     const histRow = hasHistory
@@ -9162,7 +9876,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                     <td class="py-1 text-gray-400">${(p.paid_at || '').slice(0,10)}</td>
                                     <td class="py-1 text-gray-300">${p.kind}</td>
                                     <td class="py-1 text-right text-emerald-400">${fmtNGN(p.amount)}</td>
-                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${p.notes || '—'}</td>
+                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${escapeHtml(p.notes || '—')}</td>
                                     <td class="py-1 text-gray-500 text-[11px]">${p.paid_by || '—'}</td>
                                     <td class="py-1 pl-3"><button onclick="editPayrollPayment(${p.id}, ${p.amount}, '${p.kind}', '${(p.notes||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" class="text-blue-400 hover:text-blue-300 mr-2">Edit</button><button onclick="deletePayrollPayment(${p.id})" class="text-red-400 hover:text-red-300">Delete</button></td>
                                 </tr>`).join('')}</tbody></table>
@@ -9175,7 +9889,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         : `<input type="number" min="0" step="1000" value="${r.salary || 0}" data-user-id="${r.user_id}" onchange="saveInlineSalary(this)" onblur="saveInlineSalary(this)" class="w-28 text-right bg-gray-700 border border-gray-600 rounded px-2 py-1 text-blue-300 text-sm" title="Set monthly salary — saves on blur">`;
                     return `
                         <tr class="border-b border-gray-700">
-                            <td class="py-2 pr-3 text-gray-200">${r.display_name}</td>
+                            <td class="py-2 pr-3 text-gray-200">${escapeHtml(r.display_name)}</td>
                             <td class="py-2 pr-3 text-gray-400 text-xs">${r.role}</td>
                             <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
                             <td class="py-2 pr-3 text-right">${salaryCell}</td>
@@ -9204,7 +9918,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const row = _payrollLastRows[idx];
             if (!row) return;
             document.getElementById('prPayUserId').value = row.user_id;
-            document.getElementById('prPayWho').textContent = `${row.display_name} — outstanding ${fmtNGN(row.outstanding)}`;
+            document.getElementById('prPayWho').textContent = `${escapeHtml(row.display_name)} — outstanding ${fmtNGN(row.outstanding)}`;
             document.getElementById('prPayAmount').value = Math.round(row.outstanding);
             document.getElementById('prPayKind').value = row.commission_total > 0 ? 'commission' : 'salary';
             document.getElementById('prPayNotes').value = '';
@@ -9354,12 +10068,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else {
                 detailsHtml = `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
-                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${rd.experience || '—'}</p></div>
-                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${rd.availability || '—'}</p></div>
+                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${escapeHtml(rd.experience || '—')}</p></div>
+                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${escapeHtml(rd.availability || '—')}</p></div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-2">Submitted ${s.created_at || '—'}</p>`;
             }
-            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${rd.notes}"</p>` : '';
+            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${escapeHtml(rd.notes)}"</p>` : '';
 
             let actionsHtml = '';
             if (s.status === 'pending') {
@@ -9378,8 +10092,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4">
                     <div class="flex items-start justify-between gap-3 flex-wrap">
                         <div class="min-w-0">
-                            <p class="font-semibold text-white">${s.full_name} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
-                            <p class="text-xs text-gray-400 mt-0.5">${s.email}${s.phone ? ' · ' + s.phone : ''}</p>
+                            <p class="font-semibold text-white">${escapeHtml(s.full_name)} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(s.email)}${s.phone ? ' · ' + escapeHtml(s.phone) : ''}</p>
                         </div>
                         <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${s.status === 'pending' ? 'bg-amber-900/50 text-amber-300' : s.status === 'approved' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}">${s.status}</span>
                     </div>
@@ -9441,7 +10155,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (!selectEl) return;
             const cands = await fetchServicedByCandidates();
             selectEl.innerHTML = '<option value="">-- Not tracked --</option>' +
-                cands.map(a => `<option value="${a.id}">${(a.display_name || a.username)} — ${a.role}</option>`).join('');
+                cands.map(a => `<option value="${a.id}">${escapeHtml(a.display_name || a.username)} — ${a.role}</option>`).join('');
             if (selectedId != null) selectEl.value = String(selectedId);
         }
 
@@ -9456,7 +10170,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const sel = document.getElementById('pmtTenantId');
                 if (!sel) return;
                 sel.innerHTML = '<option value="">-- Select tenant --</option>' + tenants.map(t =>
-                    `<option value="${t.id}">${t.name}${t.property_name ? ' — ' + t.property_name : ''}${t.unit_number ? ' / ' + t.unit_number : ''}</option>`
+                    `<option value="${t.id}">${escapeHtml(t.name)}${t.property_name ? ' — ' + t.property_name : ''}${t.unit_number ? ' / ' + escapeHtml(t.unit_number) : ''}</option>`
                 ).join('');
             } catch (e) {}
         }
@@ -9481,7 +10195,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const sel = document.getElementById('tnProperty');
                 if (!sel) return;
                 sel.innerHTML = '<option value="">-- Select property --</option>' +
-                    props.map(p => `<option value="${p.title}" data-id="${p.id}">${p.title}</option>`).join('');
+                    props.map(p => `<option value="${escapeHtml(p.title)}" data-id="${p.id}">${escapeHtml(p.title)}</option>`).join('');
             } catch(e) {}
         }
 
@@ -9500,7 +10214,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const opts = units.map(u => {
                     // Price comes from Unit Type now, so only show room number + status (if not available)
                     const label = u.unit_code + (u.status !== 'available' ? ' (' + u.status + ')' : '');
-                    return `<option value="${u.unit_code}" data-status="${u.status}">${label}</option>`;
+                    return `<option value="${escapeHtml(u.unit_code)}" data-status="${u.status}">${label}</option>`;
                 });
                 unitSel.innerHTML = '<option value="">-- Select unit --</option>' + opts.join('');
                 unitSel.disabled = false;
@@ -9530,14 +10244,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const payments = await fetchData('/admin/api/payments');
                 ceoPaymentsCache = payments;
-                const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+                const typeColors = {rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
                 document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => {
                     const meta = parsePaymentMeta(p.description);
                     return `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
                         <div class="flex items-start justify-between gap-3 mb-3">
                             <div>
-                                <p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>
-                                ${meta.notes ? `<p class="text-xs text-gray-400 mt-0.5">${meta.notes}</p>` : ''}
+                                <p class="font-semibold text-white text-sm">${escapeHtml(p.tenant_name || '—')}</p>
+                                ${meta.notes ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(meta.notes)}</p>` : ''}
                             </div>
                             <p class="text-emerald-400 font-bold text-base flex-shrink-0">${fmtNGN(p.amount)}</p>
                         </div>
@@ -9547,7 +10261,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 ${meta.unit ? `<span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300">Unit ${meta.unit}</span>` : ''}
                                 ${meta.period ? `<span class="px-2 py-1 rounded-full bg-indigo-900/50 text-indigo-300">${meta.period}</span>` : ''}
                                 <span class="text-gray-400">${p.payment_date}</span>
-                                ${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}
+                                ${p.recorded_by ? `<span class="text-gray-500">by ${escapeHtml(p.recorded_by)}</span>` : ''}
                             </div>
                             <div class="flex items-center gap-3">
                                 <button type="button" onclick="startCeoPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
@@ -9699,6 +10413,104 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 msgEl.textContent = e.message || 'Error saving';
                 msgEl.className = 'text-xs mt-2 text-red-400';
+            }
+        }
+
+        // ===== RESIDENT TERMS & CONDITIONS =====
+        function rtcQuery() {
+            const pid = document.getElementById('rtcProperty').value;
+            return pid ? ('?property_id=' + pid) : '';
+        }
+
+        async function loadResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const sel = document.getElementById('rtcProperty');
+            try {
+                if (!sel.dataset.loaded) {
+                    try {
+                        const props = await fetchData('/admin/api/properties');
+                        sel.innerHTML = '<option value="">General (all properties)</option>' +
+                            props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
+                        sel.dataset.loaded = '1';
+                    } catch (e) { /* keep General-only dropdown */ }
+                }
+                const q = rtcQuery();
+                document.getElementById('rtcPrintLink').href = '/admin/resident-terms/print' + q;
+                document.getElementById('rtcDownloadLink').href = '/admin/resident-terms/download' + q;
+                const doc = await fetchData('/admin/api/resident-terms' + q);
+                document.getElementById('rtcTitle').value = doc.title || '';
+                document.getElementById('rtcBody').value = doc.body || '';
+                const updatedEl = document.getElementById('rtcUpdated');
+                if (doc.updated_at) {
+                    const when = new Date(doc.updated_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+                    updatedEl.textContent = 'Last updated ' + when + (doc.updated_by ? ' by ' + doc.updated_by : '');
+                } else {
+                    updatedEl.textContent = '';
+                }
+                const hint = document.getElementById('rtcScopeHint');
+                const delBtn = document.getElementById('rtcDeleteBtn');
+                if (sel.value && !doc.exists) {
+                    hint.textContent = 'No custom terms for this property yet — showing the general template as a starting point. Edit and Save to create its own version.';
+                    hint.className = 'text-xs text-amber-400 pb-2.5';
+                    delBtn.classList.add('hidden');
+                } else if (sel.value) {
+                    hint.textContent = 'This property has its own custom terms. Printing and downloads for it use this version.';
+                    hint.className = 'text-xs text-teal-400 pb-2.5';
+                    delBtn.classList.remove('hidden');
+                } else {
+                    hint.textContent = 'The general template — used by every property that has no custom version of its own.';
+                    hint.className = 'text-xs text-gray-500 pb-2.5';
+                    delBtn.classList.add('hidden');
+                }
+                msgEl.textContent = '';
+            } catch (e) {
+                msgEl.textContent = 'Error loading terms';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function saveResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const body = document.getElementById('rtcBody').value;
+            if (!body.trim()) {
+                msgEl.textContent = 'Terms body cannot be empty';
+                msgEl.className = 'text-sm text-red-400';
+                return;
+            }
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-sm text-gray-400';
+            try {
+                const res = await fetchData('/admin/api/resident-terms', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('rtcTitle').value.trim(),
+                        body: body,
+                        property_id: document.getElementById('rtcProperty').value || null
+                    })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error saving';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function deleteResidentTerms() {
+            const pid = document.getElementById('rtcProperty').value;
+            if (!pid) return;
+            if (!confirm('Remove the custom terms for this property? It will go back to using the general template.')) return;
+            const msgEl = document.getElementById('rtcMsg');
+            try {
+                const res = await fetchData('/admin/api/resident-terms?property_id=' + pid, { method: 'DELETE' });
+                msgEl.textContent = res.message || 'Removed';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error removing';
+                msgEl.className = 'text-sm text-red-400';
             }
         }
 
@@ -10836,7 +11648,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Fallback Tenant Name</label><input id="accPaymentTenantName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount *</label><input id="accPaymentAmount" type="number" step="100" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input id="accPaymentDate" type="date" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input id="accPaymentDesc" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="accPaymentSubmit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><button type="button" id="accPaymentCancel" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="accPaymentMsg" class="text-sm"></span></div>
                     </form>
@@ -10850,6 +11662,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <select id="accPayFilterType" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white">
                             <option value="">All types</option>
                             <option value="rent">Rent</option>
+                            <option value="caution">Caution Fee</option>
                             <option value="deposit">Deposit</option>
                             <option value="fee">Fee</option>
                             <option value="other">Other</option>
@@ -10990,23 +11803,23 @@ ROLE_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
-                    <span class="text-xs text-gray-500">10% sale · 10% first year rent</span>
+                    <span class="text-xs text-gray-500">This month · leases you serviced</span>
                 </div>
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1 truncate">Rental Commission</p>
                         <p id="rel_rental_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-emerald-600/70 mt-0.5">10% × active leases</p>
+                        <p class="text-[11px] text-emerald-600/70 mt-0.5">on leases you serviced</p>
                     </div>
                     <div class="bg-blue-900/40 border border-blue-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1 truncate">Sale Commission</p>
                         <p id="rel_sale_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-blue-600/70 mt-0.5">10% × closed deals</p>
+                        <p class="text-[11px] text-blue-600/70 mt-0.5">settled manually by CEO</p>
                     </div>
                     <div class="bg-amber-900/40 border border-amber-700/30 rounded-xl p-3 overflow-hidden">
-                        <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total Estimated</p>
+                        <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total This Month</p>
                         <p id="rel_total_comm" class="text-base font-bold text-amber-300 truncate">—</p>
-                        <p class="text-[11px] text-amber-600/70 mt-0.5">Combined estimate</p>
+                        <p class="text-[11px] text-amber-600/70 mt-0.5">what payroll will pay</p>
                     </div>
                 </div>
                 <div id="rel_comm_detail" class="space-y-2"></div>
@@ -11074,10 +11887,16 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
 
         function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+        function escapeHtml(v) {
+            if (v === null || v === undefined) return '';
+            return String(v).replace(/[&<>"']/g, function(c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
-            if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
-            if (n >= 1e6) return '₦' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
+            if (n >= 1e6) return '₦' + (n/1e6).toFixed(1).replace(/\\.0$/,'') + 'M';
             if (n >= 1e3) return '₦' + Math.round(n/1e3) + 'K';
             return formatNGN(v);
         }
@@ -11113,7 +11932,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadCapitalPropertyOptions() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const sel = document.getElementById('mgrCapitalProperty');
                 if (sel) {
                     const cur = sel.value;
@@ -11162,7 +11981,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const typeFilter = document.getElementById('accPayFilterType')?.value || '';
             const fromFilter = document.getElementById('accPayFilterFrom')?.value || '';
             const toFilter = document.getElementById('accPayFilterTo')?.value || '';
-            const typeColors = { rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
+            const typeColors = { rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
             let filtered = accountantPaymentsCache;
             if (typeFilter) filtered = filtered.filter(p => p.payment_type === typeFilter);
             if (fromFilter) filtered = filtered.filter(p => p.payment_date >= fromFilter);
@@ -11170,7 +11989,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const countEl = document.getElementById('accPaymentCount');
             if (countEl) countEl.textContent = filtered.length < accountantPaymentsCache.length ? `${filtered.length} of ${accountantPaymentsCache.length} shown` : `${filtered.length} total`;
             document.getElementById('acc_paymentsContainer').innerHTML = filtered.slice(0, 30).map(p =>
-                `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${p.tenant_name || '—'}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${p.description}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${p.recorded_by}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
+                `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4"><div class="flex items-start justify-between gap-3 mb-2"><div><p class="font-semibold text-white text-sm">${escapeHtml(p.tenant_name || '—')}</p>${p.description ? `<p class="text-xs text-gray-400 mt-0.5">${escapeHtml(p.description)}</p>` : ''}</div><p class="text-emerald-400 font-bold text-base flex-shrink-0">${formatNGN(p.amount)}</p></div><div class="flex items-center justify-between gap-3 flex-wrap text-xs"><div class="flex items-center gap-3 flex-wrap"><span class="px-2.5 py-1 rounded-full ${typeColors[p.payment_type] || 'bg-gray-700 text-gray-300'}">${p.payment_type}</span><span class="text-gray-400">${p.payment_date}</span>${p.recorded_by ? `<span class="text-gray-500">by ${escapeHtml(p.recorded_by)}</span>` : ''}</div><div class="flex items-center gap-3"><button type="button" onclick="startAccountantPaymentEdit(${p.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteAccountantPayment(${p.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button></div></div></div>`
             ).join('') || `<div class="text-center py-8"><svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>${accountantPaymentsCache.length === 0 ? '<p class="text-gray-300 text-sm font-medium">No payments recorded yet</p><p class="text-gray-500 text-xs mt-1">Use the form on the left to log the first payment</p>' : '<p class="text-gray-400 text-sm">No payments match this filter</p>'}</div>`;
         }
 
@@ -11240,7 +12059,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     datalist.id = 'expensePayeeOptions';
                     document.body.appendChild(datalist);
                 }
-                datalist.innerHTML = vendorOptionsCache.map(v => `<option value="${v.name}">${v.contact_type}</option>`).join('');
+                datalist.innerHTML = vendorOptionsCache.map(v => `<option value="${escapeHtml(v.name)}">${v.contact_type}</option>`).join('');
             } catch (e) {}
         }
 
@@ -11317,7 +12136,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const managementActions = prefix !== 'acc'
                 ? `<button type="button" onclick="editProjectExpense('${prefix}', ${exp.id})" class="text-blue-400 hover:text-blue-300 font-medium">Edit</button><button type="button" onclick="deleteProjectExpense('${prefix}', ${exp.id})" class="text-red-400 hover:text-red-300 font-medium">Remove</button>`
                 : '';
-            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${exp.item_name}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? (exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${exp.notes}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${exp.recorded_by || ''}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}${managementActions}${statusActions}</div></div></div>`;
+            return `<div class="rounded-xl border ${exp.is_paid ? 'border-emerald-800/50' : 'border-gray-700/70'} bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(exp.item_name)}</p><span class="px-2.5 py-1 rounded-full text-[11px] ${statusMeta.className}">${statusMeta.label}</span>${paidBadge}</div><p class="text-xs text-gray-400 mt-1">${prefix === 'acc' ? escapeHtml(exp.property_title || 'Unassigned project') + ' · ' : ''}${exp.payee_name || 'No payee recorded'} · ${exp.category} · ${exp.expense_date || ''}</p>${exp.notes ? `<p class="text-xs text-gray-500 mt-2">${escapeHtml(exp.notes)}</p>` : ''}${exp.receipt_path ? `<p class="mt-2 flex items-center gap-3"><a href="/assets/${exp.receipt_path}" target="_blank" class="text-xs text-cyan-300 hover:text-cyan-200 underline">View receipt</a><a href="/assets/${exp.receipt_path}" download class="text-xs text-cyan-400 hover:text-cyan-300 underline">Download</a></p>` : ''}${exp.approved_by ? `<p class="text-[11px] text-gray-500 mt-2">Approved by ${exp.approved_by}${exp.approved_at ? ' · ' + exp.approved_at : ''}</p>` : ''}${exp.approval_note ? `<p class="text-[11px] text-rose-300 mt-1">Note: ${exp.approval_note}</p>` : ''}</div><div class="text-right flex-shrink-0"><p class="text-base font-bold text-amber-300">${formatNGN(exp.amount)}</p><p class="text-[11px] text-gray-500 mt-1">${escapeHtml(exp.recorded_by || '')}</p></div></div><div class="flex items-center justify-between gap-3 mt-3 text-xs flex-wrap"><div class="text-gray-500">${exp.quantity ? 'Qty ' + exp.quantity : ''}${exp.quantity && exp.unit_cost ? ' · ' : ''}${exp.unit_cost ? 'Unit ' + formatNGN(exp.unit_cost) : ''}</div><div class="flex items-center gap-3 flex-wrap">${paidToggle}${managementActions}${statusActions}</div></div></div>`;
         }
 
         function updateExpenseForm(prefix) {
@@ -11563,7 +12382,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div class="flex-1 min-w-0 pt-0.5">
                             <div class="flex items-start justify-between gap-2 mb-1">
                                 <div>
-                                    <p class="text-sm font-semibold text-white leading-tight">${item.title}${isLatest ? ' <span class="ml-1 text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Latest</span>' : ''}</p>
+                                    <p class="text-sm font-semibold text-white leading-tight">${escapeHtml(item.title)}${isLatest ? ' <span class="ml-1 text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 px-1.5 py-0.5 rounded-full">Latest</span>' : ''}</p>
                                     <p class="text-xs text-gray-500 mt-0.5">${item.happened_on || 'Date pending'}</p>
                                 </div>
                                 <span class="text-xs font-bold flex-shrink-0 ${labelColor}">${pct}%</span>
@@ -11571,7 +12390,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="w-full bg-gray-700 rounded-full h-1 mb-1.5">
                                 <div class="h-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" style="width:${pct}%"></div>
                             </div>
-                            ${item.notes ? `<p class="text-xs text-gray-400 leading-relaxed">${item.notes}</p>` : ''}
+                            ${item.notes ? `<p class="text-xs text-gray-400 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                         </div>
                     </div>`;
                 }).join('') + '</div>';
@@ -11585,7 +12404,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = `<tr><td colspan="${showProperty ? 5 : 4}" class="text-gray-400 py-3 text-center">No units found</td></tr>`;
                 return;
             }
-            el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${unit.property_title}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${unit.unit_code}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${unit.notes || '—'}</td></tr>`).join('');
+            el.innerHTML = units.map(unit => `<tr class="border-b border-gray-700">${showProperty ? `<td class="py-2 pr-3 text-xs text-gray-300">${escapeHtml(unit.property_title)}</td>` : ''}<td class="py-2 pr-3 font-medium text-white">${escapeHtml(unit.unit_code)}</td><td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[unit.status] || 'bg-gray-700 text-gray-300'}">${unit.status}</span></td><td class="py-2 pr-3 text-xs text-gray-300">${unit.monthly_rent ? formatNGN(unit.monthly_rent) : '—'}</td><td class="py-2 text-xs text-gray-400">${escapeHtml(unit.notes || '—')}</td></tr>`).join('');
         }
 
         function populateManagerUnitSelect(units, filterPropertyId) {
@@ -11595,7 +12414,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const matchProp = !filterPropertyId || String(unit.property_id) === String(filterPropertyId);
                 return matchProp && (unit.status === 'available' || unit.status === 'reserved');
             });
-            select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${unit.unit_code}">${unit.unit_code} · ${unit.property_title} · ${unit.status}</option>`).join('');
+            select.innerHTML = '<option value="">Select unit</option>' + filtered.map(unit => `<option value="${escapeHtml(unit.unit_code)}">${escapeHtml(unit.unit_code)} · ${escapeHtml(unit.property_title)} · ${unit.status}</option>`).join('');
         }
 
         // Manager Unit Type cascade (mirrors CEO behaviour)
@@ -11610,7 +12429,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             }
             const filtered = propId ? window._mgrUnitTypesCache.filter(u => String(u.property_id) === String(propId)) : [];
             utSel.innerHTML = '<option value="">-- Select unit type --</option>' +
-                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${u.name}${u.annual_price ? ' — ' + formatNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
+                filtered.map(u => `<option value="${u.id}" data-price="${u.annual_price || 0}">${escapeHtml(u.name)}${u.annual_price ? ' — ' + formatNGN(u.annual_price) + '/yr' : ''}</option>`).join('');
         }
 
         function mgrTnOnUnitTypeChange() {
@@ -11630,7 +12449,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 el.innerHTML = '<p class="text-gray-400 py-4 text-center text-sm">No tenants yet</p>';
                 return;
             }
-            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-2"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${t.name}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + t.unit_number : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${t.phone}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-600/40"><div><p class="text-gray-500">Unit Type</p><p class="text-gray-300 truncate">${t.unit_type_name || '—'}</p></div><div><p class="text-gray-500">Yearly Rent</p><p class="text-emerald-400 font-semibold">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</p></div><div><p class="text-gray-500">Lease</p><p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → ' + t.lease_end : ''}</p></div></div></div>`).join('');
+            el.innerHTML = tenants.map(t => `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4 space-y-2"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><p class="font-semibold text-white text-sm">${escapeHtml(t.name)}</p><p class="text-xs text-gray-400 mt-0.5 truncate">${t.property_name || 'Property pending'}${t.unit_number ? ' • ' + escapeHtml(t.unit_number) : ''}</p>${t.phone ? `<p class="text-xs text-gray-500 mt-0.5">${escapeHtml(t.phone)}</p>` : ''}</div><div class="flex gap-2 flex-shrink-0"><button onclick="editRoleTenant(${t.id})" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 px-2.5 py-1 rounded-lg">Edit</button><button onclick="vacateRoleTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 border border-red-800 px-2.5 py-1 rounded-lg">Vacate</button></div></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-600/40"><div><p class="text-gray-500">Unit Type</p><p class="text-gray-300 truncate">${escapeHtml(t.unit_type_name || '—')}</p></div><div><p class="text-gray-500">Yearly Rent</p><p class="text-emerald-400 font-semibold">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</p></div><div><p class="text-gray-500">Lease</p><p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → ' + t.lease_end : ''}</p></div></div></div>`).join('');
         }
 
         function editRoleTenant(id) {
@@ -11650,7 +12469,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             if (tenant.unit_number && unitSelect && !Array.from(unitSelect.options).some(opt => opt.value === tenant.unit_number)) {
                 const option = document.createElement('option');
                 option.value = tenant.unit_number;
-                option.textContent = `${tenant.unit_number} • occupied`;
+                option.textContent = `${escapeHtml(tenant.unit_number)} • occupied`;
                 unitSelect.appendChild(option);
             }
             if (unitSelect) unitSelect.value = tenant.unit_number || '';
@@ -11742,10 +12561,16 @@ ROLE_DASHBOARD_TEMPLATE = """
 
                 const amount = profile.investment_amount || 0;
                 const type = profile.investment_type || 'DEBT';
-                const roi = parseFloat(profile.roi_rate) || 3.5;
-                const equity = profile.equity_percentage || 0;
+                // Use the CEO-set values as-is. Do NOT invent a rate/term — showing a
+                // fabricated 3.5% / 4-year figure reads as agreed terms the investor
+                // never signed. Null means "to be confirmed".
+                const roiRaw = profile.roi_rate;
+                const roi = (roiRaw === null || roiRaw === undefined || roiRaw === '') ? null : parseFloat(roiRaw);
+                const equityRaw = profile.equity_percentage;
+                const equity = (equityRaw === null || equityRaw === undefined || equityRaw === '') ? null : parseFloat(equityRaw);
                 const distributed = profile.total_distributed || 0;
-                const termYears = profile.investment_term_years || 4;
+                const termRaw = profile.investment_term_years;
+                const termYears = (termRaw === null || termRaw === undefined || termRaw === '' || Number(termRaw) <= 0) ? null : Number(termRaw);
                 const annualPrincipal = profile.annual_principal_component || 0;
                 const annualRoiAmount = profile.annual_roi_amount || 0;
                 const payoutSchedule = profile.payout_schedule || [];
@@ -11759,7 +12584,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                     (profile.project_property_title || 'BrightWave Phase 1') +
                     (profile.investment_date ? ' · Since ' + profile.investment_date : '');
 
-                const badgeText = type === 'DEBT' ? 'DEBT · ' + roi + '% p.a.' : 'EQUITY · ' + equity + '%';
+                const badgeText = type === 'DEBT'
+                    ? 'DEBT · ' + (roi !== null ? roi + '% p.a.' : 'rate TBC')
+                    : 'EQUITY · ' + (equity !== null ? equity + '%' : 'TBC');
                 const badgeClasses = type === 'DEBT'
                     ? 'bg-blue-900/70 text-blue-300 border border-blue-700/50'
                     : 'bg-emerald-900/70 text-emerald-300 border border-emerald-700/50';
@@ -11772,12 +12599,17 @@ ROLE_DASHBOARD_TEMPLATE = """
                 document.getElementById('invHeroProgress').textContent = latestProgress + '%';
 
                 if (type === 'DEBT') {
-                    const netRoiTotal = annualRoiAmount * termYears;
-                    document.getElementById('invHeroReturn').textContent = formatNGN(netRoiTotal);
-                    document.getElementById('invHeroReturnNote').textContent =
-                        formatNGN(annualRoiAmount) + '/yr × ' + termYears + ' yrs · Total payout ' + formatNGN(profile.projected_total_payout || 0) + ' (incl. capital)';
+                    if (termYears && annualRoiAmount) {
+                        const netRoiTotal = annualRoiAmount * termYears;
+                        document.getElementById('invHeroReturn').textContent = formatNGN(netRoiTotal);
+                        document.getElementById('invHeroReturnNote').textContent =
+                            formatNGN(annualRoiAmount) + '/yr × ' + termYears + ' yrs · Total payout ' + formatNGN(profile.projected_total_payout || 0) + ' (incl. capital)';
+                    } else {
+                        document.getElementById('invHeroReturn').textContent = 'TBC';
+                        document.getElementById('invHeroReturnNote').textContent = 'Your return schedule appears once the CEO confirms your rate and term.';
+                    }
                 } else {
-                    document.getElementById('invHeroReturn').textContent = equity + '% ownership';
+                    document.getElementById('invHeroReturn').textContent = equity !== null ? equity + '% ownership' : 'Ownership TBC';
                     document.getElementById('invHeroReturnNote').textContent = 'Proportional to project revenue';
                 }
 
@@ -11813,7 +12645,9 @@ ROLE_DASHBOARD_TEMPLATE = """
 
                 // --- Return schedule ---
                 const roiTagEl = document.getElementById('invRoiTag');
-                roiTagEl.textContent = type === 'DEBT' ? roi + '% p.a.' : 'Equity · ' + equity + '%';
+                roiTagEl.textContent = type === 'DEBT'
+                    ? (roi !== null ? roi + '% p.a.' : 'Rate TBC')
+                    : 'Equity · ' + (equity !== null ? equity + '%' : 'TBC');
 
                 const scheduleEl = document.getElementById('invReturnSchedule');
                 if (type === 'DEBT' && payoutSchedule.length) {
@@ -11916,8 +12750,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const detailRows = [
                     ['Investment Type', type === 'DEBT' ? 'Debt (Fixed Return)' : 'Equity (Revenue Share)'],
                     ['Amount Invested', formatNGN(amount)],
-                    type === 'DEBT' ? ['Annual Return Rate', roi + '% per annum'] : ['Equity Stake', equity + '% ownership'],
-                    ['Investment Term', termYears + ' year' + (termYears !== 1 ? 's' : '')],
+                    type === 'DEBT' ? ['Annual Return Rate', roi !== null ? roi + '% per annum' : 'To be confirmed'] : ['Equity Stake', equity !== null ? equity + '% ownership' : 'To be confirmed'],
+                    ['Investment Term', termYears ? termYears + ' year' + (termYears !== 1 ? 's' : '') : 'To be confirmed'],
                     type === 'DEBT' ? ['Annual Principal Return', formatNGN(annualPrincipal)] : null,
                     type === 'DEBT' ? ['Annual ROI Cashflow', formatNGN(annualRoiAmount)] : null,
                     type === 'DEBT' ? ['Projected Total Payout', formatNGN(profile.projected_total_payout || 0)] : null,
@@ -11950,6 +12784,20 @@ ROLE_DASHBOARD_TEMPLATE = """
             const full = window._mgrTrendDataFull || { monthly: [], yearly: [] };
             const d = _trendSlice(full.monthly, full.yearly, p);
             if (window._mgrRevChart) { window._mgrRevChart.data.labels = d.labels; window._mgrRevChart.data.datasets[0].data = d.revenue; window._mgrRevChart.data.datasets[1].data = d.capital; window._mgrRevChart.update(); }
+        }
+
+        async function updateInquiry(id, status) {
+            try {
+                await fetchData(`/admin/api/inquiries/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (activeRole === 'REALTOR') { await loadRealtorDashboard(); }
+                else { await loadManagerDashboard(); }
+            } catch (error) {
+                alert('Error updating inquiry');
+            }
         }
 
         async function loadManagerDashboard() {
@@ -12015,8 +12863,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
                 document.getElementById('mgr_inquiriesTable').innerHTML = safeInquiries.map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="mgrToggleInqDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
                         <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
@@ -12028,16 +12876,16 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="mgrInqDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email || '—')}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
                             </div>
                             ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
                         </td>
                     </tr>`).join('') || '<tr><td colspan="5" class="text-gray-400 py-3 text-center text-sm">No inquiries yet</td></tr>';
-                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                document.getElementById('mgr_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${escapeHtml(p.title)}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${escapeHtml(p.location)}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 // Units table with status action column
                 const phase1Units = Array.isArray(units) ? units : [];
                 const mgrUnitsCountEl = document.getElementById('mgrUnitsCount');
@@ -12046,11 +12894,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const unitTableEl = document.getElementById('mgr_unitsTable');
                 if (unitTableEl) unitTableEl.innerHTML = phase1Units.length ? phase1Units.map(u => `
                     <tr class="border-b border-gray-700" id="unitRow_${u.id}">
-                        <td class="py-2 pr-2 text-xs text-gray-400 max-w-[120px] truncate">${u.property_title || '—'}</td>
-                        <td class="py-2 pr-3 font-medium text-white">${u.unit_code}</td>
+                        <td class="py-2 pr-2 text-xs text-gray-400 max-w-[120px] truncate">${escapeHtml(u.property_title || '—')}</td>
+                        <td class="py-2 pr-3 font-medium text-white">${escapeHtml(u.unit_code)}</td>
                         <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${statusClasses[u.status] || 'bg-gray-700 text-gray-300'}">${u.status}</span></td>
                         <td class="py-2 pr-3 text-xs text-gray-300">${u.monthly_rent ? formatNGN(u.monthly_rent) : '—'}</td>
-                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[120px] truncate">${u.notes || '—'}</td>
+                        <td class="py-2 pr-3 text-xs text-gray-400 max-w-[120px] truncate">${escapeHtml(u.notes || '—')}</td>
                         <td class="py-2">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <select onchange="updateMgrUnitStatus(${u.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
@@ -12127,12 +12975,12 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const mgrPropSel = document.getElementById('mgrTenantProperty');
                 if (mgrPropSel) {
                     const curPropVal = mgrPropSel.value;
-                    mgrPropSel.innerHTML = '<option value="">Select property</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                    mgrPropSel.innerHTML = '<option value="">Select property</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                     if (curPropVal) mgrPropSel.value = curPropVal;
                 }
                 // Populate inquiry form property dropdown
                 const mgrInqPropSel = document.getElementById('mgrInqProperty');
-                if (mgrInqPropSel) mgrInqPropSel.innerHTML = '<option value="">General</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                if (mgrInqPropSel) mgrInqPropSel.innerHTML = '<option value="">General</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const activeMgrTenants = tenants.filter(t => t.status === 'active');
                 renderTenantCards('mgr_tenantsList', activeMgrTenants);
                 const mgrRentTotal = activeMgrTenants.reduce((s, t) => s + (parseFloat(t.monthly_rent) || 0), 0);
@@ -12194,7 +13042,15 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadAccountantDashboard() {
             try {
                 const expenseFilters = getExpenseFilters('acc');
-                const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
+                const _endpoints = ['/admin/api/stats', '/admin/api/payments', '/admin/api/tenants?status=active', '/admin/api/properties', '/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters)];
+                const _settled = await Promise.allSettled(_endpoints.map(u => fetchData(u)));
+                const _failed = _settled.map((r, i) => r.status === 'rejected' ? _endpoints[i] : null).filter(Boolean);
+                if (_failed.length) console.error('Accountant dashboard partial failure:', _failed, _settled.filter(r => r.status === 'rejected').map(r => r.reason && r.reason.message));
+                const stats = _settled[0].status === 'fulfilled' ? _settled[0].value : {};
+                const payments = _settled[1].status === 'fulfilled' ? _settled[1].value : [];
+                const tenants = _settled[2].status === 'fulfilled' ? _settled[2].value : [];
+                const props = _settled[3].status === 'fulfilled' ? _settled[3].value : [];
+                const expensesData = _settled[4].status === 'fulfilled' ? _settled[4].value : {expenses: [], by_category: {}, approval_totals: {}};
                 countUp('acc_total_revenue', stats.total_revenue || 0, fmtCompact);
                 countUp('acc_monthly_revenue', stats.monthly_revenue || 0, fmtCompact);
                 countUp('acc_tenants', stats.active_tenants || 0, v => Math.round(v));
@@ -12313,8 +13169,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>`;
                 const tenantSelect = document.getElementById('accPaymentTenant');
                 const expensePropertySelect = document.getElementById('accExpensePropertyFilter');
-                if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${t.name}${t.unit_number ? ' • ' + t.unit_number : ''}</option>`).join('');
-                if (expensePropertySelect) expensePropertySelect.innerHTML = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}" ${String(expenseFilters.propertyId || '') === String(p.id) ? 'selected' : ''}>${p.title}</option>`).join('');
+                if (tenantSelect) tenantSelect.innerHTML = '<option value="">Select tenant</option>' + tenants.map(t => `<option value="${t.id}">${escapeHtml(t.name)}${t.unit_number ? ' • ' + escapeHtml(t.unit_number) : ''}</option>`).join('');
+                if (expensePropertySelect) expensePropertySelect.innerHTML = '<option value="">All projects</option>' + props.map(p => `<option value="${p.id}" ${String(expenseFilters.propertyId || '') === String(p.id) ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join('');
                 const expenseCategorySummary = Object.entries(expensesData.by_category || {})
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 4)
@@ -12339,9 +13195,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                             const leaseEndDate = t.lease_end ? new Date(t.lease_end) : null;
                             const isExpiringSoon = leaseEndDate && (leaseEndDate - new Date()) < 60 * 24 * 60 * 60 * 1000;
                             return `<tr class="border-b border-gray-700/60">
-                                <td class="py-2.5 pr-3 font-medium text-white text-sm">${t.name}</td>
-                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_type_name || '—'}</td>
-                                <td class="py-2.5 pr-3 text-xs text-gray-400">${t.unit_number || '—'}</td>
+                                <td class="py-2.5 pr-3 font-medium text-white text-sm">${escapeHtml(t.name)}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${escapeHtml(t.unit_type_name || '—')}</td>
+                                <td class="py-2.5 pr-3 text-xs text-gray-400">${escapeHtml(t.unit_number || '—')}</td>
                                 <td class="py-2.5 pr-3 text-sm text-emerald-300 font-medium">${t.monthly_rent ? formatNGN(parseFloat(t.monthly_rent)) : '—'}</td>
                                 <td class="py-2.5 pr-3 text-xs text-gray-400">${t.lease_start || '—'}</td>
                                 <td class="py-2.5 text-xs ${isExpiringSoon ? 'text-amber-400 font-medium' : 'text-gray-400'}">${t.lease_end || '—'}${isExpiringSoon ? ' ⚠' : ''}</td>
@@ -12351,6 +13207,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     }
                 }
             } catch (e) {
+                console.error('Accountant dashboard render error:', e);
                 document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
                 const expenseList = document.getElementById('accExpenseList');
                 const expenseBreakdown = document.getElementById('accExpenseBreakdown');
@@ -12418,42 +13275,45 @@ ROLE_DASHBOARD_TEMPLATE = """
                         }
                     }
                 }
-                // Commission tracker
-                const priceMap = {};
-                (props || []).forEach(p => { if (p.title) priceMap[p.title] = parseFloat(p.price) || 0; });
-                const closedInquiries = (inquiries || []).filter(i => i.status === 'closed');
-                const saleComm = closedInquiries.reduce((sum, i) => sum + (priceMap[i.property_title] || 0) * 0.10, 0);
-                const rentedUnits = (units || []).filter(u => u.status === 'occupied' && u.monthly_rent);
-                const rentalComm = rentedUnits.reduce((sum, u) => sum + (parseFloat(u.monthly_rent) || 0) * 0.10, 0);
-                const totalComm = saleComm + rentalComm;
+                // Commission tracker — real payroll figure for the current month, scoped
+                // to leases THIS realtor serviced. Uses the base+markup model
+                // (commission = gross / 11), the same math the CEO payroll pays on.
                 const relRC = document.getElementById('rel_rental_comm');
                 const relSC = document.getElementById('rel_sale_comm');
                 const relTC = document.getElementById('rel_total_comm');
                 const relCD = document.getElementById('rel_comm_detail');
-                if (relRC) relRC.textContent = formatNGN(rentalComm);
-                if (relSC) relSC.textContent = formatNGN(saleComm);
-                if (relTC) relTC.textContent = formatNGN(totalComm);
-                if (relCD) {
-                    const rows = [
-                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${i.full_name} · <span class="text-gray-500">${i.property_title}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
-                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${u.unit_code} · <span class="text-gray-500">${u.property_title || ''}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
-                    ];
-                    relCD.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-gray-500 py-2">No closed deals or occupied units yet — commission will appear here once leases and sales are recorded.</p>';
+                try {
+                    const comm = await fetchData('/admin/api/my-commission');
+                    const lines = (comm && comm.commission_lines) || [];
+                    const commTotal = (comm && comm.commission_total) || 0;
+                    if (relRC) relRC.textContent = formatNGN(commTotal);
+                    if (relSC) relSC.textContent = '—';
+                    if (relTC) relTC.textContent = formatNGN(commTotal);
+                    if (relCD) {
+                        relCD.innerHTML = lines.length
+                            ? lines.map(l => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${escapeHtml(l.tenant_name)} · <span class="text-gray-500">${escapeHtml(l.unit_number || '—')}</span></span><span class="text-emerald-300 font-medium">${formatNGN(l.commission)} <span class="text-gray-500">rent</span></span></div>`).join('')
+                            : '<p class="text-xs text-gray-500 py-2">No leases you serviced this month yet — commission appears here once a lease you handled is recorded and paid.</p>';
+                    }
+                } catch (e) {
+                    if (relRC) relRC.textContent = '—';
+                    if (relSC) relSC.textContent = '—';
+                    if (relTC) relTC.textContent = '—';
+                    if (relCD) relCD.innerHTML = '<p class="text-xs text-gray-500 py-2">Commission unavailable right now.</p>';
                 }
                 _relLeadsCache = inquiries || [];
                 // Populate property dropdown in Add Lead form
                 const relPropSel = document.getElementById('relLeadProperty');
-                if (relPropSel) relPropSel.innerHTML = '<option value="">General Inquiry</option>' + props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                if (relPropSel) relPropSel.innerHTML = '<option value="">General Inquiry</option>' + props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const relCountEl = document.getElementById('rel_leadsCount');
                 if (relCountEl) relCountEl.textContent = inquiries.length + ' lead' + (inquiries.length !== 1 ? 's' : '');
                 renderUnitsTable('rel_unitsTable', units.filter(unit => unit.status === 'available' || unit.status === 'reserved'), true);
-                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${p.title}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.location}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
+                document.getElementById('rel_propertiesTable').innerHTML = props.map(p => `<tr class="border-b border-gray-700"><td class="py-2 pr-3 font-medium">${escapeHtml(p.title)}</td><td class="py-2 pr-3 text-xs text-gray-400">${p.property_type === 'hostel' ? 'Apartment' : p.property_type}</td><td class="py-2 pr-3 text-xs text-gray-400">${escapeHtml(p.location)}</td><td class="py-2 pr-3 text-xs">${p.price ? formatNGN(p.price) : (p.price_type || 'Contact')}</td><td class="py-2"><span class="text-xs px-2 py-0.5 rounded bg-gray-700">${p.construction_status || p.status}</span></td></tr>`).join('');
                 const statuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
                 const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
                 document.getElementById('rel_inquiriesTable').innerHTML = inquiries.length ? inquiries.slice(0, 60).map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
                         <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
@@ -12465,11 +13325,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="relDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email}</a>` : '<span class="text-gray-500">—</span>'}</div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email)}</a>` : '<span class="text-gray-500">—</span>'}</div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
+                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
                             </div>
                             <div class="flex items-end gap-3">
                                 <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
@@ -12704,7 +13564,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         loadConstructionPropertyOptions = async function() {
             try {
                 const props = await fetchData('/admin/api/properties');
-                const options = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const options = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 const ceoSel = document.getElementById('ceoConstructionProperty');
                 const mgrSel = document.getElementById('mgrConstructionProperty');
                 const ceoCurrent = ceoSel?.value || '';
@@ -12757,7 +13617,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div class="min-w-0">
                             <p class="text-xs uppercase tracking-widest text-emerald-300/70 mb-1">Current Site Status</p>
                             <h4 class="text-lg sm:text-xl font-semibold text-white leading-snug">${latest?.title || 'Latest update'}</h4>
-                            <p class="text-sm text-gray-400 mt-1">${latest?.property_title || ''}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
+                            <p class="text-sm text-gray-400 mt-1">${escapeHtml(latest?.property_title || '')}${latest?.happened_on ? ' · ' + latest.happened_on : ''}</p>
                         </div>
                         <div class="flex-shrink-0">
                             <p class="text-3xl font-bold text-emerald-400">${latest?.progress_percentage || 0}%</p>
@@ -12767,7 +13627,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div class="mt-4 h-2.5 rounded-full bg-gray-700 overflow-hidden">
                         <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700" style="width:${latest?.progress_percentage || 0}%"></div>
                     </div>
-                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${latest.notes}</p>` : ''}
+                    ${latest?.notes ? `<p class="text-sm text-gray-300 leading-relaxed mt-3">${escapeHtml(latest.notes)}</p>` : ''}
                 </div>
                 <div class="space-y-2">
                     ${sortedItems.map((item, idx) => `
@@ -12776,11 +13636,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <p class="font-semibold text-white text-sm">${item.title}</p>
+                                        <p class="font-semibold text-white text-sm">${escapeHtml(item.title)}</p>
                                         ${idx === 0 ? '<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/70 text-emerald-300 border border-emerald-700/40">Latest</span>' : ''}
                                     </div>
                                     <p class="text-xs text-gray-400 mt-0.5">${item.happened_on ? item.happened_on + ' · ' : ''}${item.progress_percentage}% complete</p>
-                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${item.notes}</p>` : ''}
+                                    ${item.notes ? `<p class="text-xs text-gray-300 mt-1.5 leading-relaxed">${escapeHtml(item.notes)}</p>` : ''}
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
                                     <button onclick="editConstructionUpdate(${item.id},'${(item.title||'').replace(/'/g,"\\'")}',${item.progress_percentage},'${item.happened_on||''}','${(item.notes||'').replace(/'/g,"\\'").replace(/\\n/g,' ')}',${item.property_id},'${source}')" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800/50 rounded px-2 py-1 transition-colors">Edit</button>
@@ -12939,7 +13799,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             try {
                 const props = await fetchData('/admin/api/properties');
                 const allOpt = '<option value="">All properties</option>';
-                const opts = props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                const opts = props.map(p => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join('');
                 ['mgrMaintProperty', 'mgrMaintFormProperty'].forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) return;
@@ -12973,7 +13833,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 listEl.innerHTML = filtered.map(r => {
                     const sc = statusColors[r.status] || 'bg-gray-700 text-gray-300';
                     const sl = statusLabels[r.status] || r.status;
-                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${r.title}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${r.property_title || ''} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${r.description}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${r.recorded_by || ''}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="mgrEditMaint(${r.id})" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="mgrDeleteMaint(${r.id})" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
+                    return `<div class="rounded-xl border border-gray-700/70 bg-gray-700/30 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><p class="font-semibold text-white text-sm">${escapeHtml(r.title)}</p><span class="px-2 py-0.5 rounded-full text-[11px] ${sc}">${sl}</span><span class="px-2 py-0.5 rounded-full text-[11px] bg-gray-700 text-gray-400">${r.category}</span></div><p class="text-xs text-gray-400 mt-1">${escapeHtml(r.property_title || '')} · ${r.maintenance_date || ''}${r.vendor_name ? ' · ' + r.vendor_name : ''}</p>${r.description ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.description)}</p>` : ''}</div><div class="text-right flex-shrink-0">${r.cost ? '<p class="text-sm font-bold text-amber-300">' + formatNGN(r.cost) + '</p>' : ''}<p class="text-xs text-gray-500 mt-1">${escapeHtml(r.recorded_by || '')}</p></div></div><div class="flex items-center gap-3 mt-3 text-xs"><button onclick="mgrEditMaint(${r.id})" class="text-blue-400 hover:text-blue-300">Edit</button><button onclick="mgrDeleteMaint(${r.id})" class="text-red-400 hover:text-red-300">Remove</button></div></div>`;
                 }).join('');
             } catch(e) { listEl.innerHTML = '<p class="text-red-400 text-sm text-center py-6">Error loading records.</p>'; }
         }

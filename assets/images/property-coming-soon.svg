@@ -1,0 +1,15 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#475569"/>
+  <rect x="72" y="72" width="1456" height="756" rx="36" fill="#334155" stroke="#64748B" stroke-width="4" stroke-dasharray="18 18"/>
+  <rect x="620" y="332" width="360" height="236" rx="28" fill="#1E293B"/>
+  <path d="M710 520V430L800 372L890 430V520" stroke="#CBD5E1" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M764 522V470H836V522" stroke="#CBD5E1" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M932 500L1032 408L1136 500V626H932V500Z" fill="#475569"/>
+  <path d="M1032 408L1136 500" stroke="#94A3B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M932 500L1032 408" stroke="#94A3B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M498 500L598 424L694 500V626H498V500Z" fill="#475569"/>
+  <path d="M598 424L694 500" stroke="#94A3B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M498 500L598 424" stroke="#94A3B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="800" y="670" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" text-anchor="middle">COMING SOON</text>
+  <text x="800" y="734" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="400" text-anchor="middle">BrightWave will publish real project imagery here once this offer is ready.</text>
+</svg>

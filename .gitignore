@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Test artifacts
+tests/tmp/
+tests/__pycache__/
+
+# Instance / local DB
+instance/
+*.sqlite
+*.sqlite3
+data/*.db
+
+# Env / secrets
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local uploaded media (keep repo lean; real assets live on the server)
+assets/videos/
