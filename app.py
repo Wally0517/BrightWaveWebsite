@@ -317,6 +317,7 @@ class PropertyUnitType(db.Model):
     name = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text, nullable=True)
     annual_price = db.Column(db.Float, default=0.0)
+    caution_fee = db.Column(db.Float, default=50000.0)  # refundable deposit per room, editable per unit type
     total_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -403,6 +404,17 @@ class ContractTemplate(db.Model):
     updated_by = db.Column(db.String(80), nullable=True)
 
 
+class TermsDocument(db.Model):
+    """Editable legal/house-rules documents (e.g. resident terms & conditions)."""
+    __tablename__ = 'terms_document'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(60), unique=True, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.String(80), nullable=True)
+
+
 class PendingSignup(db.Model):
     __tablename__ = 'pending_signup'
     id = db.Column(db.Integer, primary_key=True)
@@ -420,6 +432,9 @@ class PendingSignup(db.Model):
     reviewed_by = db.Column(db.String(80), nullable=True)
     created_admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
 
+
+# Refundable security deposit collected once per room at move-in (see Resident T&C)
+CAUTION_FEE_NGN = 50000
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
@@ -1044,6 +1059,126 @@ def seed_contract_templates():
             db.session.add(ct)
     db.session.commit()
 
+
+RESIDENT_TERMS_SLUG = 'resident-terms'
+DEFAULT_RESIDENT_TERMS_TITLE = 'BrightWave Habitat Resident Terms & Conditions'
+DEFAULT_RESIDENT_TERMS_BODY = """## 1. Introduction
+These Terms & Conditions ("the Rules") govern the occupation of any room or apartment ("the Premises") at Brightwave Apartment and any other property of BrightWave Habitat Enterprise ("the Company"). By paying rent and taking possession of the Premises, the Resident agrees to be bound by these Rules. These Rules form part of the tenancy agreement between the Resident and the Company.
+
+Every unit is fully self-contained (ensuite) with tiled floors, POP ceiling with fitted lightings, kitchen cabinet, and wardrobe. The property is served by a general generator, a solar-powered water pumping system, security cameras (CCTV), and a recreation area with a snooker board. These Rules exist to keep those facilities in excellent condition for everyone.
+
+## 2. Rent & Payments
+- Rent is payable yearly, in advance, before occupation or renewal of the Premises.
+- Rent covers the room/apartment only. Utility contributions, where applicable, are communicated separately by Management.
+- All payments must be made to the Company's official account and a receipt collected. Payments made to unauthorised persons are not recognised.
+- Occupation without full payment of rent and caution fee is not permitted.
+
+## 3. Caution Fee (Security Deposit)
+- A refundable caution fee of ₦50,000.00 (Fifty Thousand Naira only) is payable once per room, in addition to rent, before the Resident takes possession.
+- The caution fee is security against damage to the Premises, its fittings, and the common facilities, and against loss of keys or unpaid charges. It is NOT rent and cannot be used to offset rent.
+- Any violation of these Rules that results in damage, loss, or restoration cost will be valued and deducted from the caution fee. Residents who keep their unit in good condition lose nothing.
+- At the end of the tenancy, Management will inspect the Premises in the Resident's presence where possible, using the move-in condition of the unit as the standard.
+- Where the cost of damage exceeds the caution fee, the Resident is liable for the balance and must settle it before final checkout.
+- If the Premises are returned in good condition, the caution fee (or the balance after any deductions) will be refunded within 21 days of checkout and return of all keys.
+- Renewing Residents do not pay the caution fee again, but where deductions have been made during the tenancy, the Resident must top the caution fee back up to the full ₦50,000.00 at renewal.
+
+## 4. Care of the Room & Fittings (Strictly Prohibited)
+Each unit is handed over in good condition with tiled floors, POP ceiling and lightings, kitchen cabinet, and wardrobe. The following are strictly prohibited, and the cost of restoration will be deducted from the caution fee (repeat or serious cases may lead to termination of the tenancy):
+- Drilling holes in walls, tiles, doors, or the POP ceiling for any reason.
+- Driving nails, screws, or hooks into walls, tiles, doors, wardrobes, or cabinets.
+- Hanging, mounting, or suspending any object (fans, hangers, lines, decorations) from the POP ceiling or its light fittings.
+- Breaking, cutting, or altering any wall, partition, ceiling, or structure.
+- Writing, drawing, painting, or pasting stickers, posters, or tape on walls, doors, tiles, or windows.
+- Cracking, chipping, or staining floor and wall tiles, including dragging heavy items across tiled floors.
+- Removing, swapping, or modifying doors, windows, wardrobes, kitchen cabinets, light fittings, or any other fixture.
+- Using the kitchen cabinet or wardrobe carelessly (forcing doors, overloading shelves, water damage) beyond normal use.
+- Repainting or changing the colour of any part of the Premises without written approval from Management.
+- Changing or adding locks without written approval from Management.
+- Installing satellite dishes, antennas, air conditioners, or any external fixture without written approval from Management.
+
+## 5. Shared Facilities: Generator, Solar Water System & Recreation
+- The general generator is operated and fuelled by Management at scheduled hours. Residents must not start, stop, adjust, or connect anything directly to the generator.
+- Personal generators are not permitted inside rooms, corridors, or balconies.
+- The solar pumping machine, solar panels, water tanks, and pumping equipment must not be touched, climbed, adjusted, or tampered with. Report any water supply issue to Management instead.
+- Water is pumped for the benefit of all residents. Taps must not be left running, and hoarding or wasteful use that deprives other residents is not allowed.
+- The snooker board is provided for the enjoyment of all residents. Use it with care: no sitting or standing on it, no placing food or drinks on it, no removing the balls or cues from the recreation area, and no tearing of the felt. Damage to the snooker board or accessories will be billed to the person(s) responsible.
+- Recreation facilities close at the time set by Management, and disputes over their use should be reported rather than settled physically.
+
+## 6. Security & CCTV
+- The property is protected by security cameras (CCTV) covering common areas. Tampering with, blocking, redirecting, or disconnecting any camera is a serious violation that will be deducted from the caution fee and may lead to termination of the tenancy.
+- CCTV footage may be reviewed by Management to investigate damage, theft, or misconduct, and violations confirmed on camera will be charged to the person(s) responsible.
+- The Resident receives one set of keys at move-in. Lost keys must be reported to Management immediately; replacement of keys/locks is at the Resident's cost.
+- Doors and gates must not be left open or propped. Residents must cooperate with security personnel and any access-control measures in place.
+- The Company is not liable for the loss of, or damage to, the Resident's personal property. Residents are advised to keep valuables secure.
+
+## 7. Electrical & Fire Safety
+- Do not overload electrical sockets or use substandard extension boxes.
+- Do not tamper with electrical wiring, meters, distribution boards, or the POP ceiling lightings. Report faulty bulbs or fittings to Management; do not attempt ceiling repairs yourself.
+- Storage of petrol, kerosene, gas cylinders above the approved size, or any flammable material inside the Premises is prohibited.
+- Cooking is permitted only in the kitchen area of the Resident's self-contained unit and must never be left unattended.
+- Prepaid meter bypass or any illegal electrical connection is prohibited and will be reported to the appropriate authorities.
+
+## 8. Water, Sanitation & Cleanliness
+- The Resident must keep the Premises, including the ensuite bathroom and toilet, clean and in sanitary condition at all times.
+- Do not dispose of solids, wipes, sanitary items, or food waste in the toilet or sinks. Blockages traced to a Resident's unit will be cleared at the Resident's cost.
+- Tiled floors and bathroom walls should be cleaned with appropriate materials. Do not use acid or corrosive chemicals that etch or discolour tiles.
+- Refuse must be bagged and disposed of only at the designated refuse point.
+- Report all leaks, faulty plumbing, and water issues to Management promptly.
+
+## 9. Conduct & Noise
+- Noise must be kept at a considerate level at all times, and to a minimum between 10:00 PM and 6:00 AM.
+- Fighting, harassment, bullying, cultism, gambling for money, and the use or sale of illegal substances are strictly prohibited and will result in immediate termination of the tenancy without refund of rent.
+- Smoking is not permitted inside rooms or enclosed common areas.
+- Pets are not permitted without the written approval of Management.
+
+## 10. Guests, Visitors & Subletting
+- The Resident is fully responsible for the conduct of their guests and for any damage caused by them, including damage to shared facilities.
+- Overnight guests beyond a reasonable and occasional basis require the consent of Management.
+- Subletting, sharing for a fee, or transferring the room to another person without the Company's written consent is strictly prohibited and terminates the tenancy.
+- Only the Resident(s) named in the tenancy records may reside in the Premises.
+
+## 11. Damage, Repairs & Liability
+- The Resident must report any fault or damage in the Premises to Management within 48 hours of noticing it.
+- Damage caused by the Resident or their guests will be repaired by the Company's approved artisans and billed to the Resident or deducted from the caution fee. Residents may not carry out structural, ceiling, or electrical repairs themselves.
+- Fair wear and tear from normal, careful use is expected and will not be charged.
+- Where damage in a shared area cannot be traced to one person (including via CCTV), Management may, as a last resort, share the verified repair cost fairly among the residents of the affected block after giving notice.
+
+## 12. Inspections & Right of Entry
+- Management may inspect the Premises upon reasonable prior notice of at least 24 hours, except in emergencies (fire, flooding, security threat, suspected abandonment) where immediate entry may be necessary.
+- Routine maintenance and fumigation exercises will be communicated in advance.
+
+## 13. Vacating & Refund of Caution Fee
+- The Resident must give Management at least 30 days written notice of intention to vacate, and must vacate on or before the last day of the paid rent period.
+- Before checkout, the Resident must remove all personal belongings, clean the Premises, and return all keys.
+- A joint inspection covering walls, tiles, POP ceiling and lightings, wardrobe, kitchen cabinet, bathroom fittings, and keys will be conducted, and any deductions from the caution fee documented and communicated to the Resident.
+- Items left behind for more than 14 days after checkout may be disposed of by Management.
+
+## 14. Breach & Termination
+- A material breach of these Rules, non-payment of rent, or conduct that endangers other residents or the property may result in termination of the tenancy in line with applicable law.
+- Termination for the Resident's breach does not entitle the Resident to a refund of rent for the unexpired period, and outstanding damage costs will still be deducted from the caution fee.
+
+## 15. General
+- These Rules may be updated by the Company from time to time; the current version will be made available to Residents and takes effect from the date of communication.
+- Where any part of these Rules conflicts with a signed tenancy agreement, the signed agreement prevails.
+- These Rules are governed by the laws of the Federal Republic of Nigeria.
+
+## Acknowledgment
+I confirm that I have read and understood these Terms & Conditions, including the caution fee terms in Section 3, and I agree that the cost of any violation may be deducted from my caution fee."""
+
+
+# Small circular logo embedded so the printed/Word T&C always shows it, even offline
+RESIDENT_TERMS_LOGO_DATA_URI = "data:image/jpeg;base64,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"
+
+
+def seed_resident_terms():
+    if not TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first():
+        db.session.add(TermsDocument(
+            slug=RESIDENT_TERMS_SLUG,
+            title=DEFAULT_RESIDENT_TERMS_TITLE,
+            body=DEFAULT_RESIDENT_TERMS_BODY,
+        ))
+        db.session.commit()
+
 def ensure_unit_type_migrations():
     """Add new columns/tables to existing DB when the schema has evolved."""
     from sqlalchemy import inspect, text
@@ -1058,6 +1193,8 @@ def ensure_unit_type_migrations():
     pending = []
     if insp.has_table('tenant') and not has_column('tenant', 'unit_type_id'):
         pending.append('ALTER TABLE tenant ADD COLUMN unit_type_id INTEGER')
+    if insp.has_table('property_unit_type') and not has_column('property_unit_type', 'caution_fee'):
+        pending.append('ALTER TABLE property_unit_type ADD COLUMN caution_fee FLOAT DEFAULT 50000')
 
     for stmt in pending:
         try:
@@ -1134,6 +1271,7 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     ensure_unit_type_migrations()
     ensure_cms_baseline()
     seed_contract_templates()
+    seed_resident_terms()
     if include_sample_data:
         init_sample_data()
     seed_default_units()
@@ -2109,8 +2247,13 @@ def admin_stats():
         now = datetime.utcnow()
         month_start = date_type(now.year, now.month, 1)
 
-        def _rev_q(extra_filters=None):
+        def _rev_q(extra_filters=None, caution_only=False):
             q = db.session.query(sqlfunc.sum(PaymentRecord.amount))
+            # Caution fees are refundable deposits held in trust, not income
+            if caution_only:
+                q = q.filter(PaymentRecord.payment_type == 'caution')
+            else:
+                q = q.filter(db.or_(PaymentRecord.payment_type != 'caution', PaymentRecord.payment_type.is_(None)))
             if filter_prop_title:
                 q = q.join(Tenant, PaymentRecord.tenant_id == Tenant.id).filter(
                     Tenant.property_name.ilike(f'%{filter_prop_title}%')
@@ -2122,6 +2265,7 @@ def admin_stats():
 
         monthly_revenue = _rev_q([PaymentRecord.payment_date >= month_start])
         total_revenue = _rev_q()
+        caution_held = _rev_q(caution_only=True)
 
         # --- Capital/expense stats (filterable by property_id) ---
         def _exp_q(approval=None, extra_filters=None):
@@ -2211,6 +2355,8 @@ def admin_stats():
             'occupied_units': occupied_units,
             'monthly_revenue': float(monthly_revenue),
             'total_revenue': float(total_revenue),
+            'caution_held': float(caution_held),
+            'caution_fee': CAUTION_FEE_NGN,
             'monthly_capital_spent': float(monthly_capital_spent),
             'total_capital_spent': float(total_capital_spent),
             'approved_capital_spent': float(approved_capital_spent),
@@ -2494,24 +2640,32 @@ def upload_expense_receipt():
 
 @app.route('/admin/api/request-password-reset', methods=['POST'])
 def request_password_reset():
-    data = request.get_json() or {}
-    identifier = (data.get('username') or data.get('email') or '').strip().lower()
-    if not identifier:
-        return jsonify({"success": False, "message": "Username or email required"}), 400
-    user = Admin.query.filter(
-        (Admin.username == identifier) | (Admin.email == identifier)
-    ).first()
-    # Always return same message to prevent user enumeration
-    if not user or user.role == 'CEO':
-        return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
-    # Expire any existing unused tokens
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
-    token = secrets.token_urlsafe(32)
-    expires = datetime.utcnow() + timedelta(hours=24)
-    prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
-    db.session.add(prt)
-    db.session.commit()
-    return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    try:
+        data = request.get_json(silent=True) or {}
+        identifier = (data.get('username') or data.get('email') or '').strip().lower()
+        if not identifier:
+            return jsonify({"success": False, "message": "Username or email required"}), 400
+        # Ensure password_reset_token table exists on first call after deploy
+        if not inspect(db.engine).has_table('password_reset_token'):
+            db.create_all()
+        user = Admin.query.filter(
+            (Admin.username == identifier) | (Admin.email == identifier)
+        ).first()
+        # Always return same message to prevent user enumeration
+        if not user or user.role == 'CEO':
+            return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
+        # Expire any existing unused tokens
+        PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(hours=24)
+        prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
+        db.session.add(prt)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"request_password_reset error: {str(e)}")
+        return jsonify({"success": False, "message": "Could not process reset request. Please try again."}), 500
 
 @app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -3918,8 +4072,15 @@ def admin_account_detail(account_id):
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
         if account.role == 'CEO':
             return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+        # Clean up rows that FK to admin.id before deleting the Admin row
         UserContract.query.filter_by(user_id=account.id).delete()
         InvestorProfile.query.filter_by(user_id=account.id).delete()
+        PasswordResetToken.query.filter_by(user_id=account.id).delete()
+        PayrollPayment.query.filter_by(user_id=account.id).delete()
+        SalaryHistory.query.filter_by(user_id=account.id).delete()
+        # Nullable FKs: detach rather than delete to preserve historical records
+        Tenant.query.filter_by(serviced_by_id=account.id).update({'serviced_by_id': None})
+        PendingSignup.query.filter_by(created_admin_id=account.id).update({'created_admin_id': None})
         db.session.delete(account)
         db.session.commit()
         return jsonify({"success": True, "message": "Account deleted"})
@@ -3937,6 +4098,7 @@ def _serialize_unit_type(ut):
         'name': ut.name,
         'description': ut.description or '',
         'annual_price': ut.annual_price or 0,
+        'caution_fee': ut.caution_fee if ut.caution_fee is not None else CAUTION_FEE_NGN,
         'total_count': ut.total_count or 0,
         'occupied_count': occupied,
         'available_count': max(0, (ut.total_count or 0) - occupied),
@@ -3969,13 +4131,15 @@ def admin_unit_types():
         try:
             annual_price = float(data.get('annual_price') or 0)
             total_count = int(data.get('total_count') or 0)
+            caution_fee = float(data['caution_fee']) if data.get('caution_fee') not in (None, '') else float(CAUTION_FEE_NGN)
         except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid annual_price or total_count"}), 400
+            return jsonify({"success": False, "message": "Invalid annual_price, caution_fee, or total_count"}), 400
         ut = PropertyUnitType(
             property_id=prop.id,
             name=data['name'].strip(),
             description=(data.get('description') or '').strip() or None,
             annual_price=annual_price,
+            caution_fee=caution_fee,
             total_count=total_count,
             is_active=bool(data.get('is_active', True)),
         )
@@ -4022,6 +4186,11 @@ def admin_unit_type_detail(unit_type_id):
                 ut.annual_price = float(data['annual_price'])
             except (TypeError, ValueError):
                 return jsonify({"success": False, "message": "Invalid annual_price"}), 400
+        if data.get('caution_fee') is not None and data.get('caution_fee') != '':
+            try:
+                ut.caution_fee = float(data['caution_fee'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid caution_fee"}), 400
         if data.get('total_count') is not None:
             try:
                 ut.total_count = int(data['total_count'])
@@ -4050,6 +4219,14 @@ def admin_tenants():
             if status_filter:
                 q = q.filter_by(status=status_filter)
             tenants = q.order_by(Tenant.created_at.desc()).all()
+            from sqlalchemy import func as _f
+            caution_rows = db.session.query(
+                PaymentRecord.tenant_id, _f.sum(PaymentRecord.amount)
+            ).filter(
+                PaymentRecord.payment_type == 'caution',
+                PaymentRecord.tenant_id.isnot(None)
+            ).group_by(PaymentRecord.tenant_id).all()
+            caution_map = {tid: float(total or 0) for tid, total in caution_rows}
             return jsonify([{
                 'id': t.id,
                 'name': t.name,
@@ -4066,6 +4243,8 @@ def admin_tenants():
                 'notes': t.notes or '',
                 'serviced_by_id': t.serviced_by_id,
                 'serviced_by_name': (t.serviced_by.display_name or t.serviced_by.username) if t.serviced_by else '',
+                'caution_paid': caution_map.get(t.id, 0.0),
+                'caution_fee': (t.unit_type.caution_fee if t.unit_type and t.unit_type.caution_fee is not None else CAUTION_FEE_NGN),
                 'created_at': t.created_at.strftime('%Y-%m-%d'),
             } for t in tenants])
 
@@ -4784,6 +4963,250 @@ def admin_contract_update(role):
     db.session.commit()
     return jsonify({"success": True, "message": "Contract saved"})
 
+# ========== RESIDENT TERMS & CONDITIONS ==========
+
+def _get_resident_terms():
+    doc = TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first()
+    if not doc:
+        doc = TermsDocument(slug=RESIDENT_TERMS_SLUG, title=DEFAULT_RESIDENT_TERMS_TITLE, body=DEFAULT_RESIDENT_TERMS_BODY)
+        db.session.add(doc)
+        db.session.commit()
+    return doc
+
+
+def _render_terms_html(body):
+    """Convert the stored plain-text terms ('## ' headings, '- ' bullets) to safe HTML."""
+    from markupsafe import escape
+    parts, para, list_open = [], [], False
+
+    def close_list():
+        nonlocal list_open
+        if list_open:
+            parts.append('</ul>')
+            list_open = False
+
+    def flush_para():
+        nonlocal para
+        if para:
+            parts.append('<p>' + '<br>'.join(str(escape(x)) for x in para) + '</p>')
+            para = []
+
+    for line in (body or '').replace('\r\n', '\n').split('\n'):
+        s = line.strip()
+        if s.startswith('## '):
+            close_list()
+            flush_para()
+            parts.append('<h2>' + str(escape(s[3:])) + '</h2>')
+        elif s.startswith('- '):
+            flush_para()
+            if not list_open:
+                parts.append('<ul>')
+                list_open = True
+            parts.append('<li>' + str(escape(s[2:])) + '</li>')
+        elif not s:
+            close_list()
+            flush_para()
+        else:
+            close_list()
+            para.append(s)
+    close_list()
+    flush_para()
+    return '\n'.join(parts)
+
+
+def _resident_terms_document_html(doc, toolbar=False, download_qs=''):
+    """Full standalone document HTML shared by the print view and the Word download."""
+    from markupsafe import escape
+    title = str(escape(doc.title))
+    terms_html = _render_terms_html(doc.body)
+    updated = doc.updated_at.strftime('%d %B %Y') if doc.updated_at else ''
+    toolbar_html = ''
+    if toolbar:
+        toolbar_html = (
+            '<div class="no-print" style="position:sticky;top:0;background:#0f172a;padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:center">'
+            '<button onclick="window.print()" style="background:#0d9488;color:#fff;border:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Print / Save as PDF</button>'
+            f'<a href="/admin/resident-terms/download{download_qs}" style="background:#334155;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download for Word</a>'
+            '</div>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{title}</title>
+<style>
+    body {{ font-family: Georgia, 'Times New Roman', serif; color: #111827; background: #e5e7eb; margin: 0; }}
+    .sheet {{ max-width: 800px; margin: 0 auto; background: #ffffff; padding: 48px 56px; line-height: 1.55; }}
+    .letterhead {{ text-align: center; border-bottom: 3px double #0d9488; padding-bottom: 14px; margin-bottom: 20px; }}
+    .letterhead h1 {{ margin: 0; font-size: 21px; letter-spacing: 2px; color: #0f766e; text-transform: uppercase; }}
+    .letterhead p {{ margin: 4px 0 0; font-size: 12px; color: #475569; }}
+    .doc-title {{ text-align: center; font-size: 16px; font-weight: bold; margin: 18px 0 4px; text-transform: uppercase; }}
+    .doc-sub {{ text-align: center; font-size: 11px; color: #64748b; margin-bottom: 22px; }}
+    h2 {{ font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 22px 0 8px; }}
+    p, li {{ font-size: 12.5px; }}
+    ul {{ margin: 6px 0 10px; padding-left: 22px; }}
+    li {{ margin-bottom: 4px; }}
+    .fill-table {{ width: 100%; border-collapse: collapse; margin: 8px 0 6px; }}
+    .fill-table td {{ font-size: 12.5px; padding: 7px 6px; }}
+    .fill-line {{ display: inline-block; min-width: 230px; border-bottom: 1px dotted #64748b; }}
+    .sig-block {{ display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; }}
+    .sig {{ flex: 1; font-size: 12px; }}
+    .sig .line {{ border-bottom: 1px solid #111827; height: 34px; margin-bottom: 5px; }}
+    .footer {{ margin-top: 34px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }}
+    /* margin:0 removes the browser's own print header/footer (URL, date, time, page numbers) */
+    @page {{ size: A4; margin: 0; }}
+    @media print {{ body {{ background: #fff; }} .sheet {{ padding: 16mm 18mm; max-width: none; }} .no-print {{ display: none !important; }} }}
+</style>
+</head>
+<body>
+{toolbar_html}
+<div class="sheet">
+    <div class="letterhead">
+        <img src="{RESIDENT_TERMS_LOGO_DATA_URI}" width="58" height="58" alt="BrightWave Habitat logo" style="display:block;margin:0 auto 8px;border-radius:50%">
+        <h1>BrightWave Habitat Enterprise</h1>
+        <p>Malete, Kwara State, Nigeria &middot; brightwavehabitat.com &middot; brightwavehabitat@gmail.com</p>
+    </div>
+    <div class="doc-title">{title}</div>
+    <div class="doc-sub">{('Effective Date: ' + updated) if updated else ''}</div>
+    <table class="fill-table">
+        <tr><td><strong>Resident Name:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Property:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Room / Unit:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Move-in Date:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Caution Fee Paid:</strong> &#8358;<span class="fill-line" style="min-width:150px">&nbsp;</span></td></tr>
+        <tr><td><strong>Next of Kin:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Next of Kin Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+    </table>
+    {terms_html}
+    <div class="sig-block">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Resident Signature &amp; Date</strong>
+        </div>
+        <div class="sig">
+            <div class="line"></div>
+            <strong>For BrightWave Habitat Enterprise (Management)</strong>
+        </div>
+    </div>
+    <div class="sig-block" style="margin-top:28px">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Witness Name, Signature &amp; Date</strong>
+        </div>
+        <div class="sig"></div>
+    </div>
+    <div class="footer">BrightWave Habitat Enterprise &middot; Resident Terms &amp; Conditions{(' &middot; Last updated ' + updated) if updated else ''}</div>
+</div>
+</body>
+</html>"""
+
+
+def _terms_slug_for_property(property_id):
+    """One TermsDocument per property, keyed by slug; no property_id = the general template."""
+    return RESIDENT_TERMS_SLUG if not property_id else f'{RESIDENT_TERMS_SLUG}-prop-{int(property_id)}'
+
+
+def _resolve_terms_doc(property_id):
+    """Property-specific terms when they exist, otherwise the general template."""
+    if property_id:
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return doc
+    return _get_resident_terms()
+
+
+@app.route('/admin/api/resident-terms', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def admin_resident_terms():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return jsonify({"success": False, "message": "Access restricted"}), 403
+
+    if request.method == 'GET':
+        property_id = request.args.get('property_id', type=int)
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return jsonify({
+                'title': doc.title,
+                'body': doc.body,
+                'updated_at': doc.updated_at.isoformat() if doc.updated_at else None,
+                'updated_by': doc.updated_by,
+                'exists': True,
+                'property_id': property_id,
+            })
+        # No custom doc for this property yet — serve the general template as a starting point
+        base = _get_resident_terms()
+        title = base.title
+        if property_id:
+            prop = Property.query.get(property_id)
+            if prop:
+                title = f"{base.title} ({prop.title})"
+        return jsonify({
+            'title': title,
+            'body': base.body,
+            'updated_at': None,
+            'updated_by': None,
+            'exists': False,
+            'property_id': property_id,
+        })
+
+    if not admin_has_any_role(admin, 'CEO'):
+        return jsonify({"success": False, "message": "CEO only"}), 403
+    if not validate_csrf_token():
+        return jsonify({"success": False, "message": "Invalid CSRF token"}), 403
+
+    if request.method == 'DELETE':
+        property_id = request.args.get('property_id', type=int)
+        if not property_id:
+            return jsonify({"success": False, "message": "The general template cannot be deleted"}), 400
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if not doc:
+            return jsonify({"success": False, "message": "This property has no custom terms"}), 404
+        db.session.delete(doc)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Custom terms removed — this property now uses the general template"})
+
+    data = request.get_json() or {}
+    property_id = data.get('property_id') or None
+    slug = _terms_slug_for_property(property_id)
+    doc = TermsDocument.query.filter_by(slug=slug).first()
+    if not doc:
+        base = _get_resident_terms()
+        doc = TermsDocument(slug=slug, title=base.title, body=base.body)
+        db.session.add(doc)
+    if (data.get('title') or '').strip():
+        doc.title = data['title'].strip()
+    if (data.get('body') or '').strip():
+        doc.body = data['body']
+    doc.updated_by = admin.username
+    doc.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Terms & Conditions saved"})
+
+
+@app.route('/admin/resident-terms/print')
+@login_required
+def admin_resident_terms_print():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    pid = request.args.get('property_id', type=int)
+    doc = _resolve_terms_doc(pid)
+    return make_response(_resident_terms_document_html(doc, toolbar=True, download_qs=f'?property_id={pid}' if pid else ''))
+
+
+@app.route('/admin/resident-terms/download')
+@login_required
+def admin_resident_terms_download():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    doc = _resolve_terms_doc(request.args.get('property_id', type=int))
+    resp = make_response(_resident_terms_document_html(doc, toolbar=False))
+    resp.headers['Content-Type'] = 'application/msword'
+    resp.headers['Content-Disposition'] = 'attachment; filename="BrightWave-Resident-Terms-and-Conditions.doc"'
+    return resp
+
 # ========== ADMIN TEMPLATES ==========
 
 RESET_PASSWORD_TEMPLATE = """
@@ -5268,6 +5691,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </button>
             <button onclick="showSection('contractsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-file-contract w-5 text-center flex-shrink-0"></i><span class="sb-label">Contracts</span>
+            </button>
+            <button onclick="showSection('residentTermsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-file-signature w-5 text-center flex-shrink-0"></i><span class="sb-label">Resident T&amp;C</span>
             </button>
         </nav>
         <!-- Footer -->
@@ -5839,6 +6265,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <input type="number" id="utPrice" step="1000" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room)</label>
+                        <input type="number" id="utCaution" step="1000" min="0" value="50000"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                         <input type="number" id="utCount" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -5881,6 +6311,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                             <input type="number" id="utEditCount" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                         </div>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room — refundable deposit)</label>
+                        <input type="number" id="utEditCaution" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <p id="utEditMsg" class="text-sm hidden"></p>
                     <div class="flex gap-3 pt-1">
@@ -5958,7 +6391,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input type="date" id="pmtDate" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label>
                         <select id="pmtType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                            <option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
+                            <option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
                         </select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><input type="text" id="pmtUnit" placeholder="e.g. 1A, 2B" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -6645,6 +7078,50 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div id="contractsLoading" class="text-gray-400 text-sm">Loading contracts...</div>
             <div id="contractsList" class="space-y-6 hidden"></div>
         </section>
+
+        <!-- Resident Terms & Conditions -->
+        <section id="residentTermsSection" class="hidden space-y-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Resident Terms &amp; Conditions</h2>
+                    <p class="text-sm text-gray-400 mt-0.5">The house rules every resident signs before moving in — caution fee, prohibited damage, facility rules. Edit below, then print or download for signing.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a id="rtcPrintLink" href="/admin/resident-terms/print" target="_blank" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-print text-xs"></i> Preview / Print (PDF)</a>
+                    <a id="rtcDownloadLink" href="/admin/resident-terms/download" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-word text-xs"></i> Download for Word</a>
+                </div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4 sm:p-5 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Terms For</label>
+                        <select id="rtcProperty" onchange="loadResidentTerms()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                            <option value="">General (all properties)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <p id="rtcScopeHint" class="text-xs text-gray-500 pb-2.5"></p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Document Title</label>
+                    <input type="text" id="rtcTitle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-medium text-gray-400">Terms Body</label>
+                        <span class="text-[11px] text-gray-500">Formatting: start a line with <code class="bg-gray-700 px-1 rounded">## </code> for a section heading, <code class="bg-gray-700 px-1 rounded">- </code> for a bullet point.</span>
+                    </div>
+                    <textarea id="rtcBody" rows="26" spellcheck="false" class="w-full px-3 py-2.5 bg-gray-900/70 border border-gray-600 rounded-lg text-[13px] leading-relaxed font-mono contract-scroll" style="resize:vertical"></textarea>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="saveResidentTerms()" id="rtcSaveBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-5 rounded-lg"><i class="fas fa-save mr-1.5 text-xs"></i>Save Changes</button>
+                    <button onclick="deleteResidentTerms()" id="rtcDeleteBtn" class="hidden bg-red-900/70 hover:bg-red-800 text-red-200 text-sm font-medium py-2 px-4 rounded-lg"><i class="fas fa-trash mr-1.5 text-xs"></i>Remove Custom Version</button>
+                    <span id="rtcMsg" class="text-sm"></span>
+                    <span id="rtcUpdated" class="text-xs text-gray-500 ml-auto"></span>
+                </div>
+            </div>
+        </section>
         </main>
     </div><!-- end mainWrapper -->
 
@@ -6776,6 +7253,16 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide truncate">This Month Revenue</p>
                             <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.monthly_revenue)}</p>
                             <p class="text-xs text-emerald-300 mt-0.5 truncate">All time: ${fmtCompact(stats.total_revenue)}</p>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-800/60 border border-indigo-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-indigo-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-shield-halved text-indigo-300 text-sm"></i>
+                        </div>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-indigo-400 font-medium uppercase tracking-wide truncate">Caution Fees Held</p>
+                            <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.caution_held || 0)}</p>
+                            <p class="text-xs text-indigo-300 mt-0.5 truncate">Refundable deposits &middot; not counted as revenue</p>
                         </div>
                     </div>
                     <div class="bg-slate-700/80 border border-slate-600/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
@@ -7771,7 +8258,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId, skipCollapse = false) {
-            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection','residentTermsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -7795,6 +8282,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
             if (sectionId === 'maintenanceSection') { loadMaintenancePropertyOptions(); loadMaintenanceRecords(); }
             if (sectionId === 'contractsSection') loadContracts();
+            if (sectionId === 'residentTermsSection') loadResidentTerms();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
@@ -8752,7 +9240,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs">
+                        <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
                             <div>
                                 <p class="text-gray-500 mb-1">Property</p>
                                 <p class="text-gray-300">${t.property_name || '—'}</p>
@@ -8770,6 +9258,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="text-emerald-400 font-semibold text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</p>
                             </div>
                             <div>
+                                <p class="text-gray-500 mb-1">Caution Fee</p>
+                                ${(t.caution_paid || 0) >= (t.caution_fee || 50000)
+                                    ? `<span class="inline-block px-2 py-0.5 rounded-full bg-teal-800/60 text-teal-300 border border-teal-700/40 font-medium">Paid ${fmtNGN(t.caution_paid)}</span>`
+                                    : (t.caution_paid || 0) > 0
+                                        ? `<span class="inline-block px-2 py-0.5 rounded-full bg-amber-800/50 text-amber-300 border border-amber-700/40 font-medium">Part-paid ${fmtNGN(t.caution_paid)}</span>`
+                                        : `<span class="inline-block px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-700/40 font-medium">Due ${fmtNGN(t.caution_fee || 50000)}</span>`}
+                            </div>
+                            <div>
                                 <p class="text-gray-500 mb-1">Lease Period</p>
                                 <p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → '+t.lease_end : ''}</p>
                             </div>
@@ -8781,6 +9277,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
                             <button onclick='openTenantEdit(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30 transition-colors"><i class="fas fa-pen mr-1"></i>Edit</button>
                             <div class="flex gap-2">
+                                ${(t.caution_paid || 0) < (t.caution_fee || 50000) && t.status === 'active' ? `<button onclick="recordCautionFee(${t.id}, ${(t.caution_fee || 50000) - (t.caution_paid || 0)})" class="text-xs text-teal-400 hover:text-teal-300 py-1 px-2 rounded hover:bg-teal-900/30 transition-colors"><i class="fas fa-shield-halved mr-1"></i>Record Caution</button>` : ''}
                                 <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
                                 <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
                             </div>
@@ -8789,6 +9286,24 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 document.getElementById('tenantsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading tenants</p>';
             }
+        }
+
+        async function recordCautionFee(tenantId, amountDue) {
+            if (!confirm('Record caution fee payment of ' + fmtNGN(amountDue) + ' for this tenant?')) return;
+            try {
+                await fetchData('/admin/api/payments', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tenant_id: tenantId,
+                        amount: amountDue,
+                        payment_type: 'caution',
+                        description: 'Caution fee (refundable security deposit)'
+                    })
+                });
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+            } catch (e) { alert('Error recording caution fee'); }
         }
 
         async function vacateTenant(id) {
@@ -8909,9 +9424,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                         <p class="text-emerald-400 font-bold text-sm flex-shrink-0">${u.annual_price ? fmtNGN(u.annual_price) : '\u20a60'}<span class="text-[10px] text-gray-400 font-normal">/yr</span></p>
                                     </div>
                                     ${u.description ? `<p class="text-xs text-gray-400 mb-3">${u.description}</p>` : ''}
-                                    <div class="flex items-center gap-3 text-xs mb-3">
+                                    <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
                                         <span class="px-2 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">${u.occupied_count}/${u.total_count} occupied</span>
                                         <span class="text-gray-500">${u.available_count} available</span>
+                                        <span class="px-2 py-1 rounded-full bg-teal-900/40 text-teal-300 border border-teal-700/40"><i class="fas fa-shield-halved mr-1"></i>Caution: ${fmtNGN(u.caution_fee !== undefined && u.caution_fee !== null ? u.caution_fee : 50000)}</span>
                                     </div>
                                     <div class="flex justify-end gap-2 pt-2 border-t border-gray-600/50">
                                         <button onclick='openUtEdit(${JSON.stringify(u).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30"><i class="fas fa-pen mr-1"></i>Edit</button>
@@ -8938,6 +9454,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utName').value,
                         description: document.getElementById('utDesc').value,
                         annual_price: document.getElementById('utPrice').value || 0,
+                        caution_fee: document.getElementById('utCaution').value || 50000,
                         total_count: document.getElementById('utCount').value || 0,
                     })
                 });
@@ -8958,6 +9475,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('utEditName').value = u.name || '';
             document.getElementById('utEditDesc').value = u.description || '';
             document.getElementById('utEditPrice').value = u.annual_price || 0;
+            document.getElementById('utEditCaution').value = (u.caution_fee !== undefined && u.caution_fee !== null) ? u.caution_fee : 50000;
             document.getElementById('utEditCount').value = u.total_count || 0;
             document.getElementById('utEditMsg').classList.add('hidden');
             const modal = document.getElementById('utEditModal');
@@ -8987,6 +9505,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utEditName').value,
                         description: document.getElementById('utEditDesc').value,
                         annual_price: document.getElementById('utEditPrice').value || 0,
+                        caution_fee: document.getElementById('utEditCaution').value || 50000,
                         total_count: document.getElementById('utEditCount').value || 0,
                     })
                 });
@@ -9530,7 +10049,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const payments = await fetchData('/admin/api/payments');
                 ceoPaymentsCache = payments;
-                const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+                const typeColors = {rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
                 document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => {
                     const meta = parsePaymentMeta(p.description);
                     return `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
@@ -9699,6 +10218,104 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 msgEl.textContent = e.message || 'Error saving';
                 msgEl.className = 'text-xs mt-2 text-red-400';
+            }
+        }
+
+        // ===== RESIDENT TERMS & CONDITIONS =====
+        function rtcQuery() {
+            const pid = document.getElementById('rtcProperty').value;
+            return pid ? ('?property_id=' + pid) : '';
+        }
+
+        async function loadResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const sel = document.getElementById('rtcProperty');
+            try {
+                if (!sel.dataset.loaded) {
+                    try {
+                        const props = await fetchData('/admin/api/properties');
+                        sel.innerHTML = '<option value="">General (all properties)</option>' +
+                            props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                        sel.dataset.loaded = '1';
+                    } catch (e) { /* keep General-only dropdown */ }
+                }
+                const q = rtcQuery();
+                document.getElementById('rtcPrintLink').href = '/admin/resident-terms/print' + q;
+                document.getElementById('rtcDownloadLink').href = '/admin/resident-terms/download' + q;
+                const doc = await fetchData('/admin/api/resident-terms' + q);
+                document.getElementById('rtcTitle').value = doc.title || '';
+                document.getElementById('rtcBody').value = doc.body || '';
+                const updatedEl = document.getElementById('rtcUpdated');
+                if (doc.updated_at) {
+                    const when = new Date(doc.updated_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+                    updatedEl.textContent = 'Last updated ' + when + (doc.updated_by ? ' by ' + doc.updated_by : '');
+                } else {
+                    updatedEl.textContent = '';
+                }
+                const hint = document.getElementById('rtcScopeHint');
+                const delBtn = document.getElementById('rtcDeleteBtn');
+                if (sel.value && !doc.exists) {
+                    hint.textContent = 'No custom terms for this property yet — showing the general template as a starting point. Edit and Save to create its own version.';
+                    hint.className = 'text-xs text-amber-400 pb-2.5';
+                    delBtn.classList.add('hidden');
+                } else if (sel.value) {
+                    hint.textContent = 'This property has its own custom terms. Printing and downloads for it use this version.';
+                    hint.className = 'text-xs text-teal-400 pb-2.5';
+                    delBtn.classList.remove('hidden');
+                } else {
+                    hint.textContent = 'The general template — used by every property that has no custom version of its own.';
+                    hint.className = 'text-xs text-gray-500 pb-2.5';
+                    delBtn.classList.add('hidden');
+                }
+                msgEl.textContent = '';
+            } catch (e) {
+                msgEl.textContent = 'Error loading terms';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function saveResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const body = document.getElementById('rtcBody').value;
+            if (!body.trim()) {
+                msgEl.textContent = 'Terms body cannot be empty';
+                msgEl.className = 'text-sm text-red-400';
+                return;
+            }
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-sm text-gray-400';
+            try {
+                const res = await fetchData('/admin/api/resident-terms', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('rtcTitle').value.trim(),
+                        body: body,
+                        property_id: document.getElementById('rtcProperty').value || null
+                    })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error saving';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function deleteResidentTerms() {
+            const pid = document.getElementById('rtcProperty').value;
+            if (!pid) return;
+            if (!confirm('Remove the custom terms for this property? It will go back to using the general template.')) return;
+            const msgEl = document.getElementById('rtcMsg');
+            try {
+                const res = await fetchData('/admin/api/resident-terms?property_id=' + pid, { method: 'DELETE' });
+                msgEl.textContent = res.message || 'Removed';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error removing';
+                msgEl.className = 'text-sm text-red-400';
             }
         }
 
@@ -10836,7 +11453,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Fallback Tenant Name</label><input id="accPaymentTenantName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount *</label><input id="accPaymentAmount" type="number" step="100" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input id="accPaymentDate" type="date" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input id="accPaymentDesc" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="accPaymentSubmit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><button type="button" id="accPaymentCancel" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="accPaymentMsg" class="text-sm"></span></div>
                     </form>
@@ -10850,6 +11467,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <select id="accPayFilterType" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white">
                             <option value="">All types</option>
                             <option value="rent">Rent</option>
+                            <option value="caution">Caution Fee</option>
                             <option value="deposit">Deposit</option>
                             <option value="fee">Fee</option>
                             <option value="other">Other</option>
@@ -11162,7 +11780,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const typeFilter = document.getElementById('accPayFilterType')?.value || '';
             const fromFilter = document.getElementById('accPayFilterFrom')?.value || '';
             const toFilter = document.getElementById('accPayFilterTo')?.value || '';
-            const typeColors = { rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
+            const typeColors = { rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
             let filtered = accountantPaymentsCache;
             if (typeFilter) filtered = filtered.filter(p => p.payment_type === typeFilter);
             if (fromFilter) filtered = filtered.filter(p => p.payment_date >= fromFilter);
@@ -12194,7 +12812,15 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadAccountantDashboard() {
             try {
                 const expenseFilters = getExpenseFilters('acc');
-                const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
+                const _endpoints = ['/admin/api/stats', '/admin/api/payments', '/admin/api/tenants?status=active', '/admin/api/properties', '/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters)];
+                const _settled = await Promise.allSettled(_endpoints.map(u => fetchData(u)));
+                const _failed = _settled.map((r, i) => r.status === 'rejected' ? _endpoints[i] : null).filter(Boolean);
+                if (_failed.length) console.error('Accountant dashboard partial failure:', _failed, _settled.filter(r => r.status === 'rejected').map(r => r.reason && r.reason.message));
+                const stats = _settled[0].status === 'fulfilled' ? _settled[0].value : {};
+                const payments = _settled[1].status === 'fulfilled' ? _settled[1].value : [];
+                const tenants = _settled[2].status === 'fulfilled' ? _settled[2].value : [];
+                const props = _settled[3].status === 'fulfilled' ? _settled[3].value : [];
+                const expensesData = _settled[4].status === 'fulfilled' ? _settled[4].value : {expenses: [], by_category: {}, approval_totals: {}};
                 countUp('acc_total_revenue', stats.total_revenue || 0, fmtCompact);
                 countUp('acc_monthly_revenue', stats.monthly_revenue || 0, fmtCompact);
                 countUp('acc_tenants', stats.active_tenants || 0, v => Math.round(v));
@@ -12351,6 +12977,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     }
                 }
             } catch (e) {
+                console.error('Accountant dashboard render error:', e);
                 document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
                 const expenseList = document.getElementById('accExpenseList');
                 const expenseBreakdown = document.getElementById('accExpenseBreakdown');
