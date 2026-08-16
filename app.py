@@ -7303,8 +7303,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
         function fmtCompact(v) {
             const n = Number(v || 0);
-            if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
-            if (n >= 1e6) return '\u20a6' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
+            if (n >= 1e6) return '\u20a6' + (n/1e6).toFixed(1).replace(/\\.0$/,'') + 'M';
             if (n >= 1e3) return '\u20a6' + Math.round(n/1e3) + 'K';
             return fmtNGN(v);
         }
@@ -11895,8 +11895,8 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
         function fmtCompact(v) {
             const n = Number(v || 0);
-            if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
-            if (n >= 1e6) return '₦' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
+            if (n >= 1e6) return '₦' + (n/1e6).toFixed(1).replace(/\\.0$/,'') + 'M';
             if (n >= 1e3) return '₦' + Math.round(n/1e3) + 'K';
             return formatNGN(v);
         }
