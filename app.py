@@ -1572,6 +1572,50 @@ This agreement constitutes the entire understanding between the parties and supe
 
 By signing below, the Realtor confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
     },
+    'PA': {
+        'title': 'Personal Assistant Agreement',
+        'body': """PERSONAL ASSISTANT AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the individual granted Personal Assistant access to this portal ("the Assistant").
+
+1. ROLE AND RESPONSIBILITIES
+The Assistant supports the CEO with communications and administrative coordination: handling property inquiries, responding to contact messages, scheduling viewings and appointments, and following up with prospects and clients as directed. The Assistant reports directly to the CEO. This engagement is on a contractor basis and does not constitute an employment relationship unless separately confirmed in writing.
+
+2. SYSTEM ACCESS
+The Assistant is granted access to inquiry handling and contact message management within the BrightWave management portal. The Assistant has no access to financial records, payment data, payroll, tenant financial information, or investor data, and must not attempt to obtain such access. Access may be revoked at any time at the discretion of the CEO.
+
+3. CONFIDENTIALITY
+All client information, prospect details, correspondence, and operational information accessed through this portal are strictly confidential. The Assistant agrees not to disclose, share, or make available any such information to third parties without prior written CEO approval. This obligation is perpetual and survives the termination or expiry of this agreement.
+
+4. CODE OF CONDUCT
+The Assistant agrees to maintain the highest professional standards in all interactions with clients, prospects, tenants, and team members, and to represent the Company accurately and courteously in every communication. Any conduct that damages the reputation of BrightWave Habitat Enterprise or involves misuse of Company resources may result in immediate access revocation and legal action under applicable Nigerian law.
+
+5. COMPENSATION
+The Assistant's compensation is a monthly amount agreed in writing with the CEO and recorded in the Company's payroll system. The CEO reserves the right to adjust compensation terms with 14 days written notice.
+
+6. DATA SECURITY
+The Assistant is solely responsible for keeping their login credentials secure and must not share access with any other person under any circumstances. Any suspected breach of system security must be reported to the CEO immediately. Unauthorised sharing of access credentials constitutes a material breach of this agreement.
+
+7. INTELLECTUAL PROPERTY
+All work produced, materials created, contact lists compiled, and operational knowledge gained during the term of this engagement remain the sole intellectual property of BrightWave Habitat Enterprise Ltd. The Assistant shall not reproduce, use, or distribute any such materials outside this engagement without prior written CEO approval.
+
+8. AGREEMENT TERM AND TERMINATION
+This agreement is effective from the date both parties digitally sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, breach of confidentiality, fraud, or any material breach of this agreement. Upon termination, the Assistant must immediately cease use of all Company systems and must not retain, copy, or share any Company data.
+
+9. NON-SOLICITATION
+During the term of this agreement and for a period of 12 months following termination, the Assistant agrees not to directly solicit, approach, or transact with any client or prospect introduced by or through BrightWave Habitat Enterprise for personal commercial benefit or on behalf of a competing property business.
+
+10. AMENDMENTS
+No variation, addition, or amendment to this agreement shall be valid or binding unless made in writing and confirmed by both parties through the Company's authorised digital portal or a separately executed written instrument.
+
+11. DISPUTE RESOLUTION AND GOVERNING LAW
+Any dispute arising from or in connection with this agreement shall first be addressed through good-faith negotiation within 21 days of written notice of the dispute, then mediation, and failing that shall be resolved by the Kwara State High Court, Ilorin Division, to whose exclusive jurisdiction both parties irrevocably submit. This agreement is governed by the laws of the Federal Republic of Nigeria.
+
+12. SEVERABILITY AND ENTIRE AGREEMENT
+If any provision of this agreement is found invalid or unenforceable, the remaining provisions continue in full force and effect. This agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions and understandings, whether oral or written.
+
+By signing below, the Assistant confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
+    },
     'INVESTOR': {
         'title': 'Investment Agreement — BrightWave Habitat Enterprise',
         'body': """INVESTMENT AGREEMENT
@@ -1775,6 +1819,7 @@ def management_redirect():
 
 @app.route('/apple-touch-icon.png')
 @app.route('/apple-touch-icon-precomposed.png')
+@app.route('/bw-touch-icon-v4.png')
 def apple_touch_icon():
     # Serve from repo root first (180x180 copy of icon-192), fall back to assets
     if os.path.exists('apple-touch-icon.png'):
@@ -1784,8 +1829,79 @@ def apple_touch_icon():
     else:
         resp = make_response(send_from_directory('assets/images', 'brightwave-logo.png', mimetype='image/png'))
     resp.headers['Cache-Control'] = 'public, max-age=3600, must-revalidate'
-    resp.headers['ETag'] = 'brightwave-icon-v3'
+    resp.headers['ETag'] = 'brightwave-icon-v4'
     return resp
+
+@app.route('/icon-check')
+def icon_check():
+    """Temporary on-device diagnostic: shows whether the phone can load each home-screen icon.
+    Diagnostic v3: includes a minimal known-good manifest; served no-store so the phone
+    always gets the latest version."""
+    resp = make_response("""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZIconCheck</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+<link rel="manifest" href="/icon-check.webmanifest">
+<style>body{font-family:-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;padding:20px;margin:0}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b}
+.row img{width:48px;height:48px;border-radius:10px;background:#1e293b}
+.ok{color:#34d399}.bad{color:#f87171}.u{font-size:11px;color:#64748b;word-break:break-all}</style>
+</head>
+<body>
+<h2>BrightWave Icon Check <span style="font-size:12px;color:#34d399">diagnostic v3</span></h2>
+<p style="font-size:13px;color:#94a3b8">Each row below is an icon your phone just tried to load. All should show the wave logo with a green OK.</p>
+<div id="rows"></div>
+<p id="manifestStatus" style="font-size:13px"></p>
+<p style="font-size:13px;color:#94a3b8;margin-top:18px">Test 2: use Share &rarr; Add to Home Screen on THIS page. If the shortcut shows the logo, the icon file works and the problem is the manifest pipeline. If it shows a letter "Z", the phone is ignoring touch icons entirely.</p>
+<script>
+var urls = ['/bw-touch-icon-v4.png','/apple-touch-icon.png','/assets/images/bw-icon-192-v4.png','/assets/images/bw-icon-512-v4.png','/assets/images/bw-icon-192-mask-v4.png','/favicon-32x32.png'];
+var wrap = document.getElementById('rows');
+urls.forEach(function(u){
+    var d = document.createElement('div'); d.className = 'row';
+    var img = document.createElement('img');
+    var s = document.createElement('span'); s.textContent = 'loading...';
+    var lbl = document.createElement('div'); lbl.innerHTML = '<div class="u">' + u + '</div>';
+    lbl.insertBefore(s, lbl.firstChild);
+    img.onload = function(){ s.textContent = 'OK ' + img.naturalWidth + 'x' + img.naturalHeight; s.className = 'ok'; };
+    img.onerror = function(){ s.textContent = 'FAILED TO LOAD'; s.className = 'bad'; };
+    img.src = u;
+    d.appendChild(img); d.appendChild(lbl); wrap.appendChild(d);
+});
+fetch('/manifest.json').then(function(r){ return r.json(); }).then(function(m){
+    document.getElementById('manifestStatus').innerHTML = '<span class="ok">manifest.json OK</span> - ' + m.icons.length + ' icons declared';
+}).catch(function(e){
+    document.getElementById('manifestStatus').innerHTML = '<span class="bad">manifest.json FAILED: ' + e.message + '</span>';
+});
+</script>
+</body>
+</html>""")
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return resp
+
+
+@app.route('/icon-check.webmanifest')
+def icon_check_manifest():
+    """Minimal known-good manifest for the /icon-check diagnostic page."""
+    from flask import Response
+    manifest = {
+        "id": "/icon-check",
+        "name": "ZIconCheck",
+        "short_name": "ZIcon",
+        "start_url": "/icon-check",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png"},
+        ]
+    }
+    return Response(json.dumps(manifest), mimetype='application/manifest+json')
+
 
 @app.route('/favicon.ico')
 def favicon_ico():
@@ -1819,6 +1935,7 @@ def favicon_16():
 @app.route('/manifest.json')
 def pwa_manifest():
     manifest = {
+        "id": "/admin/dashboard",
         "name": "BrightWave Habitat Enterprise",
         "short_name": "BrightWave",
         "description": "BrightWave Habitat Enterprise Management Portal",
@@ -1829,12 +1946,14 @@ def pwa_manifest():
         "background_color": "#111827",
         "theme_color": "#475569",
         "icons": [
-            {"src": "/assets/images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/assets/images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-192-mask-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/assets/images/bw-icon-512-mask-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ]
     }
     from flask import Response
-    return Response(json.dumps(manifest), mimetype='application/json')
+    return Response(json.dumps(manifest), mimetype='application/manifest+json')
 
 @app.route('/site.webmanifest')
 def public_pwa_manifest():
@@ -1850,9 +1969,11 @@ def public_pwa_manifest():
         "background_color": "#0f172a",
         "theme_color": "#0f172a",
         "icons": [
-            {"src": "/apple-touch-icon.png?v=2", "sizes": "180x180", "type": "image/png"},
-            {"src": "/assets/images/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/assets/images/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/bw-touch-icon-v4.png", "sizes": "180x180", "type": "image/png"},
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-192-mask-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/assets/images/bw-icon-512-mask-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ]
     }
     from flask import Response
@@ -1861,7 +1982,7 @@ def public_pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v6';
+const CACHE_NAME = 'brightwave-portal-v7';
 const PRECACHE_ASSETS = [
     '/admin/login',
     '/assets/images/brightwave-logo.png',
@@ -2215,7 +2336,7 @@ def admin_stats():
     """Get enhanced dashboard statistics, optionally filtered by property_id"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR'):
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA'):
             return jsonify({"success": False, "message": "Access restricted to management roles"}), 403
         from sqlalchemy import func as sqlfunc
         ensure_cms_baseline()
@@ -2252,6 +2373,25 @@ def admin_stats():
         total_units = unit_q.count()
         available_units = unit_q.filter_by(status='available').count()
         occupied_units = unit_q.filter_by(status='occupied').count()
+
+        # Realtors get sales-facing counts only — no revenue, expenses, payroll, or payment history
+        if not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({
+                'total_properties': total_properties,
+                'active_properties': active_properties,
+                'property_breakdown': {
+                    'hostels': hostels,
+                    'land_plots': land_plots,
+                    'residential': residential
+                },
+                'total_inquiries': total_inquiries,
+                'new_inquiries': new_inquiries,
+                'contact_messages': contact_messages,
+                'new_messages': new_messages,
+                'total_units': total_units,
+                'available_units': available_units,
+                'occupied_units': occupied_units,
+            })
 
         # --- Revenue stats (filterable via tenant property_name join) ---
         now = datetime.utcnow()
@@ -2306,8 +2446,8 @@ def admin_stats():
         from calendar import monthrange as _mrange
         monthly_trend = []
         for _i in range(23, -1, -1):
-            _mo = now.replace(day=1) - timedelta(days=_i * 28)
-            _yr, _mo_n = _mo.year, _mo.month
+            _idx = (now.year * 12 + now.month - 1) - _i
+            _yr, _mo_n = _idx // 12, _idx % 12 + 1
             _ms = date_type(_yr, _mo_n, 1)
             _me = date_type(_yr, _mo_n, _mrange(_yr, _mo_n)[1])
             _rev = _rev_q([PaymentRecord.payment_date >= _ms, PaymentRecord.payment_date <= _me])
@@ -2625,8 +2765,8 @@ def upload_image():
     """Handle property image uploads"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
         # Images are small; cap this route at 10MB even though the global limit is
         # 200MB (that ceiling exists only for the hero-video upload route).
         if request.content_length and request.content_length > 10 * 1024 * 1024:
@@ -3040,8 +3180,8 @@ def admin_properties():
     if request.method == 'GET':
         try:
             admin = get_current_admin()
-            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
             properties = Property.query.order_by(Property.created_at.desc()).all()
             return jsonify([{
                 'id': prop.id,
@@ -3467,7 +3607,7 @@ def admin_project_expense_detail(expense_id):
             if requested_status not in {'pending', 'approved', 'rejected'}:
                 return jsonify({"success": False, "message": "Invalid approval_status"}), 400
             if not expense_can_be_approved_by(admin):
-                return jsonify({"success": False, "message": "Only CEO or Accountant can change approval status"}), 403
+                return jsonify({"success": False, "message": "Only the CEO can change approval status"}), 403
             expense.approval_status = requested_status
             expense.approval_note = (data.get('approval_note') or '').strip() or None
             if requested_status == 'approved':
@@ -3619,8 +3759,8 @@ def admin_get_inquiries():
     """Get all property inquiries"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
         if request.method == 'POST':
             data = request.get_json() or {}
             if not data.get('full_name') or not data.get('phone'):
@@ -3673,8 +3813,8 @@ def admin_update_inquiry(inquiry_id):
     """Update or delete an inquiry"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
         if request.method == 'DELETE':
             # Realtors work leads but cannot permanently delete them (organic
@@ -3714,8 +3854,8 @@ def admin_get_contact_messages():
     """Get all contact messages with form origin tracking"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
-            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or PA"}), 403
         messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).all()
         return jsonify([{
             'id': msg.id,
@@ -3738,8 +3878,8 @@ def admin_update_contact_message(message_id):
     """Update contact message status"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
-            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or PA"}), 403
         message = ContactMessage.query.get_or_404(message_id)
         data = request.get_json()
         
@@ -3962,16 +4102,13 @@ def admin_signup_approve(signup_id):
             username=username,
             email=signup.email,
             password_hash=signup.password_hash,
-            role=signup.role if signup.role != 'PA' else 'ACCOUNTANT',  # PA stored as ACCOUNTANT-class for now
+            role=signup.role,
             secondary_roles=[],
             display_name=signup.full_name,
             is_active=True,
             has_signed_contract=False,
             monthly_salary=0.0,
         )
-        # PA isn't a top-level role in valid_roles list; tag it via secondary_roles for visibility
-        if signup.role == 'PA':
-            new_admin.secondary_roles = ['PA']
         db.session.add(new_admin)
         db.session.flush()  # get new_admin.id
 
@@ -4071,7 +4208,7 @@ def admin_accounts():
         if not all(data.get(f) for f in required):
             return jsonify({"success": False, "message": "Username, email, password, and role are required"}), 400
 
-        valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+        valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
         if data['role'] not in valid_roles:
             return jsonify({"success": False, "message": f"Role must be one of: {', '.join(valid_roles)}"}), 400
 
@@ -4148,7 +4285,7 @@ def admin_account_detail(account_id):
                         return jsonify({"success": False, "message": "Cannot deactivate the last CEO account"}), 400
                 account.is_active = bool(data['is_active'])
             if 'role' in data and account.id != ceo.id:
-                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
                 if data['role'] in valid_roles:
                     # Don't demote the last active CEO out of the CEO role.
                     if account.role == 'CEO' and data['role'] != 'CEO':
@@ -4159,7 +4296,7 @@ def admin_account_detail(account_id):
                             return jsonify({"success": False, "message": "Cannot demote the last CEO account"}), 400
                     account.role = data['role']
             if 'secondary_roles' in data and account.id != ceo.id:
-                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
                 primary = data.get('role', account.role)
                 account.secondary_roles = [r for r in (data['secondary_roles'] or []) if r in valid_roles and r != primary and r != 'CEO']
             if 'monthly_salary' in data:
@@ -4463,7 +4600,8 @@ def admin_payments():
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
 
         if request.method == 'GET':
-            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
+            limit = min(max(request.args.get('limit', 200, type=int), 1), 1000)
+            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(limit).all()
             return jsonify([serialize_payment_record(p) for p in payments])
 
         data = request.get_json() or {}
@@ -4480,7 +4618,7 @@ def admin_payments():
             tenant_name=tenant_name or None,
             amount=float(data['amount']),
             payment_date=date_type.fromisoformat(data['payment_date']) if data.get('payment_date') else date_type.today(),
-            payment_type=data.get('payment_type', 'rent'),
+            payment_type=(data.get('payment_type') or 'rent').strip().lower() or 'rent',
             description=(data.get('description') or '').strip() or None,
             recorded_by=admin.display_name or admin.username if admin else None,
         )
@@ -4516,7 +4654,7 @@ def admin_payment_detail(payment_id):
         if 'payment_date' in data and data['payment_date']:
             payment.payment_date = date_type.fromisoformat(data['payment_date'])
         if 'payment_type' in data:
-            payment.payment_type = (data['payment_type'] or 'rent').strip() or 'rent'
+            payment.payment_type = (data['payment_type'] or 'rent').strip().lower() or 'rent'
         if 'description' in data:
             payment.description = (data['description'] or '').strip() or None
 
@@ -5176,6 +5314,7 @@ def _resident_terms_document_html(doc, toolbar=False, download_qs=''):
         toolbar_html = (
             '<div class="no-print" style="position:sticky;top:0;background:#0f172a;padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:center">'
             '<button onclick="window.print()" style="background:#0d9488;color:#fff;border:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Print / Save as PDF</button>'
+            f'<a href="/admin/resident-terms/pdf{download_qs}" style="background:#2563eb;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download PDF</a>'
             f'<a href="/admin/resident-terms/download{download_qs}" style="background:#334155;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download for Word</a>'
             '</div>'
         )
@@ -5358,6 +5497,219 @@ def admin_resident_terms_download():
     resp.headers['Content-Disposition'] = 'attachment; filename="BrightWave-Resident-Terms-and-Conditions.doc"'
     return resp
 
+
+def _resident_terms_pdf_bytes(title, body, updated_text, logo_data_uri, font_dir):
+    """Render the resident terms document as a branded PDF. Pure fpdf2, no browser involved."""
+    import base64
+    import io
+    from fpdf import FPDF
+
+    TEAL = (15, 118, 110)
+    INK = (17, 24, 39)
+    SLATE = (71, 85, 105)
+    FAINT = (148, 163, 184)
+    RULE = (203, 213, 225)
+
+    class TermsPDF(FPDF):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self.doc_title = ''
+
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_font(self.brand_font, '', 8)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  ' + self.doc_title,
+                      align='C', new_x='LMARGIN', new_y='NEXT')
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y() + 1, self.w - self.r_margin, self.get_y() + 1)
+            self.set_y(self.get_y() + 5)
+
+        def footer(self):
+            self.set_y(-14)
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+            self.set_y(-12)
+            self.set_font(self.brand_font, '', 7.5)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  brightwavehabitat.com', align='L')
+            self.cell(0, 5, f'Page {self.page_no()}/{{nb}}', align='R')
+
+    pdf = TermsPDF(orientation='P', unit='mm', format='A4')
+    pdf.doc_title = title
+
+    # DejaVu covers the naira sign; fall back to core Helvetica if fonts are missing.
+    reg = os.path.join(font_dir, 'DejaVuSans.ttf')
+    bold = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
+    if os.path.exists(reg) and os.path.exists(bold):
+        pdf.add_font('Deja', '', reg)
+        pdf.add_font('Deja', 'B', bold)
+        pdf.brand_font = 'Deja'
+    else:
+        pdf.brand_font = 'helvetica'
+        body = body.replace('₦', 'NGN ')
+        title = title.replace('₦', 'NGN ')
+    F = pdf.brand_font
+
+    pdf.set_margins(18, 20, 18)
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+
+    # ---- Letterhead ----
+    try:
+        logo_bytes = base64.b64decode(logo_data_uri.split(',', 1)[1])
+        pdf.image(io.BytesIO(logo_bytes), x=pdf.w / 2 - 8, y=pdf.get_y(), w=16, h=16)
+        pdf.set_y(pdf.get_y() + 18)
+    except Exception:
+        pass
+    pdf.set_font(F, 'B', 15)
+    pdf.set_text_color(*TEAL)
+    pdf.cell(0, 7, 'BRIGHTWAVE HABITAT ENTERPRISE', align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_font(F, '', 8.5)
+    pdf.set_text_color(*SLATE)
+    pdf.cell(0, 5, 'Malete, Kwara State, Nigeria  |  brightwavehabitat.com  |  brightwavehabitat@gmail.com',
+             align='C', new_x='LMARGIN', new_y='NEXT')
+    y = pdf.get_y() + 2
+    pdf.set_draw_color(*TEAL)
+    pdf.set_line_width(0.5)
+    pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+    pdf.set_line_width(0.2)
+    pdf.line(pdf.l_margin, y + 1, pdf.w - pdf.r_margin, y + 1)
+    pdf.set_y(y + 7)
+
+    # ---- Document title ----
+    pdf.set_font(F, 'B', 12)
+    pdf.set_text_color(*INK)
+    pdf.multi_cell(0, 6, title.upper(), align='C', new_x='LMARGIN', new_y='NEXT')
+    if updated_text:
+        pdf.set_font(F, '', 8.5)
+        pdf.set_text_color(*FAINT)
+        pdf.cell(0, 5, 'Effective Date: ' + updated_text, align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_y(pdf.get_y() + 4)
+
+    # ---- Fill-in details ----
+    def fill_row(label_a, label_b):
+        col = usable / 2
+        y0 = pdf.get_y()
+        for i, label in enumerate((label_a, label_b)):
+            x0 = pdf.l_margin + i * col
+            pdf.set_xy(x0, y0)
+            pdf.set_font(F, 'B', 9)
+            pdf.set_text_color(*INK)
+            lw = pdf.get_string_width(label) + 2
+            pdf.cell(lw, 7, label)
+            pdf.set_draw_color(*SLATE)
+            pdf.set_line_width(0.2)
+            pdf.set_dash_pattern(dash=0.6, gap=0.9)
+            pdf.line(x0 + lw + 1, y0 + 6, x0 + col - 6, y0 + 6)
+            pdf.set_dash_pattern()
+        pdf.set_y(y0 + 9)
+
+    fill_row('Resident Name:', 'Phone:')
+    fill_row('Property:', 'Room / Unit:')
+    fill_row('Move-in Date:', 'Caution Fee Paid: ₦' if F == 'Deja' else 'Caution Fee Paid: NGN')
+    fill_row('Next of Kin:', 'Next of Kin Phone:')
+    pdf.set_y(pdf.get_y() + 2)
+
+    # ---- Body: '## ' headings, '- ' bullets, plain paragraphs ----
+    para = []
+
+    def flush_para():
+        if para:
+            pdf.set_font(F, '', 9.5)
+            pdf.set_text_color(*INK)
+            pdf.multi_cell(0, 4.9, ' '.join(para), new_x='LMARGIN', new_y='NEXT')
+            pdf.set_y(pdf.get_y() + 1.5)
+            para.clear()
+
+    for raw in (body or '').replace('\r\n', '\n').split('\n'):
+        s = raw.strip().replace('**', '')
+        if s.startswith('## '):
+            flush_para()
+            if pdf.get_y() > pdf.h - 45:
+                pdf.add_page()
+            pdf.set_y(pdf.get_y() + 2.5)
+            pdf.set_font(F, 'B', 10)
+            pdf.set_text_color(*INK)
+            pdf.cell(0, 5.5, s[3:].upper(), new_x='LMARGIN', new_y='NEXT')
+            y = pdf.get_y() + 0.5
+            pdf.set_draw_color(*RULE)
+            pdf.set_line_width(0.2)
+            pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+            pdf.set_y(y + 2.5)
+        elif s.startswith('- '):
+            flush_para()
+            pdf.set_font(F, '', 9.5)
+            pdf.set_text_color(*INK)
+            x0 = pdf.l_margin
+            pdf.set_x(x0 + 2)
+            pdf.cell(4, 4.9, '•' if F == 'Deja' else '-')
+            pdf.multi_cell(usable - 6, 4.9, s[2:], new_x='LMARGIN', new_y='NEXT')
+            pdf.set_y(pdf.get_y() + 0.6)
+        elif not s:
+            flush_para()
+        else:
+            para.append(s)
+    flush_para()
+
+    # ---- Signatures (keep together on one page) ----
+    if pdf.get_y() > pdf.h - 75:
+        pdf.add_page()
+    pdf.set_y(pdf.get_y() + 8)
+
+    def sig_pair(label_a, label_b):
+        col = usable / 2
+        y0 = pdf.get_y()
+        for i, label in enumerate((label_a, label_b)):
+            if not label:
+                continue
+            x0 = pdf.l_margin + i * col
+            pdf.set_draw_color(*INK)
+            pdf.set_line_width(0.3)
+            pdf.line(x0, y0 + 12, x0 + col - 12, y0 + 12)
+            pdf.set_xy(x0, y0 + 13)
+            pdf.set_font(F, 'B', 8.5)
+            pdf.set_text_color(*INK)
+            pdf.multi_cell(col - 12, 4, label)
+        pdf.set_y(y0 + 24)
+
+    sig_pair('Resident Signature & Date', 'For BrightWave Habitat Enterprise (Management)')
+    sig_pair('Witness Name, Signature & Date', '')
+
+    return bytes(pdf.output())
+
+
+@app.route('/admin/resident-terms/pdf')
+@login_required
+def admin_resident_terms_pdf():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    pid = request.args.get('property_id', type=int)
+    doc = _resolve_terms_doc(pid)
+    updated = doc.updated_at.strftime('%d %B %Y') if doc.updated_at else ''
+    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'fonts')
+    try:
+        pdf_bytes = _resident_terms_pdf_bytes(doc.title, doc.body, updated, RESIDENT_TERMS_LOGO_DATA_URI, font_dir)
+    except Exception:
+        app.logger.exception('Resident terms PDF generation failed')
+        return make_response('PDF generation failed. Check server logs.', 500)
+    fname = 'BrightWave-Resident-Terms-and-Conditions'
+    if pid:
+        prop = Property.query.get(pid)
+        if prop and prop.title:
+            safe = re.sub(r'[^A-Za-z0-9]+', '-', prop.title).strip('-')
+            if safe:
+                fname += '-' + safe
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    resp.headers['Content-Disposition'] = f'attachment; filename="{fname}.pdf"'
+    return resp
+
 # ========== ADMIN TEMPLATES ==========
 
 RESET_PASSWORD_TEMPLATE = """
@@ -5406,7 +5758,9 @@ LOGIN_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BrightWave Habitat Enterprise</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5684,7 +6038,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <link rel="shortcut icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5984,6 +6340,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
+                            <option value="PA">Personal Assistant (PA)</option>
                             <option value="INVESTOR">Investor</option>
                         </select>
                     </div>
@@ -6038,6 +6395,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
+                            <option value="PA">Personal Assistant (PA)</option>
                             <option value="INVESTOR">Investor</option>
                         </select>
                     </div>
@@ -6047,6 +6405,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="MANAGER" class="accent-blue-500"> Manager</label>
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="ACCOUNTANT" class="accent-green-500"> Accountant</label>
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="REALTOR" class="accent-amber-500"> Realtor</label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="PA" class="accent-teal-500"> PA</label>
                         </div>
                         <p class="text-xs text-gray-600 mt-1">Cannot add CEO or same as primary role. Investor cannot have secondary roles.</p>
                     </div>
@@ -7238,7 +7597,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <p class="text-sm text-gray-400 mt-0.5">The house rules every resident signs before moving in — caution fee, prohibited damage, facility rules. Edit below, then print or download for signing.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <a id="rtcPrintLink" href="/admin/resident-terms/print" target="_blank" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-print text-xs"></i> Preview / Print (PDF)</a>
+                    <a id="rtcPrintLink" href="/admin/resident-terms/print" target="_blank" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-print text-xs"></i> Preview / Print</a>
+                    <a id="rtcPdfLink" href="/admin/resident-terms/pdf" onclick="return shareTermsPdf(this)" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-share-alt text-xs"></i> Share / Download PDF</a>
                     <a id="rtcDownloadLink" href="/admin/resident-terms/download" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-word text-xs"></i> Download for Word</a>
                 </div>
             </div>
@@ -7301,6 +7661,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
             });
         }
+        // Escape untrusted strings (public-form input) before putting them in innerHTML
+        function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
@@ -7630,12 +7992,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const properties = await fetchData('/admin/api/properties');
                 document.getElementById('propertiesTable').innerHTML = properties.map(prop => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${escapeHtml(prop.title)}</td>
+                        <td class="py-2">${esc(prop.title)}</td>
                         <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
-                            prop.property_type === 'hostel' ? 'bg-slate-600' : 
+                            prop.property_type === 'hostel' ? 'bg-slate-600' :
                             prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
-                        }">${prop.property_type === 'hostel' ? 'Apartment' : prop.property_type.charAt(0).toUpperCase() + prop.property_type.slice(1)}</span></td>
-                        <td class="py-2">${escapeHtml(prop.location)}</td>
+                        }">${prop.property_type === 'hostel' ? 'Apartment' : ((prop.property_type || 'N/A').charAt(0).toUpperCase() + (prop.property_type || '').slice(1))}</span></td>
+                        <td class="py-2">${esc(prop.location)}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
                         <td class="py-2 flex items-center gap-3">
@@ -7669,16 +8031,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 window._inqCache = inquiries;
                 document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${escapeHtml(inq.full_name)}</td>
-                        <td class="py-2">${escapeHtml(inq.property_title)}</td>
-                        <td class="py-2">${inq.inquiry_type}</td>
+                        <td class="py-2">${esc(inq.full_name)}</td>
+                        <td class="py-2">${esc(inq.property_title)}</td>
+                        <td class="py-2">${esc(inq.inquiry_type)}</td>
                         <td class="py-2">
                             <select onchange="updateInquiry(${inq.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${inq.status === 'new' ? 'selected' : ''}>New</option>
                                 <option value="contacted" ${inq.status === 'contacted' ? 'selected' : ''}>Contacted</option>
-                                <option value="qualified" ${inq.status === 'qualified' ? 'selected' : ''}>Qualified</option>
-                                <option value="converted" ${inq.status === 'converted' ? 'selected' : ''}>Converted</option>
+                                <option value="viewing_scheduled" ${inq.status === 'viewing_scheduled' ? 'selected' : ''}>Viewing Scheduled</option>
+                                <option value="offer_made" ${inq.status === 'offer_made' ? 'selected' : ''}>Offer Made</option>
                                 <option value="closed" ${inq.status === 'closed' ? 'selected' : ''}>Closed</option>
+                                <option value="rejected" ${inq.status === 'rejected' ? 'selected' : ''}>Rejected</option>
                             </select>
                         </td>
                         <td class="py-2">${new Date(inq.created_at).toLocaleDateString()}</td>
@@ -7698,9 +8061,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 window._msgCache = messages;
                 document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${escapeHtml(msg.full_name)}</td>
-                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${escapeHtml(msg.form_origin)}</span></td>
-                        <td class="py-2">${escapeHtml(msg.subject || 'No Subject')}</td>
+                        <td class="py-2">${esc(msg.full_name)}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${esc(msg.form_origin)}</span></td>
+                        <td class="py-2">${esc(msg.subject || 'No Subject')}</td>
                         <td class="py-2">
                             <select onchange="updateMessage(${msg.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${msg.status === 'new' ? 'selected' : ''}>New</option>
@@ -10068,12 +10431,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else {
                 detailsHtml = `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
-                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${escapeHtml(rd.experience || '—')}</p></div>
-                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${escapeHtml(rd.availability || '—')}</p></div>
+                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${esc(rd.experience || '—')}</p></div>
+                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${esc(rd.availability || '—')}</p></div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-2">Submitted ${s.created_at || '—'}</p>`;
             }
-            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${escapeHtml(rd.notes)}"</p>` : '';
+            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${esc(rd.notes)}"</p>` : '';
 
             let actionsHtml = '';
             if (s.status === 'pending') {
@@ -10085,15 +10448,15 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else if (s.status === 'approved') {
                 actionsHtml = `<p class="text-xs text-emerald-400 mt-3 pt-3 border-t border-gray-700/50">✓ Approved ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}</p>`;
             } else if (s.status === 'rejected') {
-                actionsHtml = `<p class="text-xs text-red-400 mt-3 pt-3 border-t border-gray-700/50">✕ Rejected ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}${s.rejection_reason ? ' — ' + s.rejection_reason : ''}</p>`;
+                actionsHtml = `<p class="text-xs text-red-400 mt-3 pt-3 border-t border-gray-700/50">✕ Rejected ${s.reviewed_at || ''} by ${esc(s.reviewed_by || '—')}${s.rejection_reason ? ' — ' + esc(s.rejection_reason) : ''}</p>`;
             }
 
             return `
                 <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4">
                     <div class="flex items-start justify-between gap-3 flex-wrap">
                         <div class="min-w-0">
-                            <p class="font-semibold text-white">${escapeHtml(s.full_name)} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
-                            <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(s.email)}${s.phone ? ' · ' + escapeHtml(s.phone) : ''}</p>
+                            <p class="font-semibold text-white">${esc(s.full_name)} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">${esc(s.email)}${s.phone ? ' · ' + esc(s.phone) : ''}</p>
                         </div>
                         <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${s.status === 'pending' ? 'bg-amber-900/50 text-amber-300' : s.status === 'approved' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}">${s.status}</span>
                     </div>
@@ -10378,11 +10741,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <div class="mb-3">
                             <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Title</label>
-                            <input id="ctTitle_${c.role}" type="text" value="${c.title.replace(/"/g, '&quot;')}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-slate-400">
+                            <input id="ctTitle_${c.role}" type="text" value="${esc(c.title || '')}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-slate-400">
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Body</label>
-                            <textarea id="ctBody_${c.role}" rows="20" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono leading-relaxed focus:outline-none focus:border-slate-400 resize-y">${c.body}</textarea>
+                            <textarea id="ctBody_${c.role}" rows="20" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono leading-relaxed focus:outline-none focus:border-slate-400 resize-y">${esc(c.body || '')}</textarea>
                         </div>
                         <p id="ctMsg_${c.role}" class="text-xs mt-2 hidden"></p>
                     </div>
@@ -10436,6 +10799,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 }
                 const q = rtcQuery();
                 document.getElementById('rtcPrintLink').href = '/admin/resident-terms/print' + q;
+                document.getElementById('rtcPdfLink').href = '/admin/resident-terms/pdf' + q;
                 document.getElementById('rtcDownloadLink').href = '/admin/resident-terms/download' + q;
                 const doc = await fetchData('/admin/api/resident-terms' + q);
                 document.getElementById('rtcTitle').value = doc.title || '';
@@ -10496,6 +10860,48 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 msgEl.textContent = e.message || 'Error saving';
                 msgEl.className = 'text-sm text-red-400';
             }
+        }
+
+        function triggerBlobDownload(blob, fname) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+
+        function shareTermsPdf(link) {
+            // Phones: open the native share sheet (WhatsApp etc.). Desktop: normal download.
+            if (!navigator.canShare) return true;
+            (async () => {
+                const btnHtml = link.innerHTML;
+                link.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Preparing...';
+                try {
+                    const res = await fetch(link.href, { credentials: 'same-origin' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const blob = await res.blob();
+                    let fname = 'BrightWave-Resident-Terms-and-Conditions.pdf';
+                    const cd = res.headers.get('Content-Disposition') || '';
+                    const m = cd.match(/filename="([^"]+)"/);
+                    if (m) fname = m[1];
+                    const file = new File([blob], fname, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: fname.replace('.pdf', '') });
+                    } else {
+                        triggerBlobDownload(blob, fname);
+                    }
+                } catch (err) {
+                    if (!err || err.name !== 'AbortError') {
+                        window.location.href = link.href;
+                    }
+                } finally {
+                    link.innerHTML = btnHtml;
+                }
+            })();
+            return false;
         }
 
         async function deleteResidentTerms() {
@@ -10607,9 +11013,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
             const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
-@page{size:A4;margin:22mm 20mm 22mm 20mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65;padding:22mm 20mm}
 .hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
@@ -10858,7 +11264,9 @@ ROLE_DASHBOARD_TEMPLATE = """
     <link rel="shortcut icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -10996,15 +11404,19 @@ ROLE_DASHBOARD_TEMPLATE = """
         <div class="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
             <!-- Top row: brand + logout -->
             <div class="flex items-center justify-between gap-2 mb-2">
-                <div class="min-w-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover ring-2 ring-slate-600 flex-shrink-0">
+                    <div class="min-w-0">
                     <p class="text-xs text-gray-500 uppercase tracking-widest hidden sm:block">BrightWave Habitat Enterprise</p>
                     <h1 id="portalTitle" class="text-base sm:text-xl font-bold text-slate-300 truncate">
                         {% if user_role == 'MANAGER' %}Property Manager Portal
                         {% elif user_role == 'ACCOUNTANT' %}Finance Portal
                         {% elif user_role == 'REALTOR' %}Realtor Portal
                         {% elif user_role == 'INVESTOR' %}Investor Portal
+                        {% elif user_role == 'PA' %}Assistant Portal
                         {% else %}{{ user_role }} Portal{% endif %}
                     </h1>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <div class="text-right hidden sm:block">
@@ -11684,7 +12096,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <h3 class="font-semibold text-lg text-slate-300">Cash Flow Summary</h3>
                     <span class="text-xs text-gray-500" id="cf_subtitle">All time · approved expenses</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
                         <div class="w-7 h-7 bg-emerald-800/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-arrow-circle-down text-emerald-400 text-xs"></i></div>
                         <div class="min-w-0"><p class="text-[10px] text-emerald-400 uppercase tracking-wide mb-0.5 truncate">Revenue In</p><p id="cf_revenue" class="text-sm font-bold text-white truncate">—</p></div>
@@ -11805,7 +12217,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
                     <span class="text-xs text-gray-500">This month · leases you serviced</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1 truncate">Rental Commission</p>
                         <p id="rel_rental_comm" class="text-base font-bold text-white truncate">—</p>
@@ -11868,6 +12280,104 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <button id="viewRoleDocBtn_REALTOR" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
                     </div>
                 </div>
+            {% elif r == 'PA' %}
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-bold text-white">Assistant Desk</h2>
+                        <p class="text-sm text-gray-400 mt-1">Inquiries, messages, and client follow-ups on behalf of the CEO.</p>
+                    </div>
+                    <button onclick="loadPADashboard()" class="text-xs text-gray-300 hover:text-white border border-gray-600 rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5"><i class="fas fa-rotate-right text-[10px]"></i> Refresh</button>
+                </div>
+                <div class="border-b border-gray-700 mb-5 -mx-3 sm:mx-0 overflow-x-auto">
+                    <div class="flex gap-0.5 min-w-max px-3 sm:px-1" id="paTabBar">
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors bg-slate-700 text-white border-b-2 border-slate-400 whitespace-nowrap" data-tab="paTabOverview" onclick="showPaTab('paTabOverview')"><i class="fas fa-gauge-high mr-1.5 text-[11px]"></i>Overview</button>
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="paTabInquiries" onclick="showPaTab('paTabInquiries')"><i class="fas fa-user-plus mr-1.5 text-[11px]"></i>Inquiries <span id="paInqBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="paTabMessages" onclick="showPaTab('paTabMessages')"><i class="fas fa-envelope mr-1.5 text-[11px]"></i>Messages <span id="paMsgBadge" class="hidden ml-1 bg-amber-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                    </div>
+                </div>
+
+                <div id="paTabOverview">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-blue-600">
+                            <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1">New Inquiries</p>
+                            <p id="pa_newInquiries" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-amber-600">
+                            <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1">New Messages</p>
+                            <p id="pa_newMessages" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-teal-600">
+                            <p class="text-[11px] text-teal-400 uppercase tracking-wide mb-1">Total Inquiries</p>
+                            <p id="pa_totalInquiries" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-emerald-600">
+                            <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1">Units Available</p>
+                            <p id="pa_availableUnits" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-gray-800 rounded-xl p-4 sm:p-5">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <h3 class="font-semibold text-slate-300">Latest Inquiries</h3>
+                                <button onclick="showPaTab('paTabInquiries')" class="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+                            </div>
+                            <div id="pa_recentInquiries"></div>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 sm:p-5">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <h3 class="font-semibold text-slate-300">Latest Messages</h3>
+                                <button onclick="showPaTab('paTabMessages')" class="text-xs text-amber-400 hover:text-amber-300">View all →</button>
+                            </div>
+                            <div id="pa_recentMessages"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="paTabInquiries" class="hidden">
+                    <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <h3 class="font-semibold text-lg text-slate-300">Property Inquiries</h3>
+                            <div class="flex items-center gap-2">
+                                <span id="pa_inquiriesCount" class="text-xs text-gray-500"></span>
+                                <button onclick="paToggleLeadForm()" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium"><i class="fas fa-plus mr-1 text-[10px]"></i>Add Lead</button>
+                            </div>
+                        </div>
+                        <form id="paLeadForm" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-700/40 border border-gray-600/60 rounded-xl p-4 mb-4">
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Full Name *</label><input id="paLeadName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Phone *</label><input id="paLeadPhone" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Email</label><input id="paLeadEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Property</label><select id="paLeadProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">General Inquiry</option></select></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Type</label><select id="paLeadType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="general">General</option><option value="viewing">Viewing</option><option value="rental">Rental</option><option value="purchase">Purchase</option></select></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Budget Range</label><input id="paLeadBudget" placeholder="e.g. ₦300k–₦500k" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Notes</label><textarea id="paLeadNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white resize-none"></textarea></div>
+                            <div class="sm:col-span-2 flex items-center gap-3">
+                                <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Save Lead</button>
+                                <p id="paLeadMsg" class="text-xs"></p>
+                            </div>
+                        </form>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="pa_inquiriesTable"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="paTabMessages" class="hidden">
+                    <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h3 class="font-semibold text-lg text-slate-300">Website Messages</h3>
+                            <span id="pa_messagesCount" class="text-xs text-gray-500"></span>
+                        </div>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Subject</th><th class="py-2 text-left text-gray-400 min-w-[120px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="pa_messagesTable"></tbody></table></div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Personal Assistant Agreement</p><p id="roleDocStatus_PA" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewRoleDocBtn_PA" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
+                    </div>
+                </div>
             {% endif %}
 
         </div>
@@ -11886,13 +12396,15 @@ ROLE_DASHBOARD_TEMPLATE = """
             return response.json();
         }
 
-        function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+        function formatNGN(v) { return '₦' + Number(v || 0).toLocaleString('en-NG'); }
         function escapeHtml(v) {
             if (v === null || v === undefined) return '';
             return String(v).replace(/[&<>"']/g, function(c) {
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
             });
         }
+        // Escape untrusted strings (public-form input) before putting them in innerHTML
+        function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
@@ -11970,6 +12482,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 else if (role === 'MANAGER') { await loadManagerDashboard(); loadRoleDocument('MANAGER'); }
                 else if (role === 'ACCOUNTANT') { await loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
                 else if (role === 'REALTOR') { await loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
+                else if (role === 'PA') { await loadPADashboard(); loadRoleDocument('PA'); }
             } finally {
                 dismissLoader();
             }
@@ -12863,9 +13376,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
                 document.getElementById('mgr_inquiriesTable').innerHTML = safeInquiries.map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="mgrToggleInqDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
-                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
                                 ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
@@ -12876,11 +13389,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="mgrInqDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
-                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email || '—')}</a></div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
-                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${esc(i.email)}" class="text-blue-400 hover:underline">${esc(i.email || '—')}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
                             </div>
                             ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
                         </td>
@@ -13226,7 +13739,13 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         async function loadRealtorDashboard() {
             try {
-                const [stats, props, inquiries, units] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/properties'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/units')]);
+                // Per-fetch fallbacks: one failed endpoint must not blank the whole dashboard
+                const [stats, props, inquiries, units] = await Promise.all([
+                    fetchData('/admin/api/stats').catch(() => ({})),
+                    fetchData('/admin/api/properties').catch(() => []),
+                    fetchData('/admin/api/inquiries').catch(() => []),
+                    fetchData('/admin/api/units').catch(() => [])
+                ]);
                 countUp('rel_properties', stats.active_properties || 0, v => Math.round(v));
                 countUp('rel_available_units', stats.available_units || 0, v => Math.round(v));
                 countUp('rel_inquiries', stats.new_inquiries || 0, v => Math.round(v));
@@ -13312,9 +13831,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
                 document.getElementById('rel_inquiriesTable').innerHTML = inquiries.length ? inquiries.slice(0, 60).map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${escapeHtml(i.full_name || '—')}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${escapeHtml(i.property_title || 'General')}</td>
-                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
                                 ${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
@@ -13325,14 +13844,14 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="relDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${escapeHtml(i.phone || '—')}</span></div>
-                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${escapeHtml(i.email)}" class="text-blue-400 hover:underline">${escapeHtml(i.email)}</a>` : '<span class="text-gray-500">—</span>'}</div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${escapeHtml(i.budget_range || '—')}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${escapeHtml(i.preferred_move_date || '—')}</span></div>
-                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${escapeHtml(i.message)}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${esc(i.email)}" class="text-blue-400 hover:underline">${esc(i.email)}</a>` : '<span class="text-gray-500">—</span>'}</div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
                             </div>
                             <div class="flex items-end gap-3">
-                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${esc(i.inquiry_notes || '')}</textarea></div>
                                 <div class="flex flex-col gap-1.5 flex-shrink-0">
                                     <button type="button" onclick="relSaveNotes(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium">Save Note</button>
                                     <button type="button" onclick="event.stopPropagation();relEditLead(_relLeadsCache.find(x=>x.id===${i.id}))" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium">Edit</button>
@@ -13467,12 +13986,203 @@ ROLE_DASHBOARD_TEMPLATE = """
             });
         });
 
+        // Shared by MANAGER and PA inquiry tables (was previously undefined in this template)
+        async function updateInquiry(id, status) {
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+                if (ALL_ROLES.includes('MANAGER')) await loadManagerDashboard();
+                if (ALL_ROLES.includes('PA')) await loadPADashboard();
+            } catch (e) {
+                alert('Failed to update inquiry: ' + (e.message || 'unknown error'));
+            }
+        }
+
+        function paToggleLeadForm() {
+            const form = document.getElementById('paLeadForm');
+            if (form) form.classList.toggle('hidden');
+        }
+
+        async function paSaveNote(id) {
+            const ta = document.getElementById('paNote_' + id);
+            if (!ta) return;
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ inquiry_notes: ta.value }) });
+                ta.classList.add('border-emerald-500');
+                setTimeout(() => ta.classList.remove('border-emerald-500'), 1200);
+            } catch (e) {
+                alert('Failed to save note: ' + (e.message || 'unknown error'));
+            }
+        }
+
+        function showPaTab(tabId) {
+            ['paTabOverview', 'paTabInquiries', 'paTabMessages'].forEach(t => {
+                const el = document.getElementById(t);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+            });
+            document.querySelectorAll('.pa-tab-btn').forEach(btn => {
+                const active = btn.dataset.tab === tabId;
+                btn.classList.toggle('bg-slate-700', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('border-slate-400', active);
+                btn.classList.toggle('text-gray-400', !active);
+                btn.classList.toggle('border-transparent', !active);
+            });
+        }
+
+        async function loadPADashboard() {
+            try {
+                const [stats, inquiries, messages, props] = await Promise.all([
+                    fetchData('/admin/api/stats').catch(() => ({})),
+                    fetchData('/admin/api/inquiries').catch(() => []),
+                    fetchData('/admin/api/contact-messages').catch(() => []),
+                    fetchData('/admin/api/properties').catch(() => [])
+                ]);
+                countUp('pa_newInquiries', stats.new_inquiries || 0, v => Math.round(v));
+                countUp('pa_newMessages', stats.new_messages || 0, v => Math.round(v));
+                countUp('pa_totalInquiries', stats.total_inquiries || 0, v => Math.round(v));
+                countUp('pa_availableUnits', stats.available_units || 0, v => Math.round(v));
+
+                const safeInq = Array.isArray(inquiries) ? inquiries : [];
+                const safeMsgList = Array.isArray(messages) ? messages : [];
+
+                const newInqCount = safeInq.filter(i => i.status === 'new').length;
+                const inqBadge = document.getElementById('paInqBadge');
+                if (inqBadge) { inqBadge.textContent = newInqCount; inqBadge.classList.toggle('hidden', !newInqCount); }
+                const newMsgCount = safeMsgList.filter(m => m.status === 'new').length;
+                const msgBadge = document.getElementById('paMsgBadge');
+                if (msgBadge) { msgBadge.textContent = newMsgCount; msgBadge.classList.toggle('hidden', !newMsgCount); }
+
+                const propSel = document.getElementById('paLeadProperty');
+                if (propSel) propSel.innerHTML = '<option value="">General Inquiry</option>' + (Array.isArray(props) ? props : []).map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+
+                const recentInqEl = document.getElementById('pa_recentInquiries');
+                if (recentInqEl) recentInqEl.innerHTML = safeInq.slice(0, 5).map(i => `
+                    <div class="flex items-center justify-between gap-3 py-2 border-b border-gray-700/50">
+                        <div class="min-w-0"><p class="text-sm text-gray-200 truncate">${esc(i.full_name || '—')}</p><p class="text-[11px] text-gray-500 truncate">${esc(i.property_title || 'General')} · ${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</p></div>
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded flex-shrink-0 ${i.status === 'new' ? 'bg-blue-900/60 text-blue-300' : 'bg-gray-700 text-gray-400'}">${esc((i.status || '').replace(/_/g,' '))}</span>
+                    </div>`).join('') || '<p class="text-gray-500 text-sm py-3 text-center">No inquiries yet</p>';
+
+                const recentMsgEl = document.getElementById('pa_recentMessages');
+                if (recentMsgEl) recentMsgEl.innerHTML = safeMsgList.slice(0, 5).map(m => `
+                    <div class="flex items-center justify-between gap-3 py-2 border-b border-gray-700/50">
+                        <div class="min-w-0"><p class="text-sm text-gray-200 truncate">${esc(m.full_name || '—')}</p><p class="text-[11px] text-gray-500 truncate">${esc(m.subject || 'No subject')}</p></div>
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded flex-shrink-0 ${m.status === 'new' ? 'bg-amber-900/60 text-amber-300' : 'bg-gray-700 text-gray-400'}">${esc(m.status || '')}</span>
+                    </div>`).join('') || '<p class="text-gray-500 text-sm py-3 text-center">No messages yet</p>';
+
+                const inqStatuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
+                const inqCountEl = document.getElementById('pa_inquiriesCount');
+                if (inqCountEl) inqCountEl.textContent = safeInq.length + ' total';
+                document.getElementById('pa_inquiriesTable').innerHTML = safeInq.map(i => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="paToggleDetail('paInqDetail_${i.id}')">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2.5 text-xs text-gray-500 whitespace-nowrap">${new Date(i.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="paInqDetail_${i.id}" class="hidden bg-gray-800/60">
+                        <td colspan="4" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <span class="text-gray-300">${esc(i.email || '—')}</span></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
+                            </div>
+                            <div class="flex items-end gap-3 mb-3">
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="paNote_${i.id}" rows="2" onclick="event.stopPropagation()" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this inquiry...">${esc(i.inquiry_notes || '')}</textarea></div>
+                                <button type="button" onclick="event.stopPropagation();paSaveNote(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium flex-shrink-0">Save Note</button>
+                            </div>
+                            ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><i class="fab fa-whatsapp"></i> WhatsApp</a>` : ''}
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center text-sm">No inquiries yet — tap "Add Lead" to log one</td></tr>';
+
+                const safeMsgs = Array.isArray(messages) ? messages : [];
+                const msgStatuses = ['new','read','responded','closed'];
+                const msgCountEl = document.getElementById('pa_messagesCount');
+                if (msgCountEl) msgCountEl.textContent = safeMsgs.length + ' total';
+                document.getElementById('pa_messagesTable').innerHTML = safeMsgs.map(m => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="paToggleDetail('paMsgDetail_${m.id}')">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(m.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[160px] truncate">${esc(m.subject || 'No subject')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="paUpdateMessage(${m.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${msgStatuses.map(s => `<option value="${s}" ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2.5 text-xs text-gray-500 whitespace-nowrap">${new Date(m.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="paMsgDetail_${m.id}" class="hidden bg-gray-800/60">
+                        <td colspan="4" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(m.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <span class="text-gray-300">${esc(m.email || '—')}</span></div>
+                                <div><span class="text-gray-500">Origin:</span> <span class="text-gray-300">${esc(m.form_origin || '—')}</span></div>
+                                ${m.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(m.message)}</span></div>` : ''}
+                            </div>
+                            ${m.phone ? `<a href="https://wa.me/${relFmtWA(m.phone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium">WhatsApp</a>` : ''}
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center text-sm">No messages yet</td></tr>';
+            } catch (e) {
+                console.error('PA dashboard error:', e);
+            }
+        }
+
+        function paToggleDetail(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            const prefix = rowId.split('_')[0];
+            const isHidden = row.classList.contains('hidden');
+            document.querySelectorAll('[id^="' + prefix + '_"]').forEach(r => r.classList.add('hidden'));
+            if (isHidden) row.classList.remove('hidden');
+        }
+
+        async function paUpdateMessage(id, status) {
+            try {
+                await fetchData('/admin/api/contact-messages/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+            } catch (e) {
+                alert('Failed to update message: ' + (e.message || 'unknown error'));
+                await loadPADashboard();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('paLeadForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('paLeadMsg');
+                const payload = {
+                    full_name: document.getElementById('paLeadName').value.trim(),
+                    phone: document.getElementById('paLeadPhone').value.trim(),
+                    email: document.getElementById('paLeadEmail').value.trim(),
+                    property_id: document.getElementById('paLeadProperty').value || null,
+                    inquiry_type: document.getElementById('paLeadType').value,
+                    budget_range: document.getElementById('paLeadBudget').value.trim(),
+                    inquiry_notes: document.getElementById('paLeadNotes').value.trim(),
+                };
+                try {
+                    await fetchData('/admin/api/inquiries', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    if (msgEl) { msgEl.textContent = 'Lead saved.'; msgEl.className = 'text-xs text-emerald-400'; }
+                    e.target.reset();
+                    await loadPADashboard();
+                } catch (err) {
+                    if (msgEl) { msgEl.textContent = err.message || 'Error saving lead'; msgEl.className = 'text-xs text-red-400'; }
+                }
+            });
+        });
+
         async function vacateRoleTenant(id) {
             if (!confirm('Mark this tenant as vacated?')) return;
-            await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
-            await loadManagerDashboard();
-            if (ALL_ROLES.includes('ACCOUNTANT')) await loadAccountantDashboard();
-            if (ALL_ROLES.includes('REALTOR')) await loadRealtorDashboard();
+            try {
+                await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
+                await loadManagerDashboard();
+                if (ALL_ROLES.includes('ACCOUNTANT')) await loadAccountantDashboard();
+                if (ALL_ROLES.includes('REALTOR')) await loadRealtorDashboard();
+            } catch (e) {
+                alert('Failed to vacate tenant: ' + (e.message || 'unknown error'));
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -14029,9 +14739,9 @@ ROLE_DASHBOARD_TEMPLATE = """
             const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
             const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
-@page{size:A4;margin:22mm 20mm 22mm 20mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65;padding:22mm 20mm}
 .hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
