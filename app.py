@@ -317,6 +317,7 @@ class PropertyUnitType(db.Model):
     name = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text, nullable=True)
     annual_price = db.Column(db.Float, default=0.0)
+    caution_fee = db.Column(db.Float, default=50000.0)  # refundable deposit per room, editable per unit type
     total_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -403,6 +404,17 @@ class ContractTemplate(db.Model):
     updated_by = db.Column(db.String(80), nullable=True)
 
 
+class TermsDocument(db.Model):
+    """Editable legal/house-rules documents (e.g. resident terms & conditions)."""
+    __tablename__ = 'terms_document'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(60), unique=True, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.String(80), nullable=True)
+
+
 class PendingSignup(db.Model):
     __tablename__ = 'pending_signup'
     id = db.Column(db.Integer, primary_key=True)
@@ -420,6 +432,9 @@ class PendingSignup(db.Model):
     reviewed_by = db.Column(db.String(80), nullable=True)
     created_admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
 
+
+# Refundable security deposit collected once per room at move-in (see Resident T&C)
+CAUTION_FEE_NGN = 50000
 
 DEFAULT_SITE_CONTENT = {
     'home.hero_badge': 'Trusted property for students, families, and investors',
@@ -1044,6 +1059,126 @@ def seed_contract_templates():
             db.session.add(ct)
     db.session.commit()
 
+
+RESIDENT_TERMS_SLUG = 'resident-terms'
+DEFAULT_RESIDENT_TERMS_TITLE = 'BrightWave Habitat Resident Terms & Conditions'
+DEFAULT_RESIDENT_TERMS_BODY = """## 1. Introduction
+These Terms & Conditions ("the Rules") govern the occupation of any room or apartment ("the Premises") at Brightwave Apartment and any other property of BrightWave Habitat Enterprise ("the Company"). By paying rent and taking possession of the Premises, the Resident agrees to be bound by these Rules. These Rules form part of the tenancy agreement between the Resident and the Company.
+
+Every unit is fully self-contained (ensuite) with tiled floors, POP ceiling with fitted lightings, kitchen cabinet, and wardrobe. The property is served by a general generator, a solar-powered water pumping system, security cameras (CCTV), and a recreation area with a snooker board. These Rules exist to keep those facilities in excellent condition for everyone.
+
+## 2. Rent & Payments
+- Rent is payable yearly, in advance, before occupation or renewal of the Premises.
+- Rent covers the room/apartment only. Utility contributions, where applicable, are communicated separately by Management.
+- All payments must be made to the Company's official account and a receipt collected. Payments made to unauthorised persons are not recognised.
+- Occupation without full payment of rent and caution fee is not permitted.
+
+## 3. Caution Fee (Security Deposit)
+- A refundable caution fee of ₦50,000.00 (Fifty Thousand Naira only) is payable once per room, in addition to rent, before the Resident takes possession.
+- The caution fee is security against damage to the Premises, its fittings, and the common facilities, and against loss of keys or unpaid charges. It is NOT rent and cannot be used to offset rent.
+- Any violation of these Rules that results in damage, loss, or restoration cost will be valued and deducted from the caution fee. Residents who keep their unit in good condition lose nothing.
+- At the end of the tenancy, Management will inspect the Premises in the Resident's presence where possible, using the move-in condition of the unit as the standard.
+- Where the cost of damage exceeds the caution fee, the Resident is liable for the balance and must settle it before final checkout.
+- If the Premises are returned in good condition, the caution fee (or the balance after any deductions) will be refunded within 21 days of checkout and return of all keys.
+- Renewing Residents do not pay the caution fee again, but where deductions have been made during the tenancy, the Resident must top the caution fee back up to the full ₦50,000.00 at renewal.
+
+## 4. Care of the Room & Fittings (Strictly Prohibited)
+Each unit is handed over in good condition with tiled floors, POP ceiling and lightings, kitchen cabinet, and wardrobe. The following are strictly prohibited, and the cost of restoration will be deducted from the caution fee (repeat or serious cases may lead to termination of the tenancy):
+- Drilling holes in walls, tiles, doors, or the POP ceiling for any reason.
+- Driving nails, screws, or hooks into walls, tiles, doors, wardrobes, or cabinets.
+- Hanging, mounting, or suspending any object (fans, hangers, lines, decorations) from the POP ceiling or its light fittings.
+- Breaking, cutting, or altering any wall, partition, ceiling, or structure.
+- Writing, drawing, painting, or pasting stickers, posters, or tape on walls, doors, tiles, or windows.
+- Cracking, chipping, or staining floor and wall tiles, including dragging heavy items across tiled floors.
+- Removing, swapping, or modifying doors, windows, wardrobes, kitchen cabinets, light fittings, or any other fixture.
+- Using the kitchen cabinet or wardrobe carelessly (forcing doors, overloading shelves, water damage) beyond normal use.
+- Repainting or changing the colour of any part of the Premises without written approval from Management.
+- Changing or adding locks without written approval from Management.
+- Installing satellite dishes, antennas, air conditioners, or any external fixture without written approval from Management.
+
+## 5. Shared Facilities: Generator, Solar Water System & Recreation
+- The general generator is operated and fuelled by Management at scheduled hours. Residents must not start, stop, adjust, or connect anything directly to the generator.
+- Personal generators are not permitted inside rooms, corridors, or balconies.
+- The solar pumping machine, solar panels, water tanks, and pumping equipment must not be touched, climbed, adjusted, or tampered with. Report any water supply issue to Management instead.
+- Water is pumped for the benefit of all residents. Taps must not be left running, and hoarding or wasteful use that deprives other residents is not allowed.
+- The snooker board is provided for the enjoyment of all residents. Use it with care: no sitting or standing on it, no placing food or drinks on it, no removing the balls or cues from the recreation area, and no tearing of the felt. Damage to the snooker board or accessories will be billed to the person(s) responsible.
+- Recreation facilities close at the time set by Management, and disputes over their use should be reported rather than settled physically.
+
+## 6. Security & CCTV
+- The property is protected by security cameras (CCTV) covering common areas. Tampering with, blocking, redirecting, or disconnecting any camera is a serious violation that will be deducted from the caution fee and may lead to termination of the tenancy.
+- CCTV footage may be reviewed by Management to investigate damage, theft, or misconduct, and violations confirmed on camera will be charged to the person(s) responsible.
+- The Resident receives one set of keys at move-in. Lost keys must be reported to Management immediately; replacement of keys/locks is at the Resident's cost.
+- Doors and gates must not be left open or propped. Residents must cooperate with security personnel and any access-control measures in place.
+- The Company is not liable for the loss of, or damage to, the Resident's personal property. Residents are advised to keep valuables secure.
+
+## 7. Electrical & Fire Safety
+- Do not overload electrical sockets or use substandard extension boxes.
+- Do not tamper with electrical wiring, meters, distribution boards, or the POP ceiling lightings. Report faulty bulbs or fittings to Management; do not attempt ceiling repairs yourself.
+- Storage of petrol, kerosene, gas cylinders above the approved size, or any flammable material inside the Premises is prohibited.
+- Cooking is permitted only in the kitchen area of the Resident's self-contained unit and must never be left unattended.
+- Prepaid meter bypass or any illegal electrical connection is prohibited and will be reported to the appropriate authorities.
+
+## 8. Water, Sanitation & Cleanliness
+- The Resident must keep the Premises, including the ensuite bathroom and toilet, clean and in sanitary condition at all times.
+- Do not dispose of solids, wipes, sanitary items, or food waste in the toilet or sinks. Blockages traced to a Resident's unit will be cleared at the Resident's cost.
+- Tiled floors and bathroom walls should be cleaned with appropriate materials. Do not use acid or corrosive chemicals that etch or discolour tiles.
+- Refuse must be bagged and disposed of only at the designated refuse point.
+- Report all leaks, faulty plumbing, and water issues to Management promptly.
+
+## 9. Conduct & Noise
+- Noise must be kept at a considerate level at all times, and to a minimum between 10:00 PM and 6:00 AM.
+- Fighting, harassment, bullying, cultism, gambling for money, and the use or sale of illegal substances are strictly prohibited and will result in immediate termination of the tenancy without refund of rent.
+- Smoking is not permitted inside rooms or enclosed common areas.
+- Pets are not permitted without the written approval of Management.
+
+## 10. Guests, Visitors & Subletting
+- The Resident is fully responsible for the conduct of their guests and for any damage caused by them, including damage to shared facilities.
+- Overnight guests beyond a reasonable and occasional basis require the consent of Management.
+- Subletting, sharing for a fee, or transferring the room to another person without the Company's written consent is strictly prohibited and terminates the tenancy.
+- Only the Resident(s) named in the tenancy records may reside in the Premises.
+
+## 11. Damage, Repairs & Liability
+- The Resident must report any fault or damage in the Premises to Management within 48 hours of noticing it.
+- Damage caused by the Resident or their guests will be repaired by the Company's approved artisans and billed to the Resident or deducted from the caution fee. Residents may not carry out structural, ceiling, or electrical repairs themselves.
+- Fair wear and tear from normal, careful use is expected and will not be charged.
+- Where damage in a shared area cannot be traced to one person (including via CCTV), Management may, as a last resort, share the verified repair cost fairly among the residents of the affected block after giving notice.
+
+## 12. Inspections & Right of Entry
+- Management may inspect the Premises upon reasonable prior notice of at least 24 hours, except in emergencies (fire, flooding, security threat, suspected abandonment) where immediate entry may be necessary.
+- Routine maintenance and fumigation exercises will be communicated in advance.
+
+## 13. Vacating & Refund of Caution Fee
+- The Resident must give Management at least 30 days written notice of intention to vacate, and must vacate on or before the last day of the paid rent period.
+- Before checkout, the Resident must remove all personal belongings, clean the Premises, and return all keys.
+- A joint inspection covering walls, tiles, POP ceiling and lightings, wardrobe, kitchen cabinet, bathroom fittings, and keys will be conducted, and any deductions from the caution fee documented and communicated to the Resident.
+- Items left behind for more than 14 days after checkout may be disposed of by Management.
+
+## 14. Breach & Termination
+- A material breach of these Rules, non-payment of rent, or conduct that endangers other residents or the property may result in termination of the tenancy in line with applicable law.
+- Termination for the Resident's breach does not entitle the Resident to a refund of rent for the unexpired period, and outstanding damage costs will still be deducted from the caution fee.
+
+## 15. General
+- These Rules may be updated by the Company from time to time; the current version will be made available to Residents and takes effect from the date of communication.
+- Where any part of these Rules conflicts with a signed tenancy agreement, the signed agreement prevails.
+- These Rules are governed by the laws of the Federal Republic of Nigeria.
+
+## Acknowledgment
+I confirm that I have read and understood these Terms & Conditions, including the caution fee terms in Section 3, and I agree that the cost of any violation may be deducted from my caution fee."""
+
+
+# Small circular logo embedded so the printed/Word T&C always shows it, even offline
+RESIDENT_TERMS_LOGO_DATA_URI = "data:image/jpeg;base64,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"
+
+
+def seed_resident_terms():
+    if not TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first():
+        db.session.add(TermsDocument(
+            slug=RESIDENT_TERMS_SLUG,
+            title=DEFAULT_RESIDENT_TERMS_TITLE,
+            body=DEFAULT_RESIDENT_TERMS_BODY,
+        ))
+        db.session.commit()
+
 def ensure_unit_type_migrations():
     """Add new columns/tables to existing DB when the schema has evolved."""
     from sqlalchemy import inspect, text
@@ -1058,6 +1193,8 @@ def ensure_unit_type_migrations():
     pending = []
     if insp.has_table('tenant') and not has_column('tenant', 'unit_type_id'):
         pending.append('ALTER TABLE tenant ADD COLUMN unit_type_id INTEGER')
+    if insp.has_table('property_unit_type') and not has_column('property_unit_type', 'caution_fee'):
+        pending.append('ALTER TABLE property_unit_type ADD COLUMN caution_fee FLOAT DEFAULT 50000')
 
     for stmt in pending:
         try:
@@ -1134,6 +1271,7 @@ def initialize_app_state(include_sample_data=False, bootstrap_admin=False):
     ensure_unit_type_migrations()
     ensure_cms_baseline()
     seed_contract_templates()
+    seed_resident_terms()
     if include_sample_data:
         init_sample_data()
     seed_default_units()
@@ -1424,6 +1562,50 @@ This agreement constitutes the entire understanding between the parties and supe
 
 By signing below, the Realtor confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
     },
+    'PA': {
+        'title': 'Personal Assistant Agreement',
+        'body': """PERSONAL ASSISTANT AGREEMENT
+
+This agreement is entered into between BrightWave Habitat Enterprise, registered in Nigeria under the Corporate Affairs Commission (CAC) as BrightWave Habitat Enterprise Ltd ("the Company"), represented by its Chief Executive Officer (Walihlah Hamza), and the individual granted Personal Assistant access to this portal ("the Assistant").
+
+1. ROLE AND RESPONSIBILITIES
+The Assistant supports the CEO with communications and administrative coordination: handling property inquiries, responding to contact messages, scheduling viewings and appointments, and following up with prospects and clients as directed. The Assistant reports directly to the CEO. This engagement is on a contractor basis and does not constitute an employment relationship unless separately confirmed in writing.
+
+2. SYSTEM ACCESS
+The Assistant is granted access to inquiry handling and contact message management within the BrightWave management portal. The Assistant has no access to financial records, payment data, payroll, tenant financial information, or investor data, and must not attempt to obtain such access. Access may be revoked at any time at the discretion of the CEO.
+
+3. CONFIDENTIALITY
+All client information, prospect details, correspondence, and operational information accessed through this portal are strictly confidential. The Assistant agrees not to disclose, share, or make available any such information to third parties without prior written CEO approval. This obligation is perpetual and survives the termination or expiry of this agreement.
+
+4. CODE OF CONDUCT
+The Assistant agrees to maintain the highest professional standards in all interactions with clients, prospects, tenants, and team members, and to represent the Company accurately and courteously in every communication. Any conduct that damages the reputation of BrightWave Habitat Enterprise or involves misuse of Company resources may result in immediate access revocation and legal action under applicable Nigerian law.
+
+5. COMPENSATION
+The Assistant's compensation is a monthly amount agreed in writing with the CEO and recorded in the Company's payroll system. The CEO reserves the right to adjust compensation terms with 14 days written notice.
+
+6. DATA SECURITY
+The Assistant is solely responsible for keeping their login credentials secure and must not share access with any other person under any circumstances. Any suspected breach of system security must be reported to the CEO immediately. Unauthorised sharing of access credentials constitutes a material breach of this agreement.
+
+7. INTELLECTUAL PROPERTY
+All work produced, materials created, contact lists compiled, and operational knowledge gained during the term of this engagement remain the sole intellectual property of BrightWave Habitat Enterprise Ltd. The Assistant shall not reproduce, use, or distribute any such materials outside this engagement without prior written CEO approval.
+
+8. AGREEMENT TERM AND TERMINATION
+This agreement is effective from the date both parties digitally sign and remains in force until terminated by either party with 14 days written notice, or immediately by the Company in the event of serious misconduct, breach of confidentiality, fraud, or any material breach of this agreement. Upon termination, the Assistant must immediately cease use of all Company systems and must not retain, copy, or share any Company data.
+
+9. NON-SOLICITATION
+During the term of this agreement and for a period of 12 months following termination, the Assistant agrees not to directly solicit, approach, or transact with any client or prospect introduced by or through BrightWave Habitat Enterprise for personal commercial benefit or on behalf of a competing property business.
+
+10. AMENDMENTS
+No variation, addition, or amendment to this agreement shall be valid or binding unless made in writing and confirmed by both parties through the Company's authorised digital portal or a separately executed written instrument.
+
+11. DISPUTE RESOLUTION AND GOVERNING LAW
+Any dispute arising from or in connection with this agreement shall first be addressed through good-faith negotiation within 21 days of written notice of the dispute, then mediation, and failing that shall be resolved by the Kwara State High Court, Ilorin Division, to whose exclusive jurisdiction both parties irrevocably submit. This agreement is governed by the laws of the Federal Republic of Nigeria.
+
+12. SEVERABILITY AND ENTIRE AGREEMENT
+If any provision of this agreement is found invalid or unenforceable, the remaining provisions continue in full force and effect. This agreement constitutes the entire agreement between the parties with respect to its subject matter and supersedes all prior discussions and understandings, whether oral or written.
+
+By signing below, the Assistant confirms they have read, understood, and fully agree to all terms outlined in this agreement. This constitutes a legally binding agreement between both parties once countersigned by the Chief Executive Officer (Walihlah Hamza) of BrightWave Habitat Enterprise Ltd. Digital signatures are valid and binding under the Evidence Act 2011 of Nigeria."""
+    },
     'INVESTOR': {
         'title': 'Investment Agreement — BrightWave Habitat Enterprise',
         'body': """INVESTMENT AGREEMENT
@@ -1627,6 +1809,7 @@ def management_redirect():
 
 @app.route('/apple-touch-icon.png')
 @app.route('/apple-touch-icon-precomposed.png')
+@app.route('/bw-touch-icon-v4.png')
 def apple_touch_icon():
     # Serve from repo root first (180x180 copy of icon-192), fall back to assets
     if os.path.exists('apple-touch-icon.png'):
@@ -1636,8 +1819,79 @@ def apple_touch_icon():
     else:
         resp = make_response(send_from_directory('assets/images', 'brightwave-logo.png', mimetype='image/png'))
     resp.headers['Cache-Control'] = 'public, max-age=3600, must-revalidate'
-    resp.headers['ETag'] = 'brightwave-icon-v3'
+    resp.headers['ETag'] = 'brightwave-icon-v4'
     return resp
+
+@app.route('/icon-check')
+def icon_check():
+    """Temporary on-device diagnostic: shows whether the phone can load each home-screen icon.
+    Diagnostic v3: includes a minimal known-good manifest; served no-store so the phone
+    always gets the latest version."""
+    resp = make_response("""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZIconCheck</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+<link rel="manifest" href="/icon-check.webmanifest">
+<style>body{font-family:-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;padding:20px;margin:0}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b}
+.row img{width:48px;height:48px;border-radius:10px;background:#1e293b}
+.ok{color:#34d399}.bad{color:#f87171}.u{font-size:11px;color:#64748b;word-break:break-all}</style>
+</head>
+<body>
+<h2>BrightWave Icon Check <span style="font-size:12px;color:#34d399">diagnostic v3</span></h2>
+<p style="font-size:13px;color:#94a3b8">Each row below is an icon your phone just tried to load. All should show the wave logo with a green OK.</p>
+<div id="rows"></div>
+<p id="manifestStatus" style="font-size:13px"></p>
+<p style="font-size:13px;color:#94a3b8;margin-top:18px">Test 2: use Share &rarr; Add to Home Screen on THIS page. If the shortcut shows the logo, the icon file works and the problem is the manifest pipeline. If it shows a letter "Z", the phone is ignoring touch icons entirely.</p>
+<script>
+var urls = ['/bw-touch-icon-v4.png','/apple-touch-icon.png','/assets/images/bw-icon-192-v4.png','/assets/images/bw-icon-512-v4.png','/assets/images/bw-icon-192-mask-v4.png','/favicon-32x32.png'];
+var wrap = document.getElementById('rows');
+urls.forEach(function(u){
+    var d = document.createElement('div'); d.className = 'row';
+    var img = document.createElement('img');
+    var s = document.createElement('span'); s.textContent = 'loading...';
+    var lbl = document.createElement('div'); lbl.innerHTML = '<div class="u">' + u + '</div>';
+    lbl.insertBefore(s, lbl.firstChild);
+    img.onload = function(){ s.textContent = 'OK ' + img.naturalWidth + 'x' + img.naturalHeight; s.className = 'ok'; };
+    img.onerror = function(){ s.textContent = 'FAILED TO LOAD'; s.className = 'bad'; };
+    img.src = u;
+    d.appendChild(img); d.appendChild(lbl); wrap.appendChild(d);
+});
+fetch('/manifest.json').then(function(r){ return r.json(); }).then(function(m){
+    document.getElementById('manifestStatus').innerHTML = '<span class="ok">manifest.json OK</span> - ' + m.icons.length + ' icons declared';
+}).catch(function(e){
+    document.getElementById('manifestStatus').innerHTML = '<span class="bad">manifest.json FAILED: ' + e.message + '</span>';
+});
+</script>
+</body>
+</html>""")
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return resp
+
+
+@app.route('/icon-check.webmanifest')
+def icon_check_manifest():
+    """Minimal known-good manifest for the /icon-check diagnostic page."""
+    from flask import Response
+    manifest = {
+        "id": "/icon-check",
+        "name": "ZIconCheck",
+        "short_name": "ZIcon",
+        "start_url": "/icon-check",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png"},
+        ]
+    }
+    return Response(json.dumps(manifest), mimetype='application/manifest+json')
+
 
 @app.route('/favicon.ico')
 def favicon_ico():
@@ -1671,6 +1925,7 @@ def favicon_16():
 @app.route('/manifest.json')
 def pwa_manifest():
     manifest = {
+        "id": "/admin/dashboard",
         "name": "BrightWave Habitat Enterprise",
         "short_name": "BrightWave",
         "description": "BrightWave Habitat Enterprise Management Portal",
@@ -1681,12 +1936,14 @@ def pwa_manifest():
         "background_color": "#111827",
         "theme_color": "#475569",
         "icons": [
-            {"src": "/assets/images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/assets/images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-192-mask-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/assets/images/bw-icon-512-mask-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ]
     }
     from flask import Response
-    return Response(json.dumps(manifest), mimetype='application/json')
+    return Response(json.dumps(manifest), mimetype='application/manifest+json')
 
 @app.route('/site.webmanifest')
 def public_pwa_manifest():
@@ -1702,9 +1959,11 @@ def public_pwa_manifest():
         "background_color": "#0f172a",
         "theme_color": "#0f172a",
         "icons": [
-            {"src": "/apple-touch-icon.png?v=2", "sizes": "180x180", "type": "image/png"},
-            {"src": "/assets/images/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/assets/images/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/bw-touch-icon-v4.png", "sizes": "180x180", "type": "image/png"},
+            {"src": "/assets/images/bw-icon-192-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-512-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/assets/images/bw-icon-192-mask-v4.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/assets/images/bw-icon-512-mask-v4.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ]
     }
     from flask import Response
@@ -1713,7 +1972,7 @@ def public_pwa_manifest():
 @app.route('/sw.js')
 def service_worker():
     sw_code = """
-const CACHE_NAME = 'brightwave-portal-v6';
+const CACHE_NAME = 'brightwave-portal-v7';
 const PRECACHE_ASSETS = [
     '/admin/login',
     '/assets/images/brightwave-logo.png',
@@ -2067,7 +2326,7 @@ def admin_stats():
     """Get enhanced dashboard statistics, optionally filtered by property_id"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR'):
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA'):
             return jsonify({"success": False, "message": "Access restricted to management roles"}), 403
         from sqlalchemy import func as sqlfunc
         ensure_cms_baseline()
@@ -2105,12 +2364,36 @@ def admin_stats():
         available_units = unit_q.filter_by(status='available').count()
         occupied_units = unit_q.filter_by(status='occupied').count()
 
+        # Realtors get sales-facing counts only — no revenue, expenses, payroll, or payment history
+        if not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+            return jsonify({
+                'total_properties': total_properties,
+                'active_properties': active_properties,
+                'property_breakdown': {
+                    'hostels': hostels,
+                    'land_plots': land_plots,
+                    'residential': residential
+                },
+                'total_inquiries': total_inquiries,
+                'new_inquiries': new_inquiries,
+                'contact_messages': contact_messages,
+                'new_messages': new_messages,
+                'total_units': total_units,
+                'available_units': available_units,
+                'occupied_units': occupied_units,
+            })
+
         # --- Revenue stats (filterable via tenant property_name join) ---
         now = datetime.utcnow()
         month_start = date_type(now.year, now.month, 1)
 
-        def _rev_q(extra_filters=None):
+        def _rev_q(extra_filters=None, caution_only=False):
             q = db.session.query(sqlfunc.sum(PaymentRecord.amount))
+            # Caution fees are refundable deposits held in trust, not income
+            if caution_only:
+                q = q.filter(PaymentRecord.payment_type == 'caution')
+            else:
+                q = q.filter(db.or_(PaymentRecord.payment_type != 'caution', PaymentRecord.payment_type.is_(None)))
             if filter_prop_title:
                 q = q.join(Tenant, PaymentRecord.tenant_id == Tenant.id).filter(
                     Tenant.property_name.ilike(f'%{filter_prop_title}%')
@@ -2122,6 +2405,7 @@ def admin_stats():
 
         monthly_revenue = _rev_q([PaymentRecord.payment_date >= month_start])
         total_revenue = _rev_q()
+        caution_held = _rev_q(caution_only=True)
 
         # --- Capital/expense stats (filterable by property_id) ---
         def _exp_q(approval=None, extra_filters=None):
@@ -2152,8 +2436,8 @@ def admin_stats():
         from calendar import monthrange as _mrange
         monthly_trend = []
         for _i in range(23, -1, -1):
-            _mo = now.replace(day=1) - timedelta(days=_i * 28)
-            _yr, _mo_n = _mo.year, _mo.month
+            _idx = (now.year * 12 + now.month - 1) - _i
+            _yr, _mo_n = _idx // 12, _idx % 12 + 1
             _ms = date_type(_yr, _mo_n, 1)
             _me = date_type(_yr, _mo_n, _mrange(_yr, _mo_n)[1])
             _rev = _rev_q([PaymentRecord.payment_date >= _ms, PaymentRecord.payment_date <= _me])
@@ -2211,6 +2495,8 @@ def admin_stats():
             'occupied_units': occupied_units,
             'monthly_revenue': float(monthly_revenue),
             'total_revenue': float(total_revenue),
+            'caution_held': float(caution_held),
+            'caution_fee': CAUTION_FEE_NGN,
             'monthly_capital_spent': float(monthly_capital_spent),
             'total_capital_spent': float(total_capital_spent),
             'approved_capital_spent': float(approved_capital_spent),
@@ -2452,6 +2738,9 @@ def admin_team_member_detail(member_id):
 def upload_image():
     """Handle property image uploads"""
     try:
+        admin = get_current_admin()
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
+            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
         if 'file' not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400
         file = request.files['file']
@@ -2494,24 +2783,32 @@ def upload_expense_receipt():
 
 @app.route('/admin/api/request-password-reset', methods=['POST'])
 def request_password_reset():
-    data = request.get_json() or {}
-    identifier = (data.get('username') or data.get('email') or '').strip().lower()
-    if not identifier:
-        return jsonify({"success": False, "message": "Username or email required"}), 400
-    user = Admin.query.filter(
-        (Admin.username == identifier) | (Admin.email == identifier)
-    ).first()
-    # Always return same message to prevent user enumeration
-    if not user or user.role == 'CEO':
-        return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
-    # Expire any existing unused tokens
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
-    token = secrets.token_urlsafe(32)
-    expires = datetime.utcnow() + timedelta(hours=24)
-    prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
-    db.session.add(prt)
-    db.session.commit()
-    return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    try:
+        data = request.get_json(silent=True) or {}
+        identifier = (data.get('username') or data.get('email') or '').strip().lower()
+        if not identifier:
+            return jsonify({"success": False, "message": "Username or email required"}), 400
+        # Ensure password_reset_token table exists on first call after deploy
+        if not inspect(db.engine).has_table('password_reset_token'):
+            db.create_all()
+        user = Admin.query.filter(
+            (Admin.username == identifier) | (Admin.email == identifier)
+        ).first()
+        # Always return same message to prevent user enumeration
+        if not user or user.role == 'CEO':
+            return jsonify({"success": True, "message": "If that account exists, a reset token has been generated."})
+        # Expire any existing unused tokens
+        PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(hours=24)
+        prt = PasswordResetToken(user_id=user.id, token=token, expires_at=expires)
+        db.session.add(prt)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Reset request submitted. Your administrator has been notified and will share your reset link."})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"request_password_reset error: {str(e)}")
+        return jsonify({"success": False, "message": "Could not process reset request. Please try again."}), 500
 
 @app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -2824,8 +3121,8 @@ def admin_properties():
     if request.method == 'GET':
         try:
             admin = get_current_admin()
-            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+            if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+                return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
             properties = Property.query.order_by(Property.created_at.desc()).all()
             return jsonify([{
                 'id': prop.id,
@@ -3194,6 +3491,8 @@ def admin_project_expense_detail(expense_id):
 
         expense = ProjectExpense.query.get_or_404(expense_id)
         if request.method == 'DELETE':
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete expense records"}), 403
             db.session.delete(expense)
             db.session.commit()
             return jsonify({"success": True, "message": "Project expense removed"})
@@ -3226,7 +3525,7 @@ def admin_project_expense_detail(expense_id):
             if requested_status not in {'pending', 'approved', 'rejected'}:
                 return jsonify({"success": False, "message": "Invalid approval_status"}), 400
             if not expense_can_be_approved_by(admin):
-                return jsonify({"success": False, "message": "Only CEO or Accountant can change approval status"}), 403
+                return jsonify({"success": False, "message": "Only the CEO can change approval status"}), 403
             expense.approval_status = requested_status
             expense.approval_note = (data.get('approval_note') or '').strip() or None
             if requested_status == 'approved':
@@ -3378,8 +3677,8 @@ def admin_get_inquiries():
     """Get all property inquiries"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
         if request.method == 'POST':
             data = request.get_json() or {}
             if not data.get('full_name') or not data.get('phone'):
@@ -3432,8 +3731,8 @@ def admin_update_inquiry(inquiry_id):
     """Update or delete an inquiry"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR'):
-            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Realtor"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'REALTOR', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, Realtor, or PA"}), 403
         inquiry = PropertyInquiry.query.get_or_404(inquiry_id)
         if request.method == 'DELETE':
             db.session.delete(inquiry)
@@ -3465,8 +3764,8 @@ def admin_get_contact_messages():
     """Get all contact messages with form origin tracking"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
-            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or PA"}), 403
         messages = ContactMessage.query.order_by(ContactMessage.created_at.desc()).all()
         return jsonify([{
             'id': msg.id,
@@ -3489,8 +3788,8 @@ def admin_update_contact_message(message_id):
     """Update contact message status"""
     try:
         admin = get_current_admin()
-        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER'):
-            return jsonify({"success": False, "message": "Access restricted to CEO or Manager"}), 403
+        if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'PA'):
+            return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or PA"}), 403
         message = ContactMessage.query.get_or_404(message_id)
         data = request.get_json()
         
@@ -3713,16 +4012,13 @@ def admin_signup_approve(signup_id):
             username=username,
             email=signup.email,
             password_hash=signup.password_hash,
-            role=signup.role if signup.role != 'PA' else 'ACCOUNTANT',  # PA stored as ACCOUNTANT-class for now
+            role=signup.role,
             secondary_roles=[],
             display_name=signup.full_name,
             is_active=True,
             has_signed_contract=False,
             monthly_salary=0.0,
         )
-        # PA isn't a top-level role in valid_roles list; tag it via secondary_roles for visibility
-        if signup.role == 'PA':
-            new_admin.secondary_roles = ['PA']
         db.session.add(new_admin)
         db.session.flush()  # get new_admin.id
 
@@ -3822,7 +4118,7 @@ def admin_accounts():
         if not all(data.get(f) for f in required):
             return jsonify({"success": False, "message": "Username, email, password, and role are required"}), 400
 
-        valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+        valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
         if data['role'] not in valid_roles:
             return jsonify({"success": False, "message": f"Role must be one of: {', '.join(valid_roles)}"}), 400
 
@@ -3893,11 +4189,11 @@ def admin_account_detail(account_id):
                     return jsonify({"success": False, "message": "Cannot deactivate your own account"}), 400
                 account.is_active = bool(data['is_active'])
             if 'role' in data and account.id != ceo.id:
-                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
                 if data['role'] in valid_roles:
                     account.role = data['role']
             if 'secondary_roles' in data and account.id != ceo.id:
-                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'INVESTOR']
+                valid_roles = ['CEO', 'MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA', 'INVESTOR']
                 primary = data.get('role', account.role)
                 account.secondary_roles = [r for r in (data['secondary_roles'] or []) if r in valid_roles and r != primary and r != 'CEO']
             if 'monthly_salary' in data:
@@ -3918,8 +4214,15 @@ def admin_account_detail(account_id):
             return jsonify({"success": False, "message": "Cannot delete your own account"}), 400
         if account.role == 'CEO':
             return jsonify({"success": False, "message": "Cannot delete CEO account"}), 403
+        # Clean up rows that FK to admin.id before deleting the Admin row
         UserContract.query.filter_by(user_id=account.id).delete()
         InvestorProfile.query.filter_by(user_id=account.id).delete()
+        PasswordResetToken.query.filter_by(user_id=account.id).delete()
+        PayrollPayment.query.filter_by(user_id=account.id).delete()
+        SalaryHistory.query.filter_by(user_id=account.id).delete()
+        # Nullable FKs: detach rather than delete to preserve historical records
+        Tenant.query.filter_by(serviced_by_id=account.id).update({'serviced_by_id': None})
+        PendingSignup.query.filter_by(created_admin_id=account.id).update({'created_admin_id': None})
         db.session.delete(account)
         db.session.commit()
         return jsonify({"success": True, "message": "Account deleted"})
@@ -3937,6 +4240,7 @@ def _serialize_unit_type(ut):
         'name': ut.name,
         'description': ut.description or '',
         'annual_price': ut.annual_price or 0,
+        'caution_fee': ut.caution_fee if ut.caution_fee is not None else CAUTION_FEE_NGN,
         'total_count': ut.total_count or 0,
         'occupied_count': occupied,
         'available_count': max(0, (ut.total_count or 0) - occupied),
@@ -3969,13 +4273,15 @@ def admin_unit_types():
         try:
             annual_price = float(data.get('annual_price') or 0)
             total_count = int(data.get('total_count') or 0)
+            caution_fee = float(data['caution_fee']) if data.get('caution_fee') not in (None, '') else float(CAUTION_FEE_NGN)
         except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid annual_price or total_count"}), 400
+            return jsonify({"success": False, "message": "Invalid annual_price, caution_fee, or total_count"}), 400
         ut = PropertyUnitType(
             property_id=prop.id,
             name=data['name'].strip(),
             description=(data.get('description') or '').strip() or None,
             annual_price=annual_price,
+            caution_fee=caution_fee,
             total_count=total_count,
             is_active=bool(data.get('is_active', True)),
         )
@@ -4022,6 +4328,11 @@ def admin_unit_type_detail(unit_type_id):
                 ut.annual_price = float(data['annual_price'])
             except (TypeError, ValueError):
                 return jsonify({"success": False, "message": "Invalid annual_price"}), 400
+        if data.get('caution_fee') is not None and data.get('caution_fee') != '':
+            try:
+                ut.caution_fee = float(data['caution_fee'])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Invalid caution_fee"}), 400
         if data.get('total_count') is not None:
             try:
                 ut.total_count = int(data['total_count'])
@@ -4050,6 +4361,14 @@ def admin_tenants():
             if status_filter:
                 q = q.filter_by(status=status_filter)
             tenants = q.order_by(Tenant.created_at.desc()).all()
+            from sqlalchemy import func as _f
+            caution_rows = db.session.query(
+                PaymentRecord.tenant_id, _f.sum(PaymentRecord.amount)
+            ).filter(
+                PaymentRecord.payment_type == 'caution',
+                PaymentRecord.tenant_id.isnot(None)
+            ).group_by(PaymentRecord.tenant_id).all()
+            caution_map = {tid: float(total or 0) for tid, total in caution_rows}
             return jsonify([{
                 'id': t.id,
                 'name': t.name,
@@ -4066,6 +4385,8 @@ def admin_tenants():
                 'notes': t.notes or '',
                 'serviced_by_id': t.serviced_by_id,
                 'serviced_by_name': (t.serviced_by.display_name or t.serviced_by.username) if t.serviced_by else '',
+                'caution_paid': caution_map.get(t.id, 0.0),
+                'caution_fee': (t.unit_type.caution_fee if t.unit_type and t.unit_type.caution_fee is not None else CAUTION_FEE_NGN),
                 'created_at': t.created_at.strftime('%Y-%m-%d'),
             } for t in tenants])
 
@@ -4167,7 +4488,8 @@ def admin_payments():
             return jsonify({"success": False, "message": "Access restricted to CEO, Manager, or Accountant"}), 403
 
         if request.method == 'GET':
-            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(50).all()
+            limit = min(max(request.args.get('limit', 200, type=int), 1), 1000)
+            payments = PaymentRecord.query.order_by(PaymentRecord.created_at.desc()).limit(limit).all()
             return jsonify([serialize_payment_record(p) for p in payments])
 
         data = request.get_json() or {}
@@ -4184,7 +4506,7 @@ def admin_payments():
             tenant_name=tenant_name or None,
             amount=float(data['amount']),
             payment_date=date_type.fromisoformat(data['payment_date']) if data.get('payment_date') else date_type.today(),
-            payment_type=data.get('payment_type', 'rent'),
+            payment_type=(data.get('payment_type') or 'rent').strip().lower() or 'rent',
             description=(data.get('description') or '').strip() or None,
             recorded_by=admin.display_name or admin.username if admin else None,
         )
@@ -4206,6 +4528,8 @@ def admin_payment_detail(payment_id):
 
         payment = PaymentRecord.query.get_or_404(payment_id)
         if request.method == 'DELETE':
+            if not admin_has_any_role(admin, 'CEO'):
+                return jsonify({"success": False, "message": "Only the CEO can delete payment records"}), 403
             db.session.delete(payment)
             db.session.commit()
             return jsonify({"success": True, "message": "Payment removed"})
@@ -4216,7 +4540,7 @@ def admin_payment_detail(payment_id):
         if 'payment_date' in data and data['payment_date']:
             payment.payment_date = date_type.fromisoformat(data['payment_date'])
         if 'payment_type' in data:
-            payment.payment_type = (data['payment_type'] or 'rent').strip() or 'rent'
+            payment.payment_type = (data['payment_type'] or 'rent').strip().lower() or 'rent'
         if 'description' in data:
             payment.description = (data['description'] or '').strip() or None
 
@@ -4784,6 +5108,464 @@ def admin_contract_update(role):
     db.session.commit()
     return jsonify({"success": True, "message": "Contract saved"})
 
+# ========== RESIDENT TERMS & CONDITIONS ==========
+
+def _get_resident_terms():
+    doc = TermsDocument.query.filter_by(slug=RESIDENT_TERMS_SLUG).first()
+    if not doc:
+        doc = TermsDocument(slug=RESIDENT_TERMS_SLUG, title=DEFAULT_RESIDENT_TERMS_TITLE, body=DEFAULT_RESIDENT_TERMS_BODY)
+        db.session.add(doc)
+        db.session.commit()
+    return doc
+
+
+def _render_terms_html(body):
+    """Convert the stored plain-text terms ('## ' headings, '- ' bullets) to safe HTML."""
+    from markupsafe import escape
+    parts, para, list_open = [], [], False
+
+    def close_list():
+        nonlocal list_open
+        if list_open:
+            parts.append('</ul>')
+            list_open = False
+
+    def flush_para():
+        nonlocal para
+        if para:
+            parts.append('<p>' + '<br>'.join(str(escape(x)) for x in para) + '</p>')
+            para = []
+
+    for line in (body or '').replace('\r\n', '\n').split('\n'):
+        s = line.strip()
+        if s.startswith('## '):
+            close_list()
+            flush_para()
+            parts.append('<h2>' + str(escape(s[3:])) + '</h2>')
+        elif s.startswith('- '):
+            flush_para()
+            if not list_open:
+                parts.append('<ul>')
+                list_open = True
+            parts.append('<li>' + str(escape(s[2:])) + '</li>')
+        elif not s:
+            close_list()
+            flush_para()
+        else:
+            close_list()
+            para.append(s)
+    close_list()
+    flush_para()
+    return '\n'.join(parts)
+
+
+def _resident_terms_document_html(doc, toolbar=False, download_qs=''):
+    """Full standalone document HTML shared by the print view and the Word download."""
+    from markupsafe import escape
+    title = str(escape(doc.title))
+    terms_html = _render_terms_html(doc.body)
+    updated = doc.updated_at.strftime('%d %B %Y') if doc.updated_at else ''
+    toolbar_html = ''
+    if toolbar:
+        toolbar_html = (
+            '<div class="no-print" style="position:sticky;top:0;background:#0f172a;padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:center">'
+            '<button onclick="window.print()" style="background:#0d9488;color:#fff;border:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Print / Save as PDF</button>'
+            f'<a href="/admin/resident-terms/pdf{download_qs}" style="background:#2563eb;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download PDF</a>'
+            f'<a href="/admin/resident-terms/download{download_qs}" style="background:#334155;color:#fff;text-decoration:none;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600">Download for Word</a>'
+            '</div>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{title}</title>
+<style>
+    body {{ font-family: Georgia, 'Times New Roman', serif; color: #111827; background: #e5e7eb; margin: 0; }}
+    .sheet {{ max-width: 800px; margin: 0 auto; background: #ffffff; padding: 48px 56px; line-height: 1.55; }}
+    .letterhead {{ text-align: center; border-bottom: 3px double #0d9488; padding-bottom: 14px; margin-bottom: 20px; }}
+    .letterhead h1 {{ margin: 0; font-size: 21px; letter-spacing: 2px; color: #0f766e; text-transform: uppercase; }}
+    .letterhead p {{ margin: 4px 0 0; font-size: 12px; color: #475569; }}
+    .doc-title {{ text-align: center; font-size: 16px; font-weight: bold; margin: 18px 0 4px; text-transform: uppercase; }}
+    .doc-sub {{ text-align: center; font-size: 11px; color: #64748b; margin-bottom: 22px; }}
+    h2 {{ font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 22px 0 8px; }}
+    p, li {{ font-size: 12.5px; }}
+    ul {{ margin: 6px 0 10px; padding-left: 22px; }}
+    li {{ margin-bottom: 4px; }}
+    .fill-table {{ width: 100%; border-collapse: collapse; margin: 8px 0 6px; }}
+    .fill-table td {{ font-size: 12.5px; padding: 7px 6px; }}
+    .fill-line {{ display: inline-block; min-width: 230px; border-bottom: 1px dotted #64748b; }}
+    .sig-block {{ display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; }}
+    .sig {{ flex: 1; font-size: 12px; }}
+    .sig .line {{ border-bottom: 1px solid #111827; height: 34px; margin-bottom: 5px; }}
+    .footer {{ margin-top: 34px; text-align: center; font-size: 10.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }}
+    /* margin:0 removes the browser's own print header/footer (URL, date, time, page numbers) */
+    @page {{ size: A4; margin: 0; }}
+    @media print {{ body {{ background: #fff; }} .sheet {{ padding: 16mm 18mm; max-width: none; }} .no-print {{ display: none !important; }} }}
+</style>
+</head>
+<body>
+{toolbar_html}
+<div class="sheet">
+    <div class="letterhead">
+        <img src="{RESIDENT_TERMS_LOGO_DATA_URI}" width="58" height="58" alt="BrightWave Habitat logo" style="display:block;margin:0 auto 8px;border-radius:50%">
+        <h1>BrightWave Habitat Enterprise</h1>
+        <p>Malete, Kwara State, Nigeria &middot; brightwavehabitat.com &middot; brightwavehabitat@gmail.com</p>
+    </div>
+    <div class="doc-title">{title}</div>
+    <div class="doc-sub">{('Effective Date: ' + updated) if updated else ''}</div>
+    <table class="fill-table">
+        <tr><td><strong>Resident Name:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Property:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Room / Unit:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+        <tr><td><strong>Move-in Date:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Caution Fee Paid:</strong> &#8358;<span class="fill-line" style="min-width:150px">&nbsp;</span></td></tr>
+        <tr><td><strong>Next of Kin:</strong> <span class="fill-line">&nbsp;</span></td>
+            <td><strong>Next of Kin Phone:</strong> <span class="fill-line">&nbsp;</span></td></tr>
+    </table>
+    {terms_html}
+    <div class="sig-block">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Resident Signature &amp; Date</strong>
+        </div>
+        <div class="sig">
+            <div class="line"></div>
+            <strong>For BrightWave Habitat Enterprise (Management)</strong>
+        </div>
+    </div>
+    <div class="sig-block" style="margin-top:28px">
+        <div class="sig">
+            <div class="line"></div>
+            <strong>Witness Name, Signature &amp; Date</strong>
+        </div>
+        <div class="sig"></div>
+    </div>
+    <div class="footer">BrightWave Habitat Enterprise &middot; Resident Terms &amp; Conditions{(' &middot; Last updated ' + updated) if updated else ''}</div>
+</div>
+</body>
+</html>"""
+
+
+def _terms_slug_for_property(property_id):
+    """One TermsDocument per property, keyed by slug; no property_id = the general template."""
+    return RESIDENT_TERMS_SLUG if not property_id else f'{RESIDENT_TERMS_SLUG}-prop-{int(property_id)}'
+
+
+def _resolve_terms_doc(property_id):
+    """Property-specific terms when they exist, otherwise the general template."""
+    if property_id:
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return doc
+    return _get_resident_terms()
+
+
+@app.route('/admin/api/resident-terms', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def admin_resident_terms():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return jsonify({"success": False, "message": "Access restricted"}), 403
+
+    if request.method == 'GET':
+        property_id = request.args.get('property_id', type=int)
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if doc:
+            return jsonify({
+                'title': doc.title,
+                'body': doc.body,
+                'updated_at': doc.updated_at.isoformat() if doc.updated_at else None,
+                'updated_by': doc.updated_by,
+                'exists': True,
+                'property_id': property_id,
+            })
+        # No custom doc for this property yet — serve the general template as a starting point
+        base = _get_resident_terms()
+        title = base.title
+        if property_id:
+            prop = Property.query.get(property_id)
+            if prop:
+                title = f"{base.title} ({prop.title})"
+        return jsonify({
+            'title': title,
+            'body': base.body,
+            'updated_at': None,
+            'updated_by': None,
+            'exists': False,
+            'property_id': property_id,
+        })
+
+    if not admin_has_any_role(admin, 'CEO'):
+        return jsonify({"success": False, "message": "CEO only"}), 403
+    if not validate_csrf_token():
+        return jsonify({"success": False, "message": "Invalid CSRF token"}), 403
+
+    if request.method == 'DELETE':
+        property_id = request.args.get('property_id', type=int)
+        if not property_id:
+            return jsonify({"success": False, "message": "The general template cannot be deleted"}), 400
+        doc = TermsDocument.query.filter_by(slug=_terms_slug_for_property(property_id)).first()
+        if not doc:
+            return jsonify({"success": False, "message": "This property has no custom terms"}), 404
+        db.session.delete(doc)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Custom terms removed — this property now uses the general template"})
+
+    data = request.get_json() or {}
+    property_id = data.get('property_id') or None
+    slug = _terms_slug_for_property(property_id)
+    doc = TermsDocument.query.filter_by(slug=slug).first()
+    if not doc:
+        base = _get_resident_terms()
+        doc = TermsDocument(slug=slug, title=base.title, body=base.body)
+        db.session.add(doc)
+    if (data.get('title') or '').strip():
+        doc.title = data['title'].strip()
+    if (data.get('body') or '').strip():
+        doc.body = data['body']
+    doc.updated_by = admin.username
+    doc.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Terms & Conditions saved"})
+
+
+@app.route('/admin/resident-terms/print')
+@login_required
+def admin_resident_terms_print():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    pid = request.args.get('property_id', type=int)
+    doc = _resolve_terms_doc(pid)
+    return make_response(_resident_terms_document_html(doc, toolbar=True, download_qs=f'?property_id={pid}' if pid else ''))
+
+
+@app.route('/admin/resident-terms/download')
+@login_required
+def admin_resident_terms_download():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    doc = _resolve_terms_doc(request.args.get('property_id', type=int))
+    resp = make_response(_resident_terms_document_html(doc, toolbar=False))
+    resp.headers['Content-Type'] = 'application/msword'
+    resp.headers['Content-Disposition'] = 'attachment; filename="BrightWave-Resident-Terms-and-Conditions.doc"'
+    return resp
+
+
+def _resident_terms_pdf_bytes(title, body, updated_text, logo_data_uri, font_dir):
+    """Render the resident terms document as a branded PDF. Pure fpdf2, no browser involved."""
+    import base64
+    import io
+    from fpdf import FPDF
+
+    TEAL = (15, 118, 110)
+    INK = (17, 24, 39)
+    SLATE = (71, 85, 105)
+    FAINT = (148, 163, 184)
+    RULE = (203, 213, 225)
+
+    class TermsPDF(FPDF):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self.doc_title = ''
+
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_font(self.brand_font, '', 8)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  ' + self.doc_title,
+                      align='C', new_x='LMARGIN', new_y='NEXT')
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y() + 1, self.w - self.r_margin, self.get_y() + 1)
+            self.set_y(self.get_y() + 5)
+
+        def footer(self):
+            self.set_y(-14)
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+            self.set_y(-12)
+            self.set_font(self.brand_font, '', 7.5)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  brightwavehabitat.com', align='L')
+            self.cell(0, 5, f'Page {self.page_no()}/{{nb}}', align='R')
+
+    pdf = TermsPDF(orientation='P', unit='mm', format='A4')
+    pdf.doc_title = title
+
+    # DejaVu covers the naira sign; fall back to core Helvetica if fonts are missing.
+    reg = os.path.join(font_dir, 'DejaVuSans.ttf')
+    bold = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
+    if os.path.exists(reg) and os.path.exists(bold):
+        pdf.add_font('Deja', '', reg)
+        pdf.add_font('Deja', 'B', bold)
+        pdf.brand_font = 'Deja'
+    else:
+        pdf.brand_font = 'helvetica'
+        body = body.replace('₦', 'NGN ')
+        title = title.replace('₦', 'NGN ')
+    F = pdf.brand_font
+
+    pdf.set_margins(18, 20, 18)
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+
+    # ---- Letterhead ----
+    try:
+        logo_bytes = base64.b64decode(logo_data_uri.split(',', 1)[1])
+        pdf.image(io.BytesIO(logo_bytes), x=pdf.w / 2 - 8, y=pdf.get_y(), w=16, h=16)
+        pdf.set_y(pdf.get_y() + 18)
+    except Exception:
+        pass
+    pdf.set_font(F, 'B', 15)
+    pdf.set_text_color(*TEAL)
+    pdf.cell(0, 7, 'BRIGHTWAVE HABITAT ENTERPRISE', align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_font(F, '', 8.5)
+    pdf.set_text_color(*SLATE)
+    pdf.cell(0, 5, 'Malete, Kwara State, Nigeria  |  brightwavehabitat.com  |  brightwavehabitat@gmail.com',
+             align='C', new_x='LMARGIN', new_y='NEXT')
+    y = pdf.get_y() + 2
+    pdf.set_draw_color(*TEAL)
+    pdf.set_line_width(0.5)
+    pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+    pdf.set_line_width(0.2)
+    pdf.line(pdf.l_margin, y + 1, pdf.w - pdf.r_margin, y + 1)
+    pdf.set_y(y + 7)
+
+    # ---- Document title ----
+    pdf.set_font(F, 'B', 12)
+    pdf.set_text_color(*INK)
+    pdf.multi_cell(0, 6, title.upper(), align='C', new_x='LMARGIN', new_y='NEXT')
+    if updated_text:
+        pdf.set_font(F, '', 8.5)
+        pdf.set_text_color(*FAINT)
+        pdf.cell(0, 5, 'Effective Date: ' + updated_text, align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_y(pdf.get_y() + 4)
+
+    # ---- Fill-in details ----
+    def fill_row(label_a, label_b):
+        col = usable / 2
+        y0 = pdf.get_y()
+        for i, label in enumerate((label_a, label_b)):
+            x0 = pdf.l_margin + i * col
+            pdf.set_xy(x0, y0)
+            pdf.set_font(F, 'B', 9)
+            pdf.set_text_color(*INK)
+            lw = pdf.get_string_width(label) + 2
+            pdf.cell(lw, 7, label)
+            pdf.set_draw_color(*SLATE)
+            pdf.set_line_width(0.2)
+            pdf.set_dash_pattern(dash=0.6, gap=0.9)
+            pdf.line(x0 + lw + 1, y0 + 6, x0 + col - 6, y0 + 6)
+            pdf.set_dash_pattern()
+        pdf.set_y(y0 + 9)
+
+    fill_row('Resident Name:', 'Phone:')
+    fill_row('Property:', 'Room / Unit:')
+    fill_row('Move-in Date:', 'Caution Fee Paid: ₦' if F == 'Deja' else 'Caution Fee Paid: NGN')
+    fill_row('Next of Kin:', 'Next of Kin Phone:')
+    pdf.set_y(pdf.get_y() + 2)
+
+    # ---- Body: '## ' headings, '- ' bullets, plain paragraphs ----
+    para = []
+
+    def flush_para():
+        if para:
+            pdf.set_font(F, '', 9.5)
+            pdf.set_text_color(*INK)
+            pdf.multi_cell(0, 4.9, ' '.join(para), new_x='LMARGIN', new_y='NEXT')
+            pdf.set_y(pdf.get_y() + 1.5)
+            para.clear()
+
+    for raw in (body or '').replace('\r\n', '\n').split('\n'):
+        s = raw.strip().replace('**', '')
+        if s.startswith('## '):
+            flush_para()
+            if pdf.get_y() > pdf.h - 45:
+                pdf.add_page()
+            pdf.set_y(pdf.get_y() + 2.5)
+            pdf.set_font(F, 'B', 10)
+            pdf.set_text_color(*INK)
+            pdf.cell(0, 5.5, s[3:].upper(), new_x='LMARGIN', new_y='NEXT')
+            y = pdf.get_y() + 0.5
+            pdf.set_draw_color(*RULE)
+            pdf.set_line_width(0.2)
+            pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+            pdf.set_y(y + 2.5)
+        elif s.startswith('- '):
+            flush_para()
+            pdf.set_font(F, '', 9.5)
+            pdf.set_text_color(*INK)
+            x0 = pdf.l_margin
+            pdf.set_x(x0 + 2)
+            pdf.cell(4, 4.9, '•' if F == 'Deja' else '-')
+            pdf.multi_cell(usable - 6, 4.9, s[2:], new_x='LMARGIN', new_y='NEXT')
+            pdf.set_y(pdf.get_y() + 0.6)
+        elif not s:
+            flush_para()
+        else:
+            para.append(s)
+    flush_para()
+
+    # ---- Signatures (keep together on one page) ----
+    if pdf.get_y() > pdf.h - 75:
+        pdf.add_page()
+    pdf.set_y(pdf.get_y() + 8)
+
+    def sig_pair(label_a, label_b):
+        col = usable / 2
+        y0 = pdf.get_y()
+        for i, label in enumerate((label_a, label_b)):
+            if not label:
+                continue
+            x0 = pdf.l_margin + i * col
+            pdf.set_draw_color(*INK)
+            pdf.set_line_width(0.3)
+            pdf.line(x0, y0 + 12, x0 + col - 12, y0 + 12)
+            pdf.set_xy(x0, y0 + 13)
+            pdf.set_font(F, 'B', 8.5)
+            pdf.set_text_color(*INK)
+            pdf.multi_cell(col - 12, 4, label)
+        pdf.set_y(y0 + 24)
+
+    sig_pair('Resident Signature & Date', 'For BrightWave Habitat Enterprise (Management)')
+    sig_pair('Witness Name, Signature & Date', '')
+
+    return bytes(pdf.output())
+
+
+@app.route('/admin/resident-terms/pdf')
+@login_required
+def admin_resident_terms_pdf():
+    admin = get_current_admin()
+    if not admin or not admin_has_any_role(admin, 'CEO', 'MANAGER', 'ACCOUNTANT'):
+        return redirect(url_for('admin_login'))
+    pid = request.args.get('property_id', type=int)
+    doc = _resolve_terms_doc(pid)
+    updated = doc.updated_at.strftime('%d %B %Y') if doc.updated_at else ''
+    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'fonts')
+    try:
+        pdf_bytes = _resident_terms_pdf_bytes(doc.title, doc.body, updated, RESIDENT_TERMS_LOGO_DATA_URI, font_dir)
+    except Exception:
+        app.logger.exception('Resident terms PDF generation failed')
+        return make_response('PDF generation failed. Check server logs.', 500)
+    fname = 'BrightWave-Resident-Terms-and-Conditions'
+    if pid:
+        prop = Property.query.get(pid)
+        if prop and prop.title:
+            safe = re.sub(r'[^A-Za-z0-9]+', '-', prop.title).strip('-')
+            if safe:
+                fname += '-' + safe
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    resp.headers['Content-Disposition'] = f'attachment; filename="{fname}.pdf"'
+    return resp
+
 # ========== ADMIN TEMPLATES ==========
 
 RESET_PASSWORD_TEMPLATE = """
@@ -4832,7 +5614,9 @@ LOGIN_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BrightWave Habitat Enterprise</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5110,7 +5894,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
     <link rel="shortcut icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5269,6 +6055,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <button onclick="showSection('contractsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
                 <i class="fas fa-file-contract w-5 text-center flex-shrink-0"></i><span class="sb-label">Contracts</span>
             </button>
+            <button onclick="showSection('residentTermsSection')" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left">
+                <i class="fas fa-file-signature w-5 text-center flex-shrink-0"></i><span class="sb-label">Resident T&amp;C</span>
+            </button>
         </nav>
         <!-- Footer -->
         <div class="flex-shrink-0 px-2 pb-3 pt-2 border-t border-slate-700/60 space-y-0.5">
@@ -5407,6 +6196,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
+                            <option value="PA">Personal Assistant (PA)</option>
                             <option value="INVESTOR">Investor</option>
                         </select>
                     </div>
@@ -5461,6 +6251,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <option value="MANAGER">Manager</option>
                             <option value="ACCOUNTANT">Accountant</option>
                             <option value="REALTOR">Realtor</option>
+                            <option value="PA">Personal Assistant (PA)</option>
                             <option value="INVESTOR">Investor</option>
                         </select>
                     </div>
@@ -5470,6 +6261,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="MANAGER" class="accent-blue-500"> Manager</label>
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="ACCOUNTANT" class="accent-green-500"> Accountant</label>
                             <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="REALTOR" class="accent-amber-500"> Realtor</label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer"><input type="checkbox" name="secondary_roles" value="PA" class="accent-teal-500"> PA</label>
                         </div>
                         <p class="text-xs text-gray-600 mt-1">Cannot add CEO or same as primary role. Investor cannot have secondary roles.</p>
                     </div>
@@ -5839,6 +6631,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <input type="number" id="utPrice" step="1000" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room)</label>
+                        <input type="number" id="utCaution" step="1000" min="0" value="50000"
+                               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                    </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                         <input type="number" id="utCount" min="0"
                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
@@ -5881,6 +6677,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Total Units</label>
                             <input type="number" id="utEditCount" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                         </div>
+                    </div>
+                    <div><label class="block text-xs font-medium mb-1 text-gray-400">Caution Fee (₦, per room — refundable deposit)</label>
+                        <input type="number" id="utEditCaution" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
                     </div>
                     <p id="utEditMsg" class="text-sm hidden"></p>
                     <div class="flex gap-3 pt-1">
@@ -5958,7 +6757,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input type="date" id="pmtDate" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label>
                         <select id="pmtType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                            <option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
+                            <option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option>
                         </select>
                     </div>
                     <div><label class="block text-xs font-medium mb-1 text-gray-400">Unit</label><input type="text" id="pmtUnit" placeholder="e.g. 1A, 2B" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
@@ -6645,6 +7444,51 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             <div id="contractsLoading" class="text-gray-400 text-sm">Loading contracts...</div>
             <div id="contractsList" class="space-y-6 hidden"></div>
         </section>
+
+        <!-- Resident Terms & Conditions -->
+        <section id="residentTermsSection" class="hidden space-y-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Resident Terms &amp; Conditions</h2>
+                    <p class="text-sm text-gray-400 mt-0.5">The house rules every resident signs before moving in — caution fee, prohibited damage, facility rules. Edit below, then print or download for signing.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a id="rtcPrintLink" href="/admin/resident-terms/print" target="_blank" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-print text-xs"></i> Preview / Print</a>
+                    <a id="rtcPdfLink" href="/admin/resident-terms/pdf" onclick="return shareTermsPdf(this)" class="bg-teal-700 hover:bg-teal-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-share-alt text-xs"></i> Share / Download PDF</a>
+                    <a id="rtcDownloadLink" href="/admin/resident-terms/download" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-word text-xs"></i> Download for Word</a>
+                </div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4 sm:p-5 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-gray-400">Terms For</label>
+                        <select id="rtcProperty" onchange="loadResidentTerms()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                            <option value="">General (all properties)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <p id="rtcScopeHint" class="text-xs text-gray-500 pb-2.5"></p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-gray-400">Document Title</label>
+                    <input type="text" id="rtcTitle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-medium text-gray-400">Terms Body</label>
+                        <span class="text-[11px] text-gray-500">Formatting: start a line with <code class="bg-gray-700 px-1 rounded">## </code> for a section heading, <code class="bg-gray-700 px-1 rounded">- </code> for a bullet point.</span>
+                    </div>
+                    <textarea id="rtcBody" rows="26" spellcheck="false" class="w-full px-3 py-2.5 bg-gray-900/70 border border-gray-600 rounded-lg text-[13px] leading-relaxed font-mono contract-scroll" style="resize:vertical"></textarea>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="saveResidentTerms()" id="rtcSaveBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-5 rounded-lg"><i class="fas fa-save mr-1.5 text-xs"></i>Save Changes</button>
+                    <button onclick="deleteResidentTerms()" id="rtcDeleteBtn" class="hidden bg-red-900/70 hover:bg-red-800 text-red-200 text-sm font-medium py-2 px-4 rounded-lg"><i class="fas fa-trash mr-1.5 text-xs"></i>Remove Custom Version</button>
+                    <span id="rtcMsg" class="text-sm"></span>
+                    <span id="rtcUpdated" class="text-xs text-gray-500 ml-auto"></span>
+                </div>
+            </div>
+        </section>
         </main>
     </div><!-- end mainWrapper -->
 
@@ -6667,6 +7511,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
 
         function fmtNGN(v) { return '\u20a6' + Number(v || 0).toLocaleString('en-NG'); }
+        // Escape untrusted strings (public-form input) before putting them in innerHTML
+        function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -6776,6 +7622,16 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             <p class="text-xs text-emerald-400 font-medium uppercase tracking-wide truncate">This Month Revenue</p>
                             <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.monthly_revenue)}</p>
                             <p class="text-xs text-emerald-300 mt-0.5 truncate">All time: ${fmtCompact(stats.total_revenue)}</p>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-800/60 border border-indigo-700/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
+                        <div class="w-9 h-9 bg-indigo-700/70 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-shield-halved text-indigo-300 text-sm"></i>
+                        </div>
+                        <div class="min-w-0 overflow-hidden">
+                            <p class="text-xs text-indigo-400 font-medium uppercase tracking-wide truncate">Caution Fees Held</p>
+                            <p class="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">${fmtCompact(stats.caution_held || 0)}</p>
+                            <p class="text-xs text-indigo-300 mt-0.5 truncate">Refundable deposits &middot; not counted as revenue</p>
                         </div>
                     </div>
                     <div class="bg-slate-700/80 border border-slate-600/40 p-4 rounded-xl flex items-start gap-3 shadow overflow-hidden">
@@ -6986,12 +7842,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const properties = await fetchData('/admin/api/properties');
                 document.getElementById('propertiesTable').innerHTML = properties.map(prop => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${prop.title}</td>
+                        <td class="py-2">${esc(prop.title)}</td>
                         <td class="py-2"><span class="px-2 py-1 text-xs rounded ${
-                            prop.property_type === 'hostel' ? 'bg-slate-600' : 
+                            prop.property_type === 'hostel' ? 'bg-slate-600' :
                             prop.property_type === 'land' ? 'bg-green-600' : 'bg-amber-600'
-                        }">${prop.property_type === 'hostel' ? 'Apartment' : prop.property_type.charAt(0).toUpperCase() + prop.property_type.slice(1)}</span></td>
-                        <td class="py-2">${prop.location}</td>
+                        }">${prop.property_type === 'hostel' ? 'Apartment' : ((prop.property_type || 'N/A').charAt(0).toUpperCase() + (prop.property_type || '').slice(1))}</span></td>
+                        <td class="py-2">${esc(prop.location)}</td>
                         <td class="py-2">${prop.construction_status || 'N/A'}</td>
                         <td class="py-2">${prop.capital_budget ? fmtNGN(prop.capital_budget) : '—'}</td>
                         <td class="py-2 flex items-center gap-3">
@@ -7024,16 +7880,17 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const inquiries = await fetchData('/admin/api/inquiries');
                 document.getElementById('inquiriesTable').innerHTML = inquiries.map(inq => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${inq.full_name}</td>
-                        <td class="py-2">${inq.property_title}</td>
-                        <td class="py-2">${inq.inquiry_type}</td>
+                        <td class="py-2">${esc(inq.full_name)}</td>
+                        <td class="py-2">${esc(inq.property_title)}</td>
+                        <td class="py-2">${esc(inq.inquiry_type)}</td>
                         <td class="py-2">
                             <select onchange="updateInquiry(${inq.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${inq.status === 'new' ? 'selected' : ''}>New</option>
                                 <option value="contacted" ${inq.status === 'contacted' ? 'selected' : ''}>Contacted</option>
-                                <option value="qualified" ${inq.status === 'qualified' ? 'selected' : ''}>Qualified</option>
-                                <option value="converted" ${inq.status === 'converted' ? 'selected' : ''}>Converted</option>
+                                <option value="viewing_scheduled" ${inq.status === 'viewing_scheduled' ? 'selected' : ''}>Viewing Scheduled</option>
+                                <option value="offer_made" ${inq.status === 'offer_made' ? 'selected' : ''}>Offer Made</option>
                                 <option value="closed" ${inq.status === 'closed' ? 'selected' : ''}>Closed</option>
+                                <option value="rejected" ${inq.status === 'rejected' ? 'selected' : ''}>Rejected</option>
                             </select>
                         </td>
                         <td class="py-2">${new Date(inq.created_at).toLocaleDateString()}</td>
@@ -7052,9 +7909,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                 const messages = await fetchData('/admin/api/contact-messages');
                 document.getElementById('messagesTable').innerHTML = messages.map(msg => `
                     <tr class="border-b border-gray-600">
-                        <td class="py-2">${msg.full_name}</td>
-                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${msg.form_origin}</span></td>
-                        <td class="py-2">${msg.subject || 'No Subject'}</td>
+                        <td class="py-2">${esc(msg.full_name)}</td>
+                        <td class="py-2"><span class="px-2 py-1 text-xs rounded bg-blue-600">${esc(msg.form_origin)}</span></td>
+                        <td class="py-2">${esc(msg.subject || 'No Subject')}</td>
                         <td class="py-2">
                             <select onchange="updateMessage(${msg.id}, this.value)" class="bg-gray-700 text-white px-2 py-1 rounded">
                                 <option value="new" ${msg.status === 'new' ? 'selected' : ''}>New</option>
@@ -7771,7 +8628,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 
         // ===== CEO SECTION NAVIGATION =====
         function showSection(sectionId, skipCollapse = false) {
-            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection'];
+            const sections = ['overviewSection','tenantsSection','unitTypesSection','paymentsSection','signaturesSection','accountsSection','payrollSection','approvalsSection','investorsSection','propertiesSection','constructionSection','capitalSection','maintenanceSection','contentSection','teamSection','inquiriesSection2','propertiesTableSection','contractsSection','residentTermsSection'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -7795,6 +8652,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             if (sectionId === 'capitalSection') { loadCapitalPropertyOptions(); }
             if (sectionId === 'maintenanceSection') { loadMaintenancePropertyOptions(); loadMaintenanceRecords(); }
             if (sectionId === 'contractsSection') loadContracts();
+            if (sectionId === 'residentTermsSection') loadResidentTerms();
             if (sectionId === 'propertiesSection') {
                 const tableSection = document.getElementById('propertiesTableSection');
                 if (tableSection) tableSection.classList.remove('hidden');
@@ -8752,7 +9610,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full flex-shrink-0 ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}">${t.status}</span>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs">
+                        <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
                             <div>
                                 <p class="text-gray-500 mb-1">Property</p>
                                 <p class="text-gray-300">${t.property_name || '—'}</p>
@@ -8770,6 +9628,14 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <p class="text-emerald-400 font-semibold text-sm">${t.monthly_rent ? fmtNGN(t.monthly_rent) : '—'}</p>
                             </div>
                             <div>
+                                <p class="text-gray-500 mb-1">Caution Fee</p>
+                                ${(t.caution_paid || 0) >= (t.caution_fee || 50000)
+                                    ? `<span class="inline-block px-2 py-0.5 rounded-full bg-teal-800/60 text-teal-300 border border-teal-700/40 font-medium">Paid ${fmtNGN(t.caution_paid)}</span>`
+                                    : (t.caution_paid || 0) > 0
+                                        ? `<span class="inline-block px-2 py-0.5 rounded-full bg-amber-800/50 text-amber-300 border border-amber-700/40 font-medium">Part-paid ${fmtNGN(t.caution_paid)}</span>`
+                                        : `<span class="inline-block px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-700/40 font-medium">Due ${fmtNGN(t.caution_fee || 50000)}</span>`}
+                            </div>
+                            <div>
                                 <p class="text-gray-500 mb-1">Lease Period</p>
                                 <p class="text-gray-400">${t.lease_start || '—'}${t.lease_end ? ' → '+t.lease_end : ''}</p>
                             </div>
@@ -8781,6 +9647,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         <div class="flex justify-between items-center pt-2 border-t border-gray-600/50">
                             <button onclick='openTenantEdit(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30 transition-colors"><i class="fas fa-pen mr-1"></i>Edit</button>
                             <div class="flex gap-2">
+                                ${(t.caution_paid || 0) < (t.caution_fee || 50000) && t.status === 'active' ? `<button onclick="recordCautionFee(${t.id}, ${(t.caution_fee || 50000) - (t.caution_paid || 0)})" class="text-xs text-teal-400 hover:text-teal-300 py-1 px-2 rounded hover:bg-teal-900/30 transition-colors"><i class="fas fa-shield-halved mr-1"></i>Record Caution</button>` : ''}
                                 <button onclick="vacateTenant(${t.id})" class="text-xs text-amber-400 hover:text-amber-300 py-1 px-2 rounded hover:bg-amber-900/30 transition-colors">${t.status === 'active' ? 'Mark Vacated' : 'Vacated'}</button>
                                 <button onclick="hardDeleteTenant(${t.id})" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded hover:bg-red-900/30 transition-colors">Remove</button>
                             </div>
@@ -8789,6 +9656,24 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 document.getElementById('tenantsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading tenants</p>';
             }
+        }
+
+        async function recordCautionFee(tenantId, amountDue) {
+            if (!confirm('Record caution fee payment of ' + fmtNGN(amountDue) + ' for this tenant?')) return;
+            try {
+                await fetchData('/admin/api/payments', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tenant_id: tenantId,
+                        amount: amountDue,
+                        payment_type: 'caution',
+                        description: 'Caution fee (refundable security deposit)'
+                    })
+                });
+                loadTenants(document.getElementById('tnFilterStatus').value);
+                loadStats();
+            } catch (e) { alert('Error recording caution fee'); }
         }
 
         async function vacateTenant(id) {
@@ -8909,9 +9794,10 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                         <p class="text-emerald-400 font-bold text-sm flex-shrink-0">${u.annual_price ? fmtNGN(u.annual_price) : '\u20a60'}<span class="text-[10px] text-gray-400 font-normal">/yr</span></p>
                                     </div>
                                     ${u.description ? `<p class="text-xs text-gray-400 mb-3">${u.description}</p>` : ''}
-                                    <div class="flex items-center gap-3 text-xs mb-3">
+                                    <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
                                         <span class="px-2 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">${u.occupied_count}/${u.total_count} occupied</span>
                                         <span class="text-gray-500">${u.available_count} available</span>
+                                        <span class="px-2 py-1 rounded-full bg-teal-900/40 text-teal-300 border border-teal-700/40"><i class="fas fa-shield-halved mr-1"></i>Caution: ${fmtNGN(u.caution_fee !== undefined && u.caution_fee !== null ? u.caution_fee : 50000)}</span>
                                     </div>
                                     <div class="flex justify-end gap-2 pt-2 border-t border-gray-600/50">
                                         <button onclick='openUtEdit(${JSON.stringify(u).replace(/'/g,"&#39;")})' class="text-xs text-blue-400 hover:text-blue-300 py-1 px-2 rounded hover:bg-blue-900/30"><i class="fas fa-pen mr-1"></i>Edit</button>
@@ -8938,6 +9824,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utName').value,
                         description: document.getElementById('utDesc').value,
                         annual_price: document.getElementById('utPrice').value || 0,
+                        caution_fee: document.getElementById('utCaution').value || 50000,
                         total_count: document.getElementById('utCount').value || 0,
                     })
                 });
@@ -8958,6 +9845,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             document.getElementById('utEditName').value = u.name || '';
             document.getElementById('utEditDesc').value = u.description || '';
             document.getElementById('utEditPrice').value = u.annual_price || 0;
+            document.getElementById('utEditCaution').value = (u.caution_fee !== undefined && u.caution_fee !== null) ? u.caution_fee : 50000;
             document.getElementById('utEditCount').value = u.total_count || 0;
             document.getElementById('utEditMsg').classList.add('hidden');
             const modal = document.getElementById('utEditModal');
@@ -8987,6 +9875,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         name: document.getElementById('utEditName').value,
                         description: document.getElementById('utEditDesc').value,
                         annual_price: document.getElementById('utEditPrice').value || 0,
+                        caution_fee: document.getElementById('utEditCaution').value || 50000,
                         total_count: document.getElementById('utEditCount').value || 0,
                     })
                 });
@@ -9354,12 +10243,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else {
                 detailsHtml = `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
-                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${rd.experience || '—'}</p></div>
-                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${rd.availability || '—'}</p></div>
+                        <div><p class="text-gray-500">Experience</p><p class="text-gray-300">${esc(rd.experience || '—')}</p></div>
+                        <div><p class="text-gray-500">Availability</p><p class="text-gray-300">${esc(rd.availability || '—')}</p></div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-2">Submitted ${s.created_at || '—'}</p>`;
             }
-            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${rd.notes}"</p>` : '';
+            const notesHtml = rd.notes ? `<p class="text-xs text-gray-400 mt-2 italic">"${esc(rd.notes)}"</p>` : '';
 
             let actionsHtml = '';
             if (s.status === 'pending') {
@@ -9371,15 +10260,15 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } else if (s.status === 'approved') {
                 actionsHtml = `<p class="text-xs text-emerald-400 mt-3 pt-3 border-t border-gray-700/50">✓ Approved ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}</p>`;
             } else if (s.status === 'rejected') {
-                actionsHtml = `<p class="text-xs text-red-400 mt-3 pt-3 border-t border-gray-700/50">✕ Rejected ${s.reviewed_at || ''} by ${s.reviewed_by || '—'}${s.rejection_reason ? ' — ' + s.rejection_reason : ''}</p>`;
+                actionsHtml = `<p class="text-xs text-red-400 mt-3 pt-3 border-t border-gray-700/50">✕ Rejected ${s.reviewed_at || ''} by ${esc(s.reviewed_by || '—')}${s.rejection_reason ? ' — ' + esc(s.rejection_reason) : ''}</p>`;
             }
 
             return `
                 <div class="bg-gray-800 border border-gray-700/60 rounded-xl p-4">
                     <div class="flex items-start justify-between gap-3 flex-wrap">
                         <div class="min-w-0">
-                            <p class="font-semibold text-white">${s.full_name} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
-                            <p class="text-xs text-gray-400 mt-0.5">${s.email}${s.phone ? ' · ' + s.phone : ''}</p>
+                            <p class="font-semibold text-white">${esc(s.full_name)} <span class="text-xs ml-1 px-2 py-0.5 rounded-full text-white ${roleColor}">${s.role}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">${esc(s.email)}${s.phone ? ' · ' + esc(s.phone) : ''}</p>
                         </div>
                         <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${s.status === 'pending' ? 'bg-amber-900/50 text-amber-300' : s.status === 'approved' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'}">${s.status}</span>
                     </div>
@@ -9530,7 +10419,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             try {
                 const payments = await fetchData('/admin/api/payments');
                 ceoPaymentsCache = payments;
-                const typeColors = {rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+                const typeColors = {rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
                 document.getElementById('paymentsContainer').innerHTML = payments.length ? payments.map(p => {
                     const meta = parsePaymentMeta(p.description);
                     return `<div class="bg-gray-700/40 border border-gray-600/50 rounded-xl p-4">
@@ -9664,11 +10553,11 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                         </div>
                         <div class="mb-3">
                             <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Title</label>
-                            <input id="ctTitle_${c.role}" type="text" value="${c.title.replace(/"/g, '&quot;')}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-slate-400">
+                            <input id="ctTitle_${c.role}" type="text" value="${esc(c.title || '')}" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-slate-400">
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Agreement Body</label>
-                            <textarea id="ctBody_${c.role}" rows="20" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono leading-relaxed focus:outline-none focus:border-slate-400 resize-y">${c.body}</textarea>
+                            <textarea id="ctBody_${c.role}" rows="20" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm font-mono leading-relaxed focus:outline-none focus:border-slate-400 resize-y">${esc(c.body || '')}</textarea>
                         </div>
                         <p id="ctMsg_${c.role}" class="text-xs mt-2 hidden"></p>
                     </div>
@@ -9699,6 +10588,147 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             } catch (e) {
                 msgEl.textContent = e.message || 'Error saving';
                 msgEl.className = 'text-xs mt-2 text-red-400';
+            }
+        }
+
+        // ===== RESIDENT TERMS & CONDITIONS =====
+        function rtcQuery() {
+            const pid = document.getElementById('rtcProperty').value;
+            return pid ? ('?property_id=' + pid) : '';
+        }
+
+        async function loadResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const sel = document.getElementById('rtcProperty');
+            try {
+                if (!sel.dataset.loaded) {
+                    try {
+                        const props = await fetchData('/admin/api/properties');
+                        sel.innerHTML = '<option value="">General (all properties)</option>' +
+                            props.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+                        sel.dataset.loaded = '1';
+                    } catch (e) { /* keep General-only dropdown */ }
+                }
+                const q = rtcQuery();
+                document.getElementById('rtcPrintLink').href = '/admin/resident-terms/print' + q;
+                document.getElementById('rtcPdfLink').href = '/admin/resident-terms/pdf' + q;
+                document.getElementById('rtcDownloadLink').href = '/admin/resident-terms/download' + q;
+                const doc = await fetchData('/admin/api/resident-terms' + q);
+                document.getElementById('rtcTitle').value = doc.title || '';
+                document.getElementById('rtcBody').value = doc.body || '';
+                const updatedEl = document.getElementById('rtcUpdated');
+                if (doc.updated_at) {
+                    const when = new Date(doc.updated_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+                    updatedEl.textContent = 'Last updated ' + when + (doc.updated_by ? ' by ' + doc.updated_by : '');
+                } else {
+                    updatedEl.textContent = '';
+                }
+                const hint = document.getElementById('rtcScopeHint');
+                const delBtn = document.getElementById('rtcDeleteBtn');
+                if (sel.value && !doc.exists) {
+                    hint.textContent = 'No custom terms for this property yet — showing the general template as a starting point. Edit and Save to create its own version.';
+                    hint.className = 'text-xs text-amber-400 pb-2.5';
+                    delBtn.classList.add('hidden');
+                } else if (sel.value) {
+                    hint.textContent = 'This property has its own custom terms. Printing and downloads for it use this version.';
+                    hint.className = 'text-xs text-teal-400 pb-2.5';
+                    delBtn.classList.remove('hidden');
+                } else {
+                    hint.textContent = 'The general template — used by every property that has no custom version of its own.';
+                    hint.className = 'text-xs text-gray-500 pb-2.5';
+                    delBtn.classList.add('hidden');
+                }
+                msgEl.textContent = '';
+            } catch (e) {
+                msgEl.textContent = 'Error loading terms';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        async function saveResidentTerms() {
+            const msgEl = document.getElementById('rtcMsg');
+            const body = document.getElementById('rtcBody').value;
+            if (!body.trim()) {
+                msgEl.textContent = 'Terms body cannot be empty';
+                msgEl.className = 'text-sm text-red-400';
+                return;
+            }
+            msgEl.textContent = 'Saving...';
+            msgEl.className = 'text-sm text-gray-400';
+            try {
+                const res = await fetchData('/admin/api/resident-terms', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('rtcTitle').value.trim(),
+                        body: body,
+                        property_id: document.getElementById('rtcProperty').value || null
+                    })
+                });
+                msgEl.textContent = res.message || 'Saved';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error saving';
+                msgEl.className = 'text-sm text-red-400';
+            }
+        }
+
+        function triggerBlobDownload(blob, fname) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+
+        function shareTermsPdf(link) {
+            // Phones: open the native share sheet (WhatsApp etc.). Desktop: normal download.
+            if (!navigator.canShare) return true;
+            (async () => {
+                const btnHtml = link.innerHTML;
+                link.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Preparing...';
+                try {
+                    const res = await fetch(link.href, { credentials: 'same-origin' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const blob = await res.blob();
+                    let fname = 'BrightWave-Resident-Terms-and-Conditions.pdf';
+                    const cd = res.headers.get('Content-Disposition') || '';
+                    const m = cd.match(/filename="([^"]+)"/);
+                    if (m) fname = m[1];
+                    const file = new File([blob], fname, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: fname.replace('.pdf', '') });
+                    } else {
+                        triggerBlobDownload(blob, fname);
+                    }
+                } catch (err) {
+                    if (!err || err.name !== 'AbortError') {
+                        window.location.href = link.href;
+                    }
+                } finally {
+                    link.innerHTML = btnHtml;
+                }
+            })();
+            return false;
+        }
+
+        async function deleteResidentTerms() {
+            const pid = document.getElementById('rtcProperty').value;
+            if (!pid) return;
+            if (!confirm('Remove the custom terms for this property? It will go back to using the general template.')) return;
+            const msgEl = document.getElementById('rtcMsg');
+            try {
+                const res = await fetchData('/admin/api/resident-terms?property_id=' + pid, { method: 'DELETE' });
+                msgEl.textContent = res.message || 'Removed';
+                msgEl.className = 'text-sm text-emerald-400';
+                loadResidentTerms();
+            } catch (e) {
+                msgEl.textContent = e.message || 'Error removing';
+                msgEl.className = 'text-sm text-red-400';
             }
         }
 
@@ -9795,9 +10825,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
             const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
-@page{size:A4;margin:22mm 20mm 22mm 20mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65;padding:22mm 20mm}
 .hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
@@ -10046,7 +11076,9 @@ ROLE_DASHBOARD_TEMPLATE = """
     <link rel="shortcut icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/bw-touch-icon-v4.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=4">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#475569">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -10184,15 +11216,19 @@ ROLE_DASHBOARD_TEMPLATE = """
         <div class="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
             <!-- Top row: brand + logout -->
             <div class="flex items-center justify-between gap-2 mb-2">
-                <div class="min-w-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover ring-2 ring-slate-600 flex-shrink-0">
+                    <div class="min-w-0">
                     <p class="text-xs text-gray-500 uppercase tracking-widest hidden sm:block">BrightWave Habitat Enterprise</p>
                     <h1 id="portalTitle" class="text-base sm:text-xl font-bold text-slate-300 truncate">
                         {% if user_role == 'MANAGER' %}Property Manager Portal
                         {% elif user_role == 'ACCOUNTANT' %}Finance Portal
                         {% elif user_role == 'REALTOR' %}Realtor Portal
                         {% elif user_role == 'INVESTOR' %}Investor Portal
+                        {% elif user_role == 'PA' %}Assistant Portal
                         {% else %}{{ user_role }} Portal{% endif %}
                     </h1>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <div class="text-right hidden sm:block">
@@ -10836,7 +11872,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Fallback Tenant Name</label><input id="accPaymentTenantName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Amount *</label><input id="accPaymentAmount" type="number" step="100" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Date *</label><input id="accPaymentDate" type="date" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
-                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
+                        <div><label class="block text-xs font-medium mb-1 text-gray-400">Payment Type</label><select id="accPaymentType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"><option value="rent">Rent</option><option value="caution">Caution Fee</option><option value="deposit">Deposit</option><option value="fee">Fee</option><option value="other">Other</option></select></div>
                         <div><label class="block text-xs font-medium mb-1 text-gray-400">Description</label><input id="accPaymentDesc" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></div>
                         <div class="sm:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" id="accPaymentSubmit" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Record Payment</button><button type="button" id="accPaymentCancel" class="hidden bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg text-sm">Cancel Edit</button><span id="accPaymentMsg" class="text-sm"></span></div>
                     </form>
@@ -10850,6 +11886,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <select id="accPayFilterType" onchange="renderAccountantPayments()" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white">
                             <option value="">All types</option>
                             <option value="rent">Rent</option>
+                            <option value="caution">Caution Fee</option>
                             <option value="deposit">Deposit</option>
                             <option value="fee">Fee</option>
                             <option value="other">Other</option>
@@ -10871,7 +11908,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <h3 class="font-semibold text-lg text-slate-300">Cash Flow Summary</h3>
                     <span class="text-xs text-gray-500" id="cf_subtitle">All time · approved expenses</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden flex items-start gap-2.5">
                         <div class="w-7 h-7 bg-emerald-800/60 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><i class="fas fa-arrow-circle-down text-emerald-400 text-xs"></i></div>
                         <div class="min-w-0"><p class="text-[10px] text-emerald-400 uppercase tracking-wide mb-0.5 truncate">Revenue In</p><p id="cf_revenue" class="text-sm font-bold text-white truncate">—</p></div>
@@ -10990,18 +12027,18 @@ ROLE_DASHBOARD_TEMPLATE = """
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
-                    <span class="text-xs text-gray-500">10% sale · 10% first year rent</span>
+                    <span class="text-xs text-gray-500">10% of net · sale &amp; first year rent</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                     <div class="bg-emerald-900/40 border border-emerald-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1 truncate">Rental Commission</p>
                         <p id="rel_rental_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-emerald-600/70 mt-0.5">10% × active leases</p>
+                        <p class="text-[11px] text-emerald-600/70 mt-0.5">10% of net × active leases</p>
                     </div>
                     <div class="bg-blue-900/40 border border-blue-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1 truncate">Sale Commission</p>
                         <p id="rel_sale_comm" class="text-base font-bold text-white truncate">—</p>
-                        <p class="text-[11px] text-blue-600/70 mt-0.5">10% × closed deals</p>
+                        <p class="text-[11px] text-blue-600/70 mt-0.5">10% of net × closed deals</p>
                     </div>
                     <div class="bg-amber-900/40 border border-amber-700/30 rounded-xl p-3 overflow-hidden">
                         <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1 truncate">Total Estimated</p>
@@ -11055,6 +12092,104 @@ ROLE_DASHBOARD_TEMPLATE = """
                         <button id="viewRoleDocBtn_REALTOR" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
                     </div>
                 </div>
+            {% elif r == 'PA' %}
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-bold text-white">Assistant Desk</h2>
+                        <p class="text-sm text-gray-400 mt-1">Inquiries, messages, and client follow-ups on behalf of the CEO.</p>
+                    </div>
+                    <button onclick="loadPADashboard()" class="text-xs text-gray-300 hover:text-white border border-gray-600 rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5"><i class="fas fa-rotate-right text-[10px]"></i> Refresh</button>
+                </div>
+                <div class="border-b border-gray-700 mb-5 -mx-3 sm:mx-0 overflow-x-auto">
+                    <div class="flex gap-0.5 min-w-max px-3 sm:px-1" id="paTabBar">
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors bg-slate-700 text-white border-b-2 border-slate-400 whitespace-nowrap" data-tab="paTabOverview" onclick="showPaTab('paTabOverview')"><i class="fas fa-gauge-high mr-1.5 text-[11px]"></i>Overview</button>
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="paTabInquiries" onclick="showPaTab('paTabInquiries')"><i class="fas fa-user-plus mr-1.5 text-[11px]"></i>Inquiries <span id="paInqBadge" class="hidden ml-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                        <button class="pa-tab-btn px-3 sm:px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-colors text-gray-400 hover:text-white border-b-2 border-transparent whitespace-nowrap" data-tab="paTabMessages" onclick="showPaTab('paTabMessages')"><i class="fas fa-envelope mr-1.5 text-[11px]"></i>Messages <span id="paMsgBadge" class="hidden ml-1 bg-amber-600 text-white text-xs px-1.5 py-0.5 rounded-full leading-none align-middle"></span></button>
+                    </div>
+                </div>
+
+                <div id="paTabOverview">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-blue-600">
+                            <p class="text-[11px] text-blue-400 uppercase tracking-wide mb-1">New Inquiries</p>
+                            <p id="pa_newInquiries" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-amber-600">
+                            <p class="text-[11px] text-amber-400 uppercase tracking-wide mb-1">New Messages</p>
+                            <p id="pa_newMessages" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-teal-600">
+                            <p class="text-[11px] text-teal-400 uppercase tracking-wide mb-1">Total Inquiries</p>
+                            <p id="pa_totalInquiries" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 border-l-4 border-emerald-600">
+                            <p class="text-[11px] text-emerald-400 uppercase tracking-wide mb-1">Units Available</p>
+                            <p id="pa_availableUnits" class="text-2xl font-bold text-white">—</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-gray-800 rounded-xl p-4 sm:p-5">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <h3 class="font-semibold text-slate-300">Latest Inquiries</h3>
+                                <button onclick="showPaTab('paTabInquiries')" class="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+                            </div>
+                            <div id="pa_recentInquiries"></div>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4 sm:p-5">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <h3 class="font-semibold text-slate-300">Latest Messages</h3>
+                                <button onclick="showPaTab('paTabMessages')" class="text-xs text-amber-400 hover:text-amber-300">View all →</button>
+                            </div>
+                            <div id="pa_recentMessages"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="paTabInquiries" class="hidden">
+                    <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <h3 class="font-semibold text-lg text-slate-300">Property Inquiries</h3>
+                            <div class="flex items-center gap-2">
+                                <span id="pa_inquiriesCount" class="text-xs text-gray-500"></span>
+                                <button onclick="paToggleLeadForm()" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium"><i class="fas fa-plus mr-1 text-[10px]"></i>Add Lead</button>
+                            </div>
+                        </div>
+                        <form id="paLeadForm" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-700/40 border border-gray-600/60 rounded-xl p-4 mb-4">
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Full Name *</label><input id="paLeadName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Phone *</label><input id="paLeadPhone" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Email</label><input id="paLeadEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Property</label><select id="paLeadProperty" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">General Inquiry</option></select></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Type</label><select id="paLeadType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="general">General</option><option value="viewing">Viewing</option><option value="rental">Rental</option><option value="purchase">Purchase</option></select></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Budget Range</label><input id="paLeadBudget" placeholder="e.g. ₦300k–₦500k" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+                            <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Notes</label><textarea id="paLeadNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white resize-none"></textarea></div>
+                            <div class="sm:col-span-2 flex items-center gap-3">
+                                <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Save Lead</button>
+                                <p id="paLeadMsg" class="text-xs"></p>
+                            </div>
+                        </form>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400 min-w-[140px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="pa_inquiriesTable"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="paTabMessages" class="hidden">
+                    <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h3 class="font-semibold text-lg text-slate-300">Website Messages</h3>
+                            <span id="pa_messagesCount" class="text-xs text-gray-500"></span>
+                        </div>
+                        <div class="overflow-x-auto"><table class="w-full text-sm min-w-[480px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Name</th><th class="py-2 text-left text-gray-400">Subject</th><th class="py-2 text-left text-gray-400 min-w-[120px]">Status</th><th class="py-2 text-left text-gray-400">Date</th></tr></thead><tbody id="pa_messagesTable"></tbody></table></div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6 mt-6">
+                    <h3 class="font-semibold text-lg mb-4 text-slate-300">Your Documents</h3>
+                    <div class="flex items-center justify-between gap-3 p-4 bg-gray-700 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <div><p class="font-medium text-white">Personal Assistant Agreement</p><p id="roleDocStatus_PA" class="text-xs text-gray-400 mt-0.5">Loading...</p></div>
+                        </div>
+                        <button id="viewRoleDocBtn_PA" onclick="viewMyContract()" class="hidden text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-3 py-1.5 flex-shrink-0">View Agreement</button>
+                    </div>
+                </div>
             {% endif %}
 
         </div>
@@ -11073,7 +12208,9 @@ ROLE_DASHBOARD_TEMPLATE = """
             return response.json();
         }
 
-        function formatNGN(v) { return '₦' + Number(v).toLocaleString('en-NG'); }
+        function formatNGN(v) { return '₦' + Number(v || 0).toLocaleString('en-NG'); }
+        // Escape untrusted strings (public-form input) before putting them in innerHTML
+        function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
@@ -11151,6 +12288,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 else if (role === 'MANAGER') { await loadManagerDashboard(); loadRoleDocument('MANAGER'); }
                 else if (role === 'ACCOUNTANT') { await loadAccountantDashboard(); loadRoleDocument('ACCOUNTANT'); }
                 else if (role === 'REALTOR') { await loadRealtorDashboard(); loadRoleDocument('REALTOR'); }
+                else if (role === 'PA') { await loadPADashboard(); loadRoleDocument('PA'); }
             } finally {
                 dismissLoader();
             }
@@ -11162,7 +12300,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             const typeFilter = document.getElementById('accPayFilterType')?.value || '';
             const fromFilter = document.getElementById('accPayFilterFrom')?.value || '';
             const toFilter = document.getElementById('accPayFilterTo')?.value || '';
-            const typeColors = { rent:'bg-blue-900/50 text-blue-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
+            const typeColors = { rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300' };
             let filtered = accountantPaymentsCache;
             if (typeFilter) filtered = filtered.filter(p => p.payment_type === typeFilter);
             if (fromFilter) filtered = filtered.filter(p => p.payment_date >= fromFilter);
@@ -12015,9 +13153,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
                 document.getElementById('mgr_inquiriesTable').innerHTML = safeInquiries.map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="mgrToggleInqDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
-                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
                                 ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
@@ -12028,11 +13166,11 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="mgrInqDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email || '—'}</a></div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <a href="mailto:${esc(i.email)}" class="text-blue-400 hover:underline">${esc(i.email || '—')}</a></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
                             </div>
                             ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp</a>` : ''}
                         </td>
@@ -12194,7 +13332,15 @@ ROLE_DASHBOARD_TEMPLATE = """
         async function loadAccountantDashboard() {
             try {
                 const expenseFilters = getExpenseFilters('acc');
-                const [stats, payments, tenants, props, expensesData] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/payments'), fetchData('/admin/api/tenants?status=active'), fetchData('/admin/api/properties'), fetchData('/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters))]);
+                const _endpoints = ['/admin/api/stats', '/admin/api/payments', '/admin/api/tenants?status=active', '/admin/api/properties', '/admin/api/project-expenses' + buildExpenseQuery(expenseFilters.propertyId, expenseFilters)];
+                const _settled = await Promise.allSettled(_endpoints.map(u => fetchData(u)));
+                const _failed = _settled.map((r, i) => r.status === 'rejected' ? _endpoints[i] : null).filter(Boolean);
+                if (_failed.length) console.error('Accountant dashboard partial failure:', _failed, _settled.filter(r => r.status === 'rejected').map(r => r.reason && r.reason.message));
+                const stats = _settled[0].status === 'fulfilled' ? _settled[0].value : {};
+                const payments = _settled[1].status === 'fulfilled' ? _settled[1].value : [];
+                const tenants = _settled[2].status === 'fulfilled' ? _settled[2].value : [];
+                const props = _settled[3].status === 'fulfilled' ? _settled[3].value : [];
+                const expensesData = _settled[4].status === 'fulfilled' ? _settled[4].value : {expenses: [], by_category: {}, approval_totals: {}};
                 countUp('acc_total_revenue', stats.total_revenue || 0, fmtCompact);
                 countUp('acc_monthly_revenue', stats.monthly_revenue || 0, fmtCompact);
                 countUp('acc_tenants', stats.active_tenants || 0, v => Math.round(v));
@@ -12351,6 +13497,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     }
                 }
             } catch (e) {
+                console.error('Accountant dashboard render error:', e);
                 document.getElementById('acc_paymentsContainer').innerHTML = '<p class="text-red-400 py-4 text-sm">Error loading financial data</p>';
                 const expenseList = document.getElementById('accExpenseList');
                 const expenseBreakdown = document.getElementById('accExpenseBreakdown');
@@ -12369,7 +13516,13 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         async function loadRealtorDashboard() {
             try {
-                const [stats, props, inquiries, units] = await Promise.all([fetchData('/admin/api/stats'), fetchData('/admin/api/properties'), fetchData('/admin/api/inquiries'), fetchData('/admin/api/units')]);
+                // Per-fetch fallbacks: one failed endpoint must not blank the whole dashboard
+                const [stats, props, inquiries, units] = await Promise.all([
+                    fetchData('/admin/api/stats').catch(() => ({})),
+                    fetchData('/admin/api/properties').catch(() => []),
+                    fetchData('/admin/api/inquiries').catch(() => []),
+                    fetchData('/admin/api/units').catch(() => [])
+                ]);
                 countUp('rel_properties', stats.active_properties || 0, v => Math.round(v));
                 countUp('rel_available_units', stats.available_units || 0, v => Math.round(v));
                 countUp('rel_inquiries', stats.new_inquiries || 0, v => Math.round(v));
@@ -12422,9 +13575,10 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const priceMap = {};
                 (props || []).forEach(p => { if (p.title) priceMap[p.title] = parseFloat(p.price) || 0; });
                 const closedInquiries = (inquiries || []).filter(i => i.status === 'closed');
-                const saleComm = closedInquiries.reduce((sum, i) => sum + (priceMap[i.property_title] || 0) * 0.10, 0);
+                // Commission = 10% of NET (gross/11, ~9.09% of gross) — must match payroll's total - total/1.1
+                const saleComm = closedInquiries.reduce((sum, i) => sum + (priceMap[i.property_title] || 0) / 11, 0);
                 const rentedUnits = (units || []).filter(u => u.status === 'occupied' && u.monthly_rent);
-                const rentalComm = rentedUnits.reduce((sum, u) => sum + (parseFloat(u.monthly_rent) || 0) * 0.10, 0);
+                const rentalComm = rentedUnits.reduce((sum, u) => sum + (parseFloat(u.monthly_rent) || 0) / 11, 0);
                 const totalComm = saleComm + rentalComm;
                 const relRC = document.getElementById('rel_rental_comm');
                 const relSC = document.getElementById('rel_sale_comm');
@@ -12435,8 +13589,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 if (relTC) relTC.textContent = formatNGN(totalComm);
                 if (relCD) {
                     const rows = [
-                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${i.full_name} · <span class="text-gray-500">${i.property_title}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] * 0.10)} <span class="text-gray-500">sale</span></span></div>`),
-                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${u.unit_code} · <span class="text-gray-500">${u.property_title || ''}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) * 0.10)} <span class="text-gray-500">rent</span></span></div>`),
+                        ...closedInquiries.filter(i => priceMap[i.property_title]).map(i => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${esc(i.full_name)} · <span class="text-gray-500">${esc(i.property_title)}</span></span><span class="text-blue-300 font-medium">${formatNGN(priceMap[i.property_title] / 11)} <span class="text-gray-500">sale</span></span></div>`),
+                        ...rentedUnits.map(u => `<div class="flex items-center justify-between text-xs py-1.5 border-b border-gray-700/50"><span class="text-gray-300">${esc(u.unit_code)} · <span class="text-gray-500">${esc(u.property_title || '')}</span></span><span class="text-emerald-300 font-medium">${formatNGN(parseFloat(u.monthly_rent) / 11)} <span class="text-gray-500">rent</span></span></div>`),
                     ];
                     relCD.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-gray-500 py-2">No closed deals or occupied units yet — commission will appear here once leases and sales are recorded.</p>';
                 }
@@ -12452,9 +13606,9 @@ ROLE_DASHBOARD_TEMPLATE = """
                 const statusColors = {new:'bg-blue-900/50 text-blue-300',contacted:'bg-teal-900/50 text-teal-300',viewing_scheduled:'bg-purple-900/50 text-purple-300',offer_made:'bg-amber-900/50 text-amber-300',closed:'bg-emerald-900/50 text-emerald-300',rejected:'bg-red-900/50 text-red-300'};
                 document.getElementById('rel_inquiriesTable').innerHTML = inquiries.length ? inquiries.slice(0, 60).map(i => `
                     <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="relToggleDetail(${i.id})">
-                        <td class="py-2.5 pr-3 font-medium text-sm">${i.full_name || '—'}</td>
-                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${i.property_title || 'General'}</td>
-                        <td class="py-2.5 pr-3 text-xs capitalize">${(i.inquiry_type || 'general').replace(/_/g,' ')}</td>
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-3 text-xs capitalize">${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</td>
                         <td class="py-2.5 pr-2">
                             <select onclick="event.stopPropagation()" onchange="relUpdateInquiryStatus(${i.id}, this.value)" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
                                 ${statuses.map(s => `<option value="${s}"${s === i.status ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
@@ -12465,14 +13619,14 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <tr id="relDetail_${i.id}" class="hidden bg-gray-800/60">
                         <td colspan="5" class="px-3 pb-4 pt-2">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
-                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${i.phone || '—'}</span></div>
-                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${i.email}" class="text-blue-400 hover:underline">${i.email}</a>` : '<span class="text-gray-500">—</span>'}</div>
-                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${i.budget_range || '—'}</span></div>
-                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${i.preferred_move_date || '—'}</span></div>
-                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${i.message}</span></div>` : ''}
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> ${i.email && i.email !== 'manual@entry.local' ? `<a href="mailto:${esc(i.email)}" class="text-blue-400 hover:underline">${esc(i.email)}</a>` : '<span class="text-gray-500">—</span>'}</div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message && i.message !== 'Manually added by staff' ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
                             </div>
                             <div class="flex items-end gap-3">
-                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${i.inquiry_notes || ''}</textarea></div>
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="relNote_${i.id}" rows="2" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this lead...">${esc(i.inquiry_notes || '')}</textarea></div>
                                 <div class="flex flex-col gap-1.5 flex-shrink-0">
                                     <button type="button" onclick="relSaveNotes(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium">Save Note</button>
                                     <button type="button" onclick="event.stopPropagation();relEditLead(_relLeadsCache.find(x=>x.id===${i.id}))" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium">Edit</button>
@@ -12607,12 +13761,203 @@ ROLE_DASHBOARD_TEMPLATE = """
             });
         });
 
+        // Shared by MANAGER and PA inquiry tables (was previously undefined in this template)
+        async function updateInquiry(id, status) {
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+                if (ALL_ROLES.includes('MANAGER')) await loadManagerDashboard();
+                if (ALL_ROLES.includes('PA')) await loadPADashboard();
+            } catch (e) {
+                alert('Failed to update inquiry: ' + (e.message || 'unknown error'));
+            }
+        }
+
+        function paToggleLeadForm() {
+            const form = document.getElementById('paLeadForm');
+            if (form) form.classList.toggle('hidden');
+        }
+
+        async function paSaveNote(id) {
+            const ta = document.getElementById('paNote_' + id);
+            if (!ta) return;
+            try {
+                await fetchData('/admin/api/inquiries/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ inquiry_notes: ta.value }) });
+                ta.classList.add('border-emerald-500');
+                setTimeout(() => ta.classList.remove('border-emerald-500'), 1200);
+            } catch (e) {
+                alert('Failed to save note: ' + (e.message || 'unknown error'));
+            }
+        }
+
+        function showPaTab(tabId) {
+            ['paTabOverview', 'paTabInquiries', 'paTabMessages'].forEach(t => {
+                const el = document.getElementById(t);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+            });
+            document.querySelectorAll('.pa-tab-btn').forEach(btn => {
+                const active = btn.dataset.tab === tabId;
+                btn.classList.toggle('bg-slate-700', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('border-slate-400', active);
+                btn.classList.toggle('text-gray-400', !active);
+                btn.classList.toggle('border-transparent', !active);
+            });
+        }
+
+        async function loadPADashboard() {
+            try {
+                const [stats, inquiries, messages, props] = await Promise.all([
+                    fetchData('/admin/api/stats').catch(() => ({})),
+                    fetchData('/admin/api/inquiries').catch(() => []),
+                    fetchData('/admin/api/contact-messages').catch(() => []),
+                    fetchData('/admin/api/properties').catch(() => [])
+                ]);
+                countUp('pa_newInquiries', stats.new_inquiries || 0, v => Math.round(v));
+                countUp('pa_newMessages', stats.new_messages || 0, v => Math.round(v));
+                countUp('pa_totalInquiries', stats.total_inquiries || 0, v => Math.round(v));
+                countUp('pa_availableUnits', stats.available_units || 0, v => Math.round(v));
+
+                const safeInq = Array.isArray(inquiries) ? inquiries : [];
+                const safeMsgList = Array.isArray(messages) ? messages : [];
+
+                const newInqCount = safeInq.filter(i => i.status === 'new').length;
+                const inqBadge = document.getElementById('paInqBadge');
+                if (inqBadge) { inqBadge.textContent = newInqCount; inqBadge.classList.toggle('hidden', !newInqCount); }
+                const newMsgCount = safeMsgList.filter(m => m.status === 'new').length;
+                const msgBadge = document.getElementById('paMsgBadge');
+                if (msgBadge) { msgBadge.textContent = newMsgCount; msgBadge.classList.toggle('hidden', !newMsgCount); }
+
+                const propSel = document.getElementById('paLeadProperty');
+                if (propSel) propSel.innerHTML = '<option value="">General Inquiry</option>' + (Array.isArray(props) ? props : []).map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+
+                const recentInqEl = document.getElementById('pa_recentInquiries');
+                if (recentInqEl) recentInqEl.innerHTML = safeInq.slice(0, 5).map(i => `
+                    <div class="flex items-center justify-between gap-3 py-2 border-b border-gray-700/50">
+                        <div class="min-w-0"><p class="text-sm text-gray-200 truncate">${esc(i.full_name || '—')}</p><p class="text-[11px] text-gray-500 truncate">${esc(i.property_title || 'General')} · ${esc((i.inquiry_type || 'general').replace(/_/g,' '))}</p></div>
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded flex-shrink-0 ${i.status === 'new' ? 'bg-blue-900/60 text-blue-300' : 'bg-gray-700 text-gray-400'}">${esc((i.status || '').replace(/_/g,' '))}</span>
+                    </div>`).join('') || '<p class="text-gray-500 text-sm py-3 text-center">No inquiries yet</p>';
+
+                const recentMsgEl = document.getElementById('pa_recentMessages');
+                if (recentMsgEl) recentMsgEl.innerHTML = safeMsgList.slice(0, 5).map(m => `
+                    <div class="flex items-center justify-between gap-3 py-2 border-b border-gray-700/50">
+                        <div class="min-w-0"><p class="text-sm text-gray-200 truncate">${esc(m.full_name || '—')}</p><p class="text-[11px] text-gray-500 truncate">${esc(m.subject || 'No subject')}</p></div>
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded flex-shrink-0 ${m.status === 'new' ? 'bg-amber-900/60 text-amber-300' : 'bg-gray-700 text-gray-400'}">${esc(m.status || '')}</span>
+                    </div>`).join('') || '<p class="text-gray-500 text-sm py-3 text-center">No messages yet</p>';
+
+                const inqStatuses = ['new','contacted','viewing_scheduled','offer_made','closed','rejected'];
+                const inqCountEl = document.getElementById('pa_inquiriesCount');
+                if (inqCountEl) inqCountEl.textContent = safeInq.length + ' total';
+                document.getElementById('pa_inquiriesTable').innerHTML = safeInq.map(i => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="paToggleDetail('paInqDetail_${i.id}')">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(i.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[120px] truncate">${esc(i.property_title || 'General')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="updateInquiry(${i.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${inqStatuses.map(s => `<option value="${s}" ${i.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2.5 text-xs text-gray-500 whitespace-nowrap">${new Date(i.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="paInqDetail_${i.id}" class="hidden bg-gray-800/60">
+                        <td colspan="4" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(i.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <span class="text-gray-300">${esc(i.email || '—')}</span></div>
+                                <div><span class="text-gray-500">Budget:</span> <span class="text-gray-300">${esc(i.budget_range || '—')}</span></div>
+                                <div><span class="text-gray-500">Move Date:</span> <span class="text-gray-300">${esc(i.preferred_move_date || '—')}</span></div>
+                                ${i.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(i.message)}</span></div>` : ''}
+                            </div>
+                            <div class="flex items-end gap-3 mb-3">
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Internal Notes</label><textarea id="paNote_${i.id}" rows="2" onclick="event.stopPropagation()" class="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white resize-none" placeholder="Add notes about this inquiry...">${esc(i.inquiry_notes || '')}</textarea></div>
+                                <button type="button" onclick="event.stopPropagation();paSaveNote(${i.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-medium flex-shrink-0">Save Note</button>
+                            </div>
+                            ${i.phone ? `<a href="https://wa.me/${relFmtWA(i.phone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium"><i class="fab fa-whatsapp"></i> WhatsApp</a>` : ''}
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center text-sm">No inquiries yet — tap "Add Lead" to log one</td></tr>';
+
+                const safeMsgs = Array.isArray(messages) ? messages : [];
+                const msgStatuses = ['new','read','responded','closed'];
+                const msgCountEl = document.getElementById('pa_messagesCount');
+                if (msgCountEl) msgCountEl.textContent = safeMsgs.length + ' total';
+                document.getElementById('pa_messagesTable').innerHTML = safeMsgs.map(m => `
+                    <tr class="border-b border-gray-700/60 cursor-pointer hover:bg-gray-700/20" onclick="paToggleDetail('paMsgDetail_${m.id}')">
+                        <td class="py-2.5 pr-3 font-medium text-sm">${esc(m.full_name || '—')}</td>
+                        <td class="py-2.5 pr-3 text-gray-400 text-xs max-w-[160px] truncate">${esc(m.subject || 'No subject')}</td>
+                        <td class="py-2.5 pr-2">
+                            <select onclick="event.stopPropagation()" onchange="paUpdateMessage(${m.id}, this.value)" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                ${msgStatuses.map(s => `<option value="${s}" ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="py-2.5 text-xs text-gray-500 whitespace-nowrap">${new Date(m.created_at).toLocaleDateString()}</td>
+                    </tr>
+                    <tr id="paMsgDetail_${m.id}" class="hidden bg-gray-800/60">
+                        <td colspan="4" class="px-3 pb-4 pt-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3">
+                                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-300">${esc(m.phone || '—')}</span></div>
+                                <div><span class="text-gray-500">Email:</span> <span class="text-gray-300">${esc(m.email || '—')}</span></div>
+                                <div><span class="text-gray-500">Origin:</span> <span class="text-gray-300">${esc(m.form_origin || '—')}</span></div>
+                                ${m.message ? `<div class="sm:col-span-2"><span class="text-gray-500">Message:</span> <span class="text-gray-300">${esc(m.message)}</span></div>` : ''}
+                            </div>
+                            ${m.phone ? `<a href="https://wa.me/${relFmtWA(m.phone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium">WhatsApp</a>` : ''}
+                        </td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="text-gray-400 py-3 text-center text-sm">No messages yet</td></tr>';
+            } catch (e) {
+                console.error('PA dashboard error:', e);
+            }
+        }
+
+        function paToggleDetail(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            const prefix = rowId.split('_')[0];
+            const isHidden = row.classList.contains('hidden');
+            document.querySelectorAll('[id^="' + prefix + '_"]').forEach(r => r.classList.add('hidden'));
+            if (isHidden) row.classList.remove('hidden');
+        }
+
+        async function paUpdateMessage(id, status) {
+            try {
+                await fetchData('/admin/api/contact-messages/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+            } catch (e) {
+                alert('Failed to update message: ' + (e.message || 'unknown error'));
+                await loadPADashboard();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('paLeadForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgEl = document.getElementById('paLeadMsg');
+                const payload = {
+                    full_name: document.getElementById('paLeadName').value.trim(),
+                    phone: document.getElementById('paLeadPhone').value.trim(),
+                    email: document.getElementById('paLeadEmail').value.trim(),
+                    property_id: document.getElementById('paLeadProperty').value || null,
+                    inquiry_type: document.getElementById('paLeadType').value,
+                    budget_range: document.getElementById('paLeadBudget').value.trim(),
+                    inquiry_notes: document.getElementById('paLeadNotes').value.trim(),
+                };
+                try {
+                    await fetchData('/admin/api/inquiries', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    if (msgEl) { msgEl.textContent = 'Lead saved.'; msgEl.className = 'text-xs text-emerald-400'; }
+                    e.target.reset();
+                    await loadPADashboard();
+                } catch (err) {
+                    if (msgEl) { msgEl.textContent = err.message || 'Error saving lead'; msgEl.className = 'text-xs text-red-400'; }
+                }
+            });
+        });
+
         async function vacateRoleTenant(id) {
             if (!confirm('Mark this tenant as vacated?')) return;
-            await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
-            await loadManagerDashboard();
-            if (ALL_ROLES.includes('ACCOUNTANT')) await loadAccountantDashboard();
-            if (ALL_ROLES.includes('REALTOR')) await loadRealtorDashboard();
+            try {
+                await fetchData('/admin/api/tenants/' + id, { method: 'DELETE' });
+                await loadManagerDashboard();
+                if (ALL_ROLES.includes('ACCOUNTANT')) await loadAccountantDashboard();
+                if (ALL_ROLES.includes('REALTOR')) await loadRealtorDashboard();
+            } catch (e) {
+                alert('Failed to vacate tenant: ' + (e.message || 'unknown error'));
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -13169,9 +14514,9 @@ ROLE_DASHBOARD_TEMPLATE = """
             const printDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
             const safeBody = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><style>
-@page{size:A4;margin:22mm 20mm 22mm 20mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65}
+body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11pt;line-height:1.65;padding:22mm 20mm}
 .hdr{padding-bottom:12pt;margin-bottom:16pt;display:flex;align-items:flex-start;justify-content:space-between}
 .co-name{font-size:22pt;font-weight:bold;letter-spacing:1px;line-height:1.1}
 .co-sub{font-size:8pt;letter-spacing:2.5px;text-transform:uppercase;color:#333;margin-top:3pt}
