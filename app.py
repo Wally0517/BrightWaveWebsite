@@ -7861,7 +7861,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
                                 <thead><tr class="border-b border-gray-700"><th class="py-1 text-left text-gray-500 font-medium">Tenant</th><th class="py-1 text-left text-gray-500 font-medium">Amount</th><th class="py-1 text-left text-gray-500 font-medium">Date</th></tr></thead>
                                 <tbody>${stats.recent_activity.payments.length ? stats.recent_activity.payments.map(p => `
                                     <tr class="border-b border-gray-700/50">
-                                        <td class="py-2 text-white">${escapeHtml(p.tenant_name)}</td>
+                                        <td class="py-2 text-white">${escapeHtml(p.tenant_name)} ${payTypePill(p.payment_type)}</td>
                                         <td class="py-2 text-emerald-400 font-medium">${fmtNGN(p.amount)}</td>
                                         <td class="py-2 text-gray-400 text-xs">${p.payment_date}</td>
                                     </tr>`).join('') : noRows}</tbody>
@@ -12405,6 +12405,12 @@ ROLE_DASHBOARD_TEMPLATE = """
         }
         // Escape untrusted strings (public-form input) before putting them in innerHTML
         function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        // Compact payment-type pill (caution shown distinctly since it's excluded from revenue)
+        function payTypePill(t) {
+            const c = {rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+            const k = (t || 'other').toLowerCase();
+            return `<span class="text-[10px] px-1.5 py-0.5 rounded-full ${c[k] || c.other}">${escapeHtml(t || 'other')}</span>`;
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '₦' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
