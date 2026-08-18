@@ -7663,6 +7663,12 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         }
         // Escape untrusted strings (public-form input) before putting them in innerHTML
         function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        // Compact payment-type pill (caution shown distinctly since it's excluded from revenue)
+        function payTypePill(t) {
+            const c = {rent:'bg-blue-900/50 text-blue-300', caution:'bg-teal-900/50 text-teal-300', deposit:'bg-purple-900/50 text-purple-300', fee:'bg-amber-900/50 text-amber-300', other:'bg-gray-700 text-gray-300'};
+            const k = (t || 'other').toLowerCase();
+            return `<span class="text-[10px] px-1.5 py-0.5 rounded-full ${c[k] || c.other}">${escapeHtml(t || 'other')}</span>`;
+        }
         function fmtCompact(v) {
             const n = Number(v || 0);
             if (n >= 1e9) return '\u20a6' + (n/1e9).toFixed(1).replace(/\\.0$/,'') + 'B';
