@@ -274,7 +274,7 @@ def test_manager_can_create_tenant_and_units_seeded(client):
     units_resp = client.get('/admin/api/units')
     assert units_resp.status_code == 200
     units = json.loads(units_resp.data)
-    phase1_units = [u for u in units if u.get('property_title') == 'BrightWave Phase 1 Hostel']
+    phase1_units = [u for u in units if u.get('property_title') == 'BrightWave Phase 1 Apartment']
     assert len(phase1_units) == 10
 
     tenant_resp = client.post('/admin/api/tenants', headers=admin_headers(client), json={
@@ -324,7 +324,13 @@ def test_accountant_can_update_and_delete_payment(client):
     payments = json.loads(list_resp.data)
     assert any(p['id'] == payment_id and p['amount'] == 42000 for p in payments)
 
+    # Deletes are CEO-only (July 2026 audit): accountant is refused, CEO succeeds
     delete_resp = client.delete(f'/admin/api/payments/{payment_id}', headers=headers)
+    assert delete_resp.status_code == 403
+    with flask_app.app_context():
+        create_admin('ceo_pay', role='CEO')
+    assert login(client, 'ceo_pay').status_code == 200
+    delete_resp = client.delete(f'/admin/api/payments/{payment_id}', headers=admin_headers(client))
     assert delete_resp.status_code == 200
     delete_data = json.loads(delete_resp.data)
     assert delete_data['success'] is True
@@ -353,7 +359,9 @@ def test_my_investment_returns_annual_principal_plus_roi_schedule(client):
 
     resp = client.get('/admin/api/my-investment')
     assert resp.status_code == 200
-    data = json.loads(resp.data)
+    profiles = json.loads(resp.data)
+    assert isinstance(profiles, list) and len(profiles) == 1
+    data = profiles[0]
     assert data['distribution_model'] == 'annual_principal_plus_roi'
     assert data['annual_principal_component'] == 20000
     assert data['annual_roi_amount'] == 3500
@@ -419,6 +427,14 @@ def test_manager_can_create_update_and_delete_project_expense(client):
 
     accountant_login = login(client, 'accountant_exp')
     assert accountant_login.status_code == 200
+    acc_approve_resp = client.put(f'/admin/api/project-expenses/{expense_id}', json={
+        'approval_status': 'approved'
+    }, headers=admin_headers(client))
+    assert acc_approve_resp.status_code == 403  # approvals are CEO-only
+
+    with flask_app.app_context():
+        create_admin('ceo_exp', role='CEO')
+    assert login(client, 'ceo_exp').status_code == 200
     approve_resp = client.put(f'/admin/api/project-expenses/{expense_id}', json={
         'approval_status': 'approved'
     }, headers=admin_headers(client))
@@ -514,7 +530,7 @@ def test_ceo_can_create_construction_update(client):
 
     properties_resp = client.get('/admin/api/properties')
     properties = json.loads(properties_resp.data)
-    project = next(p for p in properties if p.get('title') == 'BrightWave Hostel Phase 2')
+    project = next(p for p in properties if p.get('title') == 'BrightWave Apartment Phase 2')
 
     create_resp = client.post('/admin/api/construction-updates', headers=admin_headers(client), json={
         'property_id': project['id'],

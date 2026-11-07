@@ -356,10 +356,31 @@ class PaymentRecord(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Employee(db.Model):
+    """Payroll staff roster. A staff member does NOT need a login account.
+    When user_id is set the row is linked to an Admin (commission tracking + salary sync)."""
+    __tablename__ = 'employee'
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(120), nullable=False)
+    job_title = db.Column(db.String(80), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    email = db.Column(db.String(150), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    monthly_salary = db.Column(db.Float, default=0.0)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(80), nullable=True)
+    user = db.relationship('Admin', foreign_keys=[user_id])
+
+
 class PayrollPayment(db.Model):
     __tablename__ = 'payroll_payment'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)  # legacy link, kept for back-compat
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=True)
     period_year = db.Column(db.Integer, nullable=False)
     period_month = db.Column(db.Integer, nullable=False)  # 1-12
     amount = db.Column(db.Float, nullable=False)
@@ -369,19 +390,22 @@ class PayrollPayment(db.Model):
     paid_at = db.Column(db.DateTime, default=datetime.utcnow)
     paid_by = db.Column(db.String(80), nullable=True)
     user = db.relationship('Admin', foreign_keys=[user_id])
+    employee = db.relationship('Employee', foreign_keys=[employee_id])
 
 
 class SalaryHistory(db.Model):
     """Records every salary change so past payroll months stay frozen."""
     __tablename__ = 'salary_history'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)  # legacy link
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=True)
     monthly_salary = db.Column(db.Float, nullable=False, default=0.0)
     effective_from = db.Column(db.Date, nullable=False, default=date_type.today)
     effective_to = db.Column(db.Date, nullable=True)  # NULL = currently active
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.String(80), nullable=True)
     user = db.relationship('Admin', foreign_keys=[user_id])
+    employee = db.relationship('Employee', foreign_keys=[employee_id])
 
 
 class PasswordResetToken(db.Model):
@@ -634,7 +658,82 @@ def ensure_runtime_schema_updates():
     if not inspector.has_table('salary_history'):
         db.create_all()
 
+    if not inspector.has_table('employee'):
+        db.create_all()
+
     db.session.commit()
+    _migrate_payroll_to_employees(dialect)
+
+PAYROLL_STAFF_ROLES = ('MANAGER', 'ACCOUNTANT', 'REALTOR', 'PA')
+
+
+def _migrate_payroll_to_employees(dialect):
+    """Idempotent schema + data migration for the staff roster:
+    - payroll_payment / salary_history gain employee_id and user_id becomes nullable
+      (SQLite cannot ALTER a NOT NULL constraint, so the table is rebuilt).
+    - every staff Admin gets an Employee row; existing rows are linked by user_id.
+    """
+    rebuilt = {
+        'payroll_payment': ['id', 'user_id', 'period_year', 'period_month', 'amount', 'kind',
+                            'source_tenant_id', 'notes', 'paid_at', 'paid_by'],
+        'salary_history': ['id', 'user_id', 'monthly_salary', 'effective_from', 'effective_to',
+                           'created_at', 'created_by'],
+    }
+    for table, cols in rebuilt.items():
+        insp = inspect(db.engine)
+        if not insp.has_table(table):
+            continue
+        existing = {c['name'] for c in insp.get_columns(table)}
+        if 'employee_id' in existing:
+            continue
+        if dialect == 'sqlite':
+            old = table + '_old'
+            db.session.execute(text(f'ALTER TABLE {table} RENAME TO {old}'))
+            db.session.commit()
+            db.create_all()  # recreates the table from the model (employee_id, nullable user_id)
+            col_list = ', '.join(cols)
+            db.session.execute(text(f'INSERT INTO {table} ({col_list}) SELECT {col_list} FROM {old}'))
+            db.session.execute(text(f'DROP TABLE {old}'))
+        else:
+            db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN employee_id INTEGER REFERENCES employee(id)'))
+            db.session.execute(text(f'ALTER TABLE {table} ALTER COLUMN user_id DROP NOT NULL'))
+        db.session.commit()
+        logger.info(f"payroll migration: {table} now has employee_id")
+
+    insp = inspect(db.engine)
+    if not (insp.has_table('employee') and insp.has_table('admin')):
+        return
+    changed = False
+    staff = Admin.query.filter(Admin.role.in_(PAYROLL_STAFF_ROLES)).all()
+    extra_ids = {r[0] for r in db.session.query(PayrollPayment.user_id).filter(PayrollPayment.user_id.isnot(None)).distinct()}
+    extra_ids |= {r[0] for r in db.session.query(SalaryHistory.user_id).filter(SalaryHistory.user_id.isnot(None)).distinct()}
+    seen = {a.id for a in staff}
+    for uid in extra_ids - seen:
+        a = Admin.query.get(uid)
+        if a:
+            staff.append(a)
+    for a in staff:
+        emp = Employee.query.filter_by(user_id=a.id).first()
+        if emp is None:
+            emp = Employee(
+                full_name=a.display_name or a.username,
+                job_title=(a.role or '').title() or None,
+                email=a.email,
+                user_id=a.id,
+                monthly_salary=float(a.monthly_salary or 0),
+                start_date=(a.created_at.date() if a.created_at else None),
+                is_active=bool(a.is_active),
+                created_by='migration',
+            )
+            db.session.add(emp)
+            db.session.flush()
+            changed = True
+        n1 = PayrollPayment.query.filter(PayrollPayment.user_id == a.id, PayrollPayment.employee_id.is_(None)).update({'employee_id': emp.id})
+        n2 = SalaryHistory.query.filter(SalaryHistory.user_id == a.id, SalaryHistory.employee_id.is_(None)).update({'employee_id': emp.id})
+        changed = changed or bool(n1 or n2)
+    if changed:
+        db.session.commit()
+
 
 def get_site_content():
     ensure_cms_baseline()
@@ -4111,6 +4210,8 @@ def admin_signup_approve(signup_id):
         )
         db.session.add(new_admin)
         db.session.flush()  # get new_admin.id
+        if new_admin.role in PAYROLL_STAFF_ROLES:
+            _employee_for_admin(new_admin, create=True, actor=get_current_admin())
 
         # Investor: create InvestorProfile from role_data
         if signup.role == 'INVESTOR':
@@ -4242,6 +4343,9 @@ def admin_accounts():
             contract = UserContract(user_id=new_admin.id, contract_type=new_admin.role, status='pending_user_signature')
             db.session.add(contract)
             db.session.commit()
+        if new_admin.role in PAYROLL_STAFF_ROLES:
+            _employee_for_admin(new_admin, create=True, actor=get_current_admin())
+            db.session.commit()
         return jsonify({"success": True, "message": f"{data['role']} account created successfully", "id": new_admin.id})
     except IntegrityError:
         db.session.rollback()
@@ -4306,10 +4410,21 @@ def admin_account_detail(account_id):
                 except (TypeError, ValueError):
                     new_salary = None
                 if new_salary is not None and abs(new_salary - float(account.monthly_salary or 0)) > 0.001:
-                    _record_salary_change(account, new_salary, ceo)
                     account.monthly_salary = new_salary
+                    emp = _employee_for_admin(account, create=True, actor=ceo)
+                    if emp is not None:
+                        _record_salary_change(emp, new_salary, ceo)
+                        emp.monthly_salary = new_salary
             if data.get('new_password') and len(data['new_password']) >= 8:
                 account.password_hash = generate_password_hash(data['new_password'])
+            # Keep the payroll roster in step with the account (name / active flag)
+            emp = Employee.query.filter_by(user_id=account.id).first()
+            if emp is not None:
+                if (data.get('display_name') or '').strip():
+                    emp.full_name = data['display_name'].strip()
+                if 'is_active' in data:
+                    emp.is_active = bool(data['is_active'])
+                    emp.end_date = None if emp.is_active else (emp.end_date or date_type.today())
             db.session.commit()
             return jsonify({"success": True, "message": "Account updated"})
 
@@ -4325,9 +4440,11 @@ def admin_account_detail(account_id):
         UserContract.query.filter_by(user_id=account.id).delete()
         InvestorProfile.query.filter_by(user_id=account.id).delete()
         PasswordResetToken.query.filter_by(user_id=account.id).delete()
-        PayrollPayment.query.filter_by(user_id=account.id).delete()
-        SalaryHistory.query.filter_by(user_id=account.id).delete()
         # Nullable FKs: detach rather than delete to preserve historical records
+        # (payroll history stays on the Employee row, which simply loses its login link)
+        Employee.query.filter_by(user_id=account.id).update({'user_id': None})
+        PayrollPayment.query.filter_by(user_id=account.id).update({'user_id': None})
+        SalaryHistory.query.filter_by(user_id=account.id).update({'user_id': None})
         Tenant.query.filter_by(serviced_by_id=account.id).update({'serviced_by_id': None})
         PendingSignup.query.filter_by(created_admin_id=account.id).update({'created_admin_id': None})
         db.session.delete(account)
@@ -4684,54 +4801,114 @@ def admin_payment_detail(payment_id):
 # funded by the tenant, not deducted from company revenue.
 #   base       = total / 1.10
 #   commission = total - base   (== total / 11)
-# Accountant / PA / any other role earns the flat `Admin.monthly_salary` for the month.
+# Every other staff member earns the flat Employee.monthly_salary for the month.
+#
+# Staff live in the Employee roster. A staff member does NOT need a login account;
+# when Employee.user_id links to an Admin the two stay in sync (name, salary, active).
+# Access: CEO, MANAGER and ACCOUNTANT can view/add/edit. Deleting records is CEO-only.
 PAYROLL_COMMISSION_RATE = 0.10
 PAYROLL_COMMISSION_ROLES = {'MANAGER', 'REALTOR'}
+PAYROLL_ACCESS_ROLES = ('CEO', 'MANAGER', 'ACCOUNTANT')
+PAYROLL_KINDS = ('salary', 'commission', 'bonus', 'advance', 'other')
 
 
-def _record_salary_change(account, new_salary, ceo):
-    """Close any open SalaryHistory row for the user and insert a new one.
-    Called whenever Admin.monthly_salary is updated.
-    """
-    today = date_type.today()
+def payroll_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_id' not in session:
+            return jsonify({"success": False, "message": "Authentication required"}), 401
+        admin = get_current_admin()
+        if not admin or not admin.is_active or not admin_has_any_role(admin, *PAYROLL_ACCESS_ROLES):
+            return jsonify({"success": False, "message": "Payroll access is limited to CEO, Manager and Accountant"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def _actor_name(admin):
+    if not admin:
+        return None
+    return admin.display_name or admin.username
+
+
+def _parse_date(value, default=None):
+    if value in (None, ''):
+        return default
+    if isinstance(value, date_type):
+        return value
+    try:
+        return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        raise ValueError('Invalid date, expected YYYY-MM-DD')
+
+
+def _month_bounds(year, month):
+    import calendar
+    last_day = calendar.monthrange(year, month)[1]
+    return date_type(year, month, 1), date_type(year, month, last_day)
+
+
+def _employee_for_admin(admin, create=False, actor=None):
+    """Return the Employee row linked to an Admin, creating it when asked."""
+    if not admin:
+        return None
+    emp = Employee.query.filter_by(user_id=admin.id).first()
+    if emp is None and create:
+        emp = Employee(
+            full_name=admin.display_name or admin.username,
+            job_title=(admin.role or '').title() or None,
+            email=admin.email,
+            user_id=admin.id,
+            monthly_salary=float(admin.monthly_salary or 0),
+            start_date=date_type.today(),
+            is_active=bool(admin.is_active),
+            created_by=_actor_name(actor),
+        )
+        db.session.add(emp)
+        db.session.flush()
+        if emp.monthly_salary > 0:
+            db.session.add(SalaryHistory(
+                employee_id=emp.id, user_id=admin.id,
+                monthly_salary=emp.monthly_salary,
+                effective_from=emp.start_date, created_by=_actor_name(actor),
+            ))
+    return emp
+
+
+def _record_salary_change(employee, new_salary, actor, effective_from=None):
+    """Close any open SalaryHistory row for the employee and insert a new one."""
+    effective_from = effective_from or date_type.today()
     open_row = (
         SalaryHistory.query
-        .filter(SalaryHistory.user_id == account.id, SalaryHistory.effective_to.is_(None))
+        .filter(SalaryHistory.employee_id == employee.id, SalaryHistory.effective_to.is_(None))
         .order_by(SalaryHistory.effective_from.desc())
         .first()
     )
     if open_row is not None:
-        # Close it the day before the new salary takes effect (or same day if same day)
-        open_row.effective_to = today
+        open_row.effective_to = effective_from
     db.session.add(SalaryHistory(
-        user_id=account.id,
+        employee_id=employee.id,
+        user_id=employee.user_id,
         monthly_salary=float(new_salary or 0),
-        effective_from=today,
+        effective_from=effective_from,
         effective_to=None,
-        created_by=(ceo.display_name or ceo.username) if ceo else None,
+        created_by=_actor_name(actor),
     ))
 
 
-def get_effective_monthly_salary(user, year, month):
-    """Salary in effect at the end of (year, month).
-    Uses SalaryHistory rows if any exist; falls back to Admin.monthly_salary
-    for users with no history yet (back-compat).
-    """
-    if not user:
+def get_effective_monthly_salary(employee, year, month):
+    """Salary in effect at the end of (year, month). Falls back to Employee.monthly_salary."""
+    if not employee:
         return 0.0
-    # Last day of the requested month
-    import calendar
-    last_day = calendar.monthrange(year, month)[1]
-    end_of_month = date_type(year, month, last_day)
+    _, end_of_month = _month_bounds(year, month)
     row = (
         SalaryHistory.query
-        .filter(SalaryHistory.user_id == user.id, SalaryHistory.effective_from <= end_of_month)
+        .filter(SalaryHistory.employee_id == employee.id, SalaryHistory.effective_from <= end_of_month)
         .order_by(SalaryHistory.effective_from.desc(), SalaryHistory.id.desc())
         .first()
     )
     if row is not None:
         return float(row.monthly_salary or 0)
-    return float(user.monthly_salary or 0)
+    return float(employee.monthly_salary or 0)
 
 
 def _user_qualifies_for_commission(user):
@@ -4745,13 +4922,72 @@ def _user_qualifies_for_commission(user):
     return False
 
 
-def compute_user_payroll(user, year, month):
-    """Return commission + salary breakdown for a single user in a (year, month)."""
+def _employee_active_in_month(emp, year, month):
+    start_of_month, end_of_month = _month_bounds(year, month)
+    if emp.start_date and emp.start_date > end_of_month:
+        return False
+    if emp.end_date and emp.end_date < start_of_month:
+        return False
+    if not emp.is_active and not emp.end_date:
+        return False
+    return True
+
+
+def serialize_payroll_payment(p):
+    emp = p.employee
+    return {
+        'id': p.id,
+        'employee_id': p.employee_id,
+        'employee_name': emp.full_name if emp else ((p.user.display_name or p.user.username) if p.user else 'Unknown'),
+        'user_id': p.user_id,
+        'period_year': p.period_year,
+        'period_month': p.period_month,
+        'period_label': f"{MONTH_ABBR[p.period_month - 1]} {p.period_year}" if 1 <= (p.period_month or 0) <= 12 else '',
+        'amount': float(p.amount or 0),
+        'kind': p.kind,
+        'notes': p.notes or '',
+        'paid_by': p.paid_by or '',
+        'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+        'paid_on': p.paid_at.date().isoformat() if p.paid_at else None,
+        'source_tenant_id': p.source_tenant_id,
+    }
+
+
+MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+
+def serialize_employee(emp):
+    user = emp.user
+    return {
+        'id': emp.id,
+        'full_name': emp.full_name,
+        'job_title': emp.job_title or '',
+        'phone': emp.phone or '',
+        'email': emp.email or '',
+        'user_id': emp.user_id,
+        'username': user.username if user else None,
+        'account_role': user.role if user else None,
+        'has_account': user is not None,
+        'qualifies_for_commission': _user_qualifies_for_commission(user),
+        'monthly_salary': float(emp.monthly_salary or 0),
+        'start_date': emp.start_date.isoformat() if emp.start_date else None,
+        'end_date': emp.end_date.isoformat() if emp.end_date else None,
+        'is_active': bool(emp.is_active),
+        'notes': emp.notes or '',
+        'created_at': emp.created_at.isoformat() if emp.created_at else None,
+        'created_by': emp.created_by or '',
+    }
+
+
+def compute_employee_payroll(emp, year, month):
+    """Commission + salary breakdown for one employee in a (year, month)."""
     from sqlalchemy import extract
 
+    user = emp.user
     commission_lines = []
     commission_total = 0.0
-    if _user_qualifies_for_commission(user):
+    qualifies = _user_qualifies_for_commission(user)
+    if qualifies:
         tenants = Tenant.query.filter(
             Tenant.serviced_by_id == user.id,
             extract('year', Tenant.created_at) == year,
@@ -4771,34 +5007,27 @@ def compute_user_payroll(user, year, month):
                 'commission': commission,
             })
 
-    salary = get_effective_monthly_salary(user, year, month)
+    active_in_month = _employee_active_in_month(emp, year, month)
+    salary = get_effective_monthly_salary(emp, year, month) if active_in_month else 0.0
 
     payments_q = (
         PayrollPayment.query
-        .filter(PayrollPayment.user_id == user.id,
+        .filter(PayrollPayment.employee_id == emp.id,
                 PayrollPayment.period_year == year,
                 PayrollPayment.period_month == month)
         .order_by(PayrollPayment.paid_at.desc())
         .all()
     )
-    payment_history = [{
-        'id': p.id,
-        'amount': float(p.amount or 0),
-        'kind': p.kind,
-        'notes': p.notes or '',
-        'paid_by': p.paid_by or '',
-        'paid_at': p.paid_at.isoformat() if p.paid_at else None,
-    } for p in payments_q]
+    payment_history = [serialize_payroll_payment(p) for p in payments_q]
     already_paid = float(sum(p['amount'] for p in payment_history))
 
     total_earned = commission_total + salary
-    return {
-        'user_id': user.id,
-        'username': user.username,
-        'display_name': user.display_name or user.username,
-        'role': user.role,
-        'secondary_roles': user.secondary_roles or [],
-        'qualifies_for_commission': _user_qualifies_for_commission(user),
+    out = serialize_employee(emp)
+    out.update({
+        'employee_id': emp.id,
+        'display_name': emp.full_name,
+        'role': emp.job_title or (user.role if user else 'Staff'),
+        'active_in_month': active_in_month,
         'commission_lines': commission_lines,
         'commission_total': commission_total,
         'salary': salary,
@@ -4806,7 +5035,34 @@ def compute_user_payroll(user, year, month):
         'already_paid': already_paid,
         'outstanding': max(total_earned - already_paid, 0.0),
         'payment_history': payment_history,
-    }
+    })
+    return out
+
+
+def compute_user_payroll(user, year, month):
+    """Back-compat wrapper used by the self-scoped earnings widget."""
+    emp = _employee_for_admin(user, create=False)
+    if emp is None:
+        return {
+            'user_id': user.id if user else None, 'display_name': _actor_name(user),
+            'qualifies_for_commission': _user_qualifies_for_commission(user),
+            'commission_lines': [], 'commission_total': 0.0, 'salary': 0.0,
+            'total_earned': 0.0, 'already_paid': 0.0, 'outstanding': 0.0, 'payment_history': [],
+        }
+    return compute_employee_payroll(emp, year, month)
+
+
+def _parse_period(args_or_data, default_today=True):
+    today = date_type.today()
+    year = args_or_data.get('year', today.year if default_today else None)
+    month = args_or_data.get('month', today.month if default_today else None)
+    year = int(year)
+    month = int(month)
+    if not (1 <= month <= 12):
+        raise ValueError('Month must be 1-12')
+    if not (2000 <= year <= 2100):
+        raise ValueError('Year out of range')
+    return year, month
 
 
 @app.route('/admin/api/my-commission')
@@ -4839,23 +5095,182 @@ def admin_my_commission():
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
+# ---- Staff roster ----
+@app.route('/admin/api/payroll/staff', methods=['GET', 'POST'])
+@login_required
+@payroll_required
+def admin_payroll_staff():
+    try:
+        actor = get_current_admin()
+        if request.method == 'GET':
+            include_inactive = request.args.get('include_inactive', '1') not in ('0', 'false', 'no')
+            q = Employee.query
+            if not include_inactive:
+                q = q.filter(Employee.is_active == True)
+            rows = q.order_by(Employee.is_active.desc(), Employee.full_name.asc()).all()
+            # Accounts that could be linked (staff roles without an Employee row yet)
+            linked_ids = {e.user_id for e in Employee.query.filter(Employee.user_id.isnot(None)).all()}
+            linkable = [
+                {'id': a.id, 'label': f"{a.display_name or a.username} ({a.role})", 'role': a.role,
+                 'monthly_salary': float(a.monthly_salary or 0)}
+                for a in Admin.query.filter(Admin.role.in_(PAYROLL_STAFF_ROLES), Admin.is_active == True)
+                                    .order_by(Admin.username.asc()).all()
+                if a.id not in linked_ids
+            ]
+            return jsonify({'success': True, 'staff': [serialize_employee(e) for e in rows], 'linkable_accounts': linkable})
+
+        data = request.get_json() or {}
+        full_name = (data.get('full_name') or '').strip()
+        if not full_name:
+            return jsonify({"success": False, "message": "Full name is required"}), 400
+        try:
+            salary = float(data.get('monthly_salary') or 0)
+            if salary < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Monthly salary must be 0 or more"}), 400
+        try:
+            start_date = _parse_date(data.get('start_date'), default=date_type.today())
+            end_date = _parse_date(data.get('end_date'))
+        except ValueError as ve:
+            return jsonify({"success": False, "message": str(ve)}), 400
+
+        user_id = data.get('user_id')
+        user = None
+        if user_id not in (None, ''):
+            user = Admin.query.get(int(user_id))
+            if not user:
+                return jsonify({"success": False, "message": "Linked account not found"}), 404
+            if Employee.query.filter_by(user_id=user.id).first():
+                return jsonify({"success": False, "message": "That account is already on the payroll roster"}), 409
+
+        emp = Employee(
+            full_name=full_name,
+            job_title=(data.get('job_title') or '').strip() or (user.role.title() if user else None),
+            phone=(data.get('phone') or '').strip() or None,
+            email=(data.get('email') or '').strip().lower() or (user.email if user else None),
+            user_id=user.id if user else None,
+            monthly_salary=salary,
+            start_date=start_date,
+            end_date=end_date,
+            is_active=end_date is None or end_date >= date_type.today(),
+            notes=(data.get('notes') or '').strip() or None,
+            created_by=_actor_name(actor),
+        )
+        db.session.add(emp)
+        db.session.flush()
+        if salary > 0:
+            db.session.add(SalaryHistory(
+                employee_id=emp.id, user_id=emp.user_id, monthly_salary=salary,
+                effective_from=start_date, created_by=_actor_name(actor),
+            ))
+        if user is not None:
+            user.monthly_salary = salary
+        db.session.commit()
+        return jsonify({"success": True, "message": "Staff member added", "employee": serialize_employee(emp)})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error in payroll staff: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/staff/<int:employee_id>', methods=['PUT', 'DELETE'])
+@login_required
+@payroll_required
+def admin_payroll_staff_detail(employee_id):
+    try:
+        actor = get_current_admin()
+        emp = Employee.query.get(employee_id)
+        if not emp:
+            return jsonify({"success": False, "message": "Staff member not found"}), 404
+
+        if request.method == 'DELETE':
+            if actor.role != 'CEO':
+                return jsonify({"success": False, "message": "Only the CEO can remove staff. Use Deactivate instead."}), 403
+            if PayrollPayment.query.filter_by(employee_id=emp.id).count():
+                return jsonify({"success": False, "message": "This staff member has payment records. Deactivate them instead so history is kept."}), 400
+            SalaryHistory.query.filter_by(employee_id=emp.id).delete()
+            db.session.delete(emp)
+            db.session.commit()
+            return jsonify({"success": True, "message": "Staff member removed"})
+
+        data = request.get_json() or {}
+        if 'full_name' in data:
+            name = (data.get('full_name') or '').strip()
+            if not name:
+                return jsonify({"success": False, "message": "Full name cannot be empty"}), 400
+            emp.full_name = name
+            if emp.user is not None:
+                emp.user.display_name = name
+        for field in ('job_title', 'phone', 'notes'):
+            if field in data:
+                setattr(emp, field, (data.get(field) or '').strip() or None)
+        if 'email' in data:
+            emp.email = (data.get('email') or '').strip().lower() or None
+        try:
+            if 'start_date' in data:
+                emp.start_date = _parse_date(data.get('start_date'))
+            if 'end_date' in data:
+                emp.end_date = _parse_date(data.get('end_date'))
+            salary_from = _parse_date(data.get('salary_effective_from'), default=date_type.today())
+        except ValueError as ve:
+            return jsonify({"success": False, "message": str(ve)}), 400
+        if 'is_active' in data:
+            emp.is_active = bool(data['is_active'])
+            if not emp.is_active and not emp.end_date:
+                emp.end_date = date_type.today()
+            if emp.is_active:
+                emp.end_date = None
+        if 'user_id' in data:
+            uid = data.get('user_id')
+            if uid in (None, ''):
+                emp.user_id = None
+            else:
+                user = Admin.query.get(int(uid))
+                if not user:
+                    return jsonify({"success": False, "message": "Linked account not found"}), 404
+                other = Employee.query.filter(Employee.user_id == user.id, Employee.id != emp.id).first()
+                if other:
+                    return jsonify({"success": False, "message": "That account is already linked to another staff member"}), 409
+                emp.user_id = user.id
+        if 'monthly_salary' in data:
+            try:
+                salary = float(data.get('monthly_salary') or 0)
+                if salary < 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Monthly salary must be 0 or more"}), 400
+            if abs(salary - float(emp.monthly_salary or 0)) > 0.001:
+                _record_salary_change(emp, salary, actor, effective_from=salary_from)
+                emp.monthly_salary = salary
+                if emp.user is not None:
+                    emp.user.monthly_salary = salary
+        db.session.commit()
+        return jsonify({"success": True, "message": "Staff member updated", "employee": serialize_employee(emp)})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating staff {employee_id}: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+# ---- Monthly summary ----
 @app.route('/admin/api/payroll/summary')
 @login_required
-@ceo_required
+@payroll_required
 def admin_payroll_summary():
     try:
-        today = date_type.today()
         try:
-            year = int(request.args.get('year', today.year))
-            month = int(request.args.get('month', today.month))
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid year or month"}), 400
-        if not (1 <= month <= 12):
-            return jsonify({"success": False, "message": "Month must be 1-12"}), 400
+            year, month = _parse_period(request.args)
+        except (TypeError, ValueError) as ve:
+            return jsonify({"success": False, "message": str(ve) or "Invalid year or month"}), 400
 
-        users = Admin.query.filter_by(is_active=True).order_by(Admin.role.asc(), Admin.username.asc()).all()
-        # CEO and INVESTOR roles are not on payroll
-        rows = [compute_user_payroll(u, year, month) for u in users if (u.role or '').upper() not in ('CEO', 'INVESTOR')]
+        employees = Employee.query.order_by(Employee.full_name.asc()).all()
+        paid_ids = {r[0] for r in db.session.query(PayrollPayment.employee_id)
+                    .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month).distinct()}
+        rows = []
+        for emp in employees:
+            if _employee_active_in_month(emp, year, month) or emp.id in paid_ids:
+                rows.append(compute_employee_payroll(emp, year, month))
 
         totals = {
             'commission_total': sum(r['commission_total'] for r in rows),
@@ -4863,128 +5278,204 @@ def admin_payroll_summary():
             'earned_total': sum(r['total_earned'] for r in rows),
             'paid_total': sum(r['already_paid'] for r in rows),
             'outstanding_total': sum(r['outstanding'] for r in rows),
+            'staff_count': len(rows),
         }
-        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals})
+        actor = get_current_admin()
+        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals,
+                        'can_delete': actor.role == 'CEO'})
     except Exception as e:
         logger.error(f"Error in payroll summary: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
+# ---- Payments ----
+def _resolve_employee(data):
+    emp = None
+    if data.get('employee_id') not in (None, ''):
+        emp = Employee.query.get(int(data['employee_id']))
+    elif data.get('user_id') not in (None, ''):
+        user = Admin.query.get(int(data['user_id']))
+        emp = _employee_for_admin(user, create=True, actor=get_current_admin()) if user else None
+    return emp
+
+
 @app.route('/admin/api/payroll/pay', methods=['POST'])
 @login_required
-@ceo_required
+@payroll_required
 def admin_payroll_pay():
     try:
-        admin = get_current_admin()
+        actor = get_current_admin()
         data = request.get_json() or {}
-        user_id = data.get('user_id')
-        amount = data.get('amount')
-        if not user_id or amount in (None, ''):
-            return jsonify({"success": False, "message": "user_id and amount are required"}), 400
+        if data.get('amount') in (None, ''):
+            return jsonify({"success": False, "message": "Amount is required"}), 400
         try:
-            user_id = int(user_id)
-            amount = float(amount)
-            year = int(data.get('year') or date_type.today().year)
-            month = int(data.get('month') or date_type.today().month)
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid numeric value"}), 400
+            amount = float(data['amount'])
+            year, month = _parse_period(data)
+            paid_on = _parse_date(data.get('paid_on'), default=date_type.today())
+        except (TypeError, ValueError) as ve:
+            return jsonify({"success": False, "message": str(ve) or "Invalid value"}), 400
         if amount <= 0:
             return jsonify({"success": False, "message": "Amount must be positive"}), 400
-        if not (1 <= month <= 12):
-            return jsonify({"success": False, "message": "Month must be 1-12"}), 400
+        emp = _resolve_employee(data)
+        if not emp:
+            return jsonify({"success": False, "message": "Staff member not found"}), 404
 
-        user = Admin.query.get(user_id)
-        if not user:
-            return jsonify({"success": False, "message": "User not found"}), 404
-
-        kind = (data.get('kind') or 'commission').strip().lower()
-        if kind not in ('commission', 'salary'):
-            kind = 'commission'
+        kind = (data.get('kind') or 'salary').strip().lower()
+        if kind not in PAYROLL_KINDS:
+            kind = 'other'
 
         payment = PayrollPayment(
-            user_id=user.id,
+            employee_id=emp.id,
+            user_id=emp.user_id,
             period_year=year,
             period_month=month,
             amount=amount,
             kind=kind,
             source_tenant_id=int(data['source_tenant_id']) if data.get('source_tenant_id') else None,
             notes=(data.get('notes') or '').strip() or None,
-            paid_by=admin.display_name or admin.username if admin else None,
+            paid_at=datetime.combine(paid_on, datetime.utcnow().time()) if paid_on != date_type.today() else datetime.utcnow(),
+            paid_by=_actor_name(actor),
         )
         db.session.add(payment)
         db.session.commit()
-        return jsonify({"success": True, "message": "Payroll payment recorded", "id": payment.id})
+        return jsonify({"success": True, "message": "Payment recorded", "id": payment.id, "payment": serialize_payroll_payment(payment)})
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error recording payroll payment: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
+@app.route('/admin/api/payroll/backfill', methods=['POST'])
+@login_required
+@payroll_required
+def admin_payroll_backfill():
+    """Record one salary payment per month for a range of months (e.g. "paid every month
+    since September but never logged"). Months that already have a salary entry are skipped."""
+    try:
+        actor = get_current_admin()
+        data = request.get_json() or {}
+        emp = _resolve_employee(data)
+        if not emp:
+            return jsonify({"success": False, "message": "Staff member not found"}), 404
+        try:
+            fy, fm = int(data.get('from_year')), int(data.get('from_month'))
+            ty, tm = int(data.get('to_year')), int(data.get('to_month'))
+            if not (1 <= fm <= 12 and 1 <= tm <= 12):
+                raise ValueError
+            amount_override = float(data['amount']) if data.get('amount') not in (None, '') else None
+            if amount_override is not None and amount_override <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Provide a valid from/to month and a positive amount"}), 400
+        if (fy, fm) > (ty, tm):
+            return jsonify({"success": False, "message": "From month must be before To month"}), 400
+        kind = (data.get('kind') or 'salary').strip().lower()
+        if kind not in PAYROLL_KINDS:
+            kind = 'salary'
+        notes = (data.get('notes') or '').strip() or 'Back-filled payment record'
+
+        created, skipped = [], []
+        y, m = fy, fm
+        guard = 0
+        while (y, m) <= (ty, tm) and guard < 60:
+            guard += 1
+            exists = PayrollPayment.query.filter_by(employee_id=emp.id, period_year=y, period_month=m, kind=kind).first()
+            if exists:
+                skipped.append(f"{MONTH_ABBR[m-1]} {y}")
+            else:
+                amt = amount_override if amount_override is not None else get_effective_monthly_salary(emp, y, m)
+                if amt > 0:
+                    _, last = _month_bounds(y, m)
+                    db.session.add(PayrollPayment(
+                        employee_id=emp.id, user_id=emp.user_id, period_year=y, period_month=m,
+                        amount=amt, kind=kind, notes=notes,
+                        paid_at=datetime.combine(min(last, date_type.today()), datetime.min.time()),
+                        paid_by=_actor_name(actor),
+                    ))
+                    created.append(f"{MONTH_ABBR[m-1]} {y}")
+                else:
+                    skipped.append(f"{MONTH_ABBR[m-1]} {y} (no salary set)")
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+        db.session.commit()
+        return jsonify({"success": True, "created": created, "skipped": skipped,
+                        "message": f"Recorded {len(created)} month(s)" + (f", skipped {len(skipped)}" if skipped else "")})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error in payroll backfill: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/ledger')
+@login_required
+@payroll_required
+def admin_payroll_ledger():
+    """Every payment record, newest first. Optional filters: year, month, employee_id, kind."""
+    try:
+        q = PayrollPayment.query
+        if request.args.get('year'):
+            q = q.filter(PayrollPayment.period_year == int(request.args['year']))
+        if request.args.get('month'):
+            q = q.filter(PayrollPayment.period_month == int(request.args['month']))
+        if request.args.get('employee_id'):
+            q = q.filter(PayrollPayment.employee_id == int(request.args['employee_id']))
+        if request.args.get('kind'):
+            q = q.filter(PayrollPayment.kind == request.args['kind'].lower())
+        rows = (q.order_by(PayrollPayment.period_year.desc(), PayrollPayment.period_month.desc(),
+                           PayrollPayment.paid_at.desc()).limit(1000).all())
+        out = [serialize_payroll_payment(p) for p in rows]
+        return jsonify({'success': True, 'payments': out, 'total': float(sum(p['amount'] for p in out)),
+                        'can_delete': get_current_admin().role == 'CEO'})
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "Invalid filter"}), 400
+    except Exception as e:
+        logger.error(f"Error fetching payroll ledger: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
 @app.route('/admin/api/payroll/history')
 @login_required
-@ceo_required
+@payroll_required
 def admin_payroll_history():
+    """Back-compat alias of the ledger scoped to one month."""
     try:
-        try:
-            year = int(request.args.get('year', date_type.today().year))
-            month = int(request.args.get('month', date_type.today().month))
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid year or month"}), 400
-
-        payments = (
-            PayrollPayment.query
-            .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month)
-            .order_by(PayrollPayment.paid_at.desc())
-            .all()
-        )
-        out = []
-        for p in payments:
-            u = p.user
-            out.append({
-                'id': p.id,
-                'user_id': p.user_id,
-                'username': u.username if u else None,
-                'display_name': (u.display_name or u.username) if u else None,
-                'amount': p.amount,
-                'kind': p.kind,
-                'source_tenant_id': p.source_tenant_id,
-                'notes': p.notes,
-                'paid_by': p.paid_by,
-                'paid_at': p.paid_at.isoformat() if p.paid_at else None,
-            })
-        return jsonify({'success': True, 'year': year, 'month': month, 'payments': out})
-    except Exception as e:
-        logger.error(f"Error fetching payroll history: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 500
+        year, month = _parse_period(request.args)
+    except (TypeError, ValueError) as ve:
+        return jsonify({"success": False, "message": str(ve) or "Invalid year or month"}), 400
+    payments = (PayrollPayment.query
+                .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month)
+                .order_by(PayrollPayment.paid_at.desc()).all())
+    return jsonify({'success': True, 'year': year, 'month': month, 'payments': [serialize_payroll_payment(p) for p in payments]})
 
 
 @app.route('/admin/api/payroll/salary', methods=['POST'])
 @login_required
-@ceo_required
+@payroll_required
 def admin_payroll_set_salary():
     """Inline salary set from the Payroll tab. Writes a SalaryHistory row."""
     try:
-        ceo = get_current_admin()
+        actor = get_current_admin()
         data = request.get_json() or {}
-        user_id = data.get('user_id')
         amount = data.get('monthly_salary')
-        if not user_id or amount in (None, ''):
-            return jsonify({"success": False, "message": "user_id and monthly_salary are required"}), 400
+        if amount in (None, ''):
+            return jsonify({"success": False, "message": "monthly_salary is required"}), 400
         try:
-            user_id = int(user_id)
             amount = float(amount)
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "message": "Invalid numeric value"}), 400
+            effective_from = _parse_date(data.get('effective_from'), default=date_type.today())
+        except (TypeError, ValueError) as ve:
+            return jsonify({"success": False, "message": str(ve) or "Invalid numeric value"}), 400
         if amount < 0:
             return jsonify({"success": False, "message": "Salary cannot be negative"}), 400
-        user = Admin.query.get(user_id)
-        if not user:
-            return jsonify({"success": False, "message": "User not found"}), 404
-        if (user.role or '').upper() == 'CEO':
-            return jsonify({"success": False, "message": "CEO is not on payroll"}), 400
-        if abs(amount - float(user.monthly_salary or 0)) > 0.001:
-            _record_salary_change(user, amount, ceo)
-            user.monthly_salary = amount
+        emp = _resolve_employee(data)
+        if not emp:
+            return jsonify({"success": False, "message": "Staff member not found"}), 404
+        if abs(amount - float(emp.monthly_salary or 0)) > 0.001:
+            _record_salary_change(emp, amount, actor, effective_from=effective_from)
+            emp.monthly_salary = amount
+            if emp.user is not None:
+                emp.user.monthly_salary = amount
             db.session.commit()
         return jsonify({"success": True, "message": "Salary updated", "monthly_salary": amount})
     except Exception as e:
@@ -4995,11 +5486,16 @@ def admin_payroll_set_salary():
 
 @app.route('/admin/api/payroll/pay/<int:payment_id>', methods=['PUT', 'DELETE'])
 @login_required
-@ceo_required
+@payroll_required
 def admin_payroll_pay_detail(payment_id):
     try:
-        payment = PayrollPayment.query.get_or_404(payment_id)
+        actor = get_current_admin()
+        payment = PayrollPayment.query.get(payment_id)
+        if not payment:
+            return jsonify({"success": False, "message": "Payment not found"}), 404
         if request.method == 'DELETE':
+            if actor.role != 'CEO':
+                return jsonify({"success": False, "message": "Only the CEO can delete payment records"}), 403
             db.session.delete(payment)
             db.session.commit()
             return jsonify({"success": True, "message": "Payment removed"})
@@ -5015,10 +5511,16 @@ def admin_payroll_pay_detail(payment_id):
             payment.amount = amt
         if 'kind' in data:
             kind = (data['kind'] or '').strip().lower()
-            if kind in ('commission', 'salary'):
+            if kind in PAYROLL_KINDS:
                 payment.kind = kind
         if 'notes' in data:
             payment.notes = (data['notes'] or '').strip() or None
+        if 'employee_id' in data and data['employee_id'] not in (None, ''):
+            emp = Employee.query.get(int(data['employee_id']))
+            if not emp:
+                return jsonify({"success": False, "message": "Staff member not found"}), 404
+            payment.employee_id = emp.id
+            payment.user_id = emp.user_id
         if 'period_year' in data or 'period_month' in data:
             try:
                 y = int(data.get('period_year', payment.period_year))
@@ -5029,8 +5531,15 @@ def admin_payroll_pay_detail(payment_id):
                 payment.period_month = m
             except (TypeError, ValueError):
                 return jsonify({"success": False, "message": "Invalid period"}), 400
+        if 'paid_on' in data and data['paid_on']:
+            try:
+                d = _parse_date(data['paid_on'])
+                payment.paid_at = datetime.combine(d, (payment.paid_at or datetime.utcnow()).time())
+            except ValueError as ve:
+                return jsonify({"success": False, "message": str(ve)}), 400
+        payment.notes = ((payment.notes or '').rstrip() + f"\n[edited by {_actor_name(actor)} on {date_type.today().isoformat()}]").strip() if data.get('mark_edited') else payment.notes
         db.session.commit()
-        return jsonify({"success": True, "message": "Payment updated"})
+        return jsonify({"success": True, "message": "Payment updated", "payment": serialize_payroll_payment(payment)})
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error editing payroll payment {payment_id}: {str(e)}")
@@ -6027,6 +6536,575 @@ SIGNUP_TEMPLATE = """
 </html>
 """
 
+# ---- Shared Payroll panel (CEO dashboard + Manager/Accountant portals) ----
+# Rendered inside both dashboard templates. Pure HTML/JS: no Jinja tags, no backslashes
+# (these strings are embedded in non-raw triple-quoted template strings).
+PAYROLL_PANEL_HTML = """
+<div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
+    <div>
+        <h2 class="text-xl font-semibold text-white">Payroll</h2>
+        <p class="text-xs text-gray-400 mt-1">Staff do not need a login to be on payroll. Manager/Realtor accounts earn 10% commission per unit they serviced; everyone else earns the monthly salary set on their staff record.</p>
+    </div>
+    <div class="flex items-end gap-2 flex-wrap">
+        <div>
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Year</label>
+            <select id="payrollYear" onchange="loadPayroll()" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
+        </div>
+        <div>
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Month</label>
+            <select id="payrollMonth" onchange="loadPayroll()" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
+        </div>
+        <button onclick="loadPayroll()" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+    </div>
+</div>
+
+<div class="flex flex-wrap gap-2 mb-5">
+    <button onclick="prOpenPayModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-plus"></i>Record Payment</button>
+    <button onclick="prOpenBackfillModal()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-calendar-plus"></i>Back-fill Months</button>
+    <button onclick="prOpenStaffModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-user-plus"></i>Add Staff</button>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries</p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">-</p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission</p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">-</p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned</p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">-</p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid</p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-200">-</p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl col-span-2 md:col-span-1"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding</p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">-</p></div>
+</div>
+
+<div class="flex gap-1 border-b border-gray-700 mb-4 overflow-x-auto">
+    <button data-prtab="prTabMonth" onclick="prShowTab('prTabMonth')" class="pr-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-slate-400 text-white whitespace-nowrap">This Month</button>
+    <button data-prtab="prTabStaff" onclick="prShowTab('prTabStaff')" class="pr-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap">Staff <span id="prStaffCount" class="text-xs text-gray-500"></span></button>
+    <button data-prtab="prTabLedger" onclick="prShowTab('prTabLedger')" class="pr-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap">Payment Ledger</button>
+</div>
+
+<!-- THIS MONTH -->
+<div id="prTabMonth" class="bg-gray-800 border border-gray-700/60 p-3 sm:p-4 rounded-xl">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[820px]">
+            <thead>
+                <tr class="border-b border-gray-600 text-gray-400 text-xs uppercase tracking-wide">
+                    <th class="py-2 text-left">Staff</th>
+                    <th class="py-2 text-left">Role</th>
+                    <th class="py-2 text-right">Salary</th>
+                    <th class="py-2 text-right">Commission</th>
+                    <th class="py-2 text-right">Earned</th>
+                    <th class="py-2 text-right">Paid</th>
+                    <th class="py-2 text-right">Outstanding</th>
+                    <th class="py-2 text-left pl-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="payrollTable"><tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- STAFF ROSTER -->
+<div id="prTabStaff" class="hidden bg-gray-800 border border-gray-700/60 p-3 sm:p-4 rounded-xl">
+    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <p class="text-xs text-gray-400">Everyone on payroll. Linked accounts stay in sync with the Accounts tab; unlinked staff are payroll-only.</p>
+        <label class="inline-flex items-center gap-2 text-xs text-gray-400"><input type="checkbox" id="prShowInactive" onchange="prRenderStaff()" class="rounded"> Show inactive</label>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[820px]">
+            <thead>
+                <tr class="border-b border-gray-600 text-gray-400 text-xs uppercase tracking-wide">
+                    <th class="py-2 text-left">Name</th>
+                    <th class="py-2 text-left">Title</th>
+                    <th class="py-2 text-left">Phone</th>
+                    <th class="py-2 text-right">Monthly Salary</th>
+                    <th class="py-2 text-left pl-3">Started</th>
+                    <th class="py-2 text-left">Login</th>
+                    <th class="py-2 text-left">Status</th>
+                    <th class="py-2 text-left pl-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="prStaffTable"><tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- LEDGER -->
+<div id="prTabLedger" class="hidden bg-gray-800 border border-gray-700/60 p-3 sm:p-4 rounded-xl">
+    <div class="flex items-end gap-2 flex-wrap mb-3">
+        <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Staff</label>
+            <select id="prLedgerStaff" onchange="prLoadLedger()" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"><option value="">All staff</option></select>
+        </div>
+        <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Type</label>
+            <select id="prLedgerKind" onchange="prLoadLedger()" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white">
+                <option value="">All types</option><option value="salary">Salary</option><option value="commission">Commission</option><option value="bonus">Bonus</option><option value="advance">Advance</option><option value="other">Other</option>
+            </select>
+        </div>
+        <label class="inline-flex items-center gap-2 text-xs text-gray-400 pb-2"><input type="checkbox" id="prLedgerAllMonths" onchange="prLoadLedger()" class="rounded" checked> All months</label>
+        <p id="prLedgerTotal" class="text-xs text-gray-400 ml-auto pb-2"></p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[860px]">
+            <thead>
+                <tr class="border-b border-gray-600 text-gray-400 text-xs uppercase tracking-wide">
+                    <th class="py-2 text-left">Period</th>
+                    <th class="py-2 text-left">Paid On</th>
+                    <th class="py-2 text-left">Staff</th>
+                    <th class="py-2 text-left">Type</th>
+                    <th class="py-2 text-right">Amount</th>
+                    <th class="py-2 text-left pl-3">Notes</th>
+                    <th class="py-2 text-left">Recorded By</th>
+                    <th class="py-2 text-left pl-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="prLedgerTable"><tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- STAFF MODAL -->
+<div id="prStaffModal" class="hidden fixed inset-0 bg-black/70 z-[70] items-center justify-center p-3" style="display:none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-lg w-full max-h-[92vh] overflow-y-auto">
+        <h3 id="prStaffModalTitle" class="text-lg font-semibold text-white mb-1">Add Staff</h3>
+        <p class="text-xs text-gray-400 mb-4">A login account is optional. Link one only if this person signs in to the portal.</p>
+        <input type="hidden" id="prStaffId">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Full name *</label><input id="prStaffName" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Job title</label><input id="prStaffTitle" type="text" placeholder="e.g. Security, Cleaner" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Phone</label><input id="prStaffPhone" type="tel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Monthly salary (NGN) *</label><input id="prStaffSalary" type="number" min="0" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Start date</label><input id="prStaffStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div id="prStaffSalaryFromWrap" class="hidden"><label class="block text-xs text-gray-400 mb-1">New salary effective from</label><input id="prStaffSalaryFrom" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Email</label><input id="prStaffEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Portal login (optional)</label><select id="prStaffUser" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">No login account</option></select></div>
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Notes</label><textarea id="prStaffNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></textarea></div>
+        </div>
+        <p id="prStaffMsg" class="text-sm hidden mt-3"></p>
+        <div class="flex gap-2 mt-4">
+            <button onclick="prSaveStaff()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Save</button>
+            <button onclick="prCloseModal('prStaffModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="prPayModal" class="hidden fixed inset-0 bg-black/70 z-[70] items-center justify-center p-3" style="display:none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-lg w-full max-h-[92vh] overflow-y-auto">
+        <h3 id="prPayModalTitle" class="text-lg font-semibold text-white mb-1">Record Payment</h3>
+        <p id="prPayWho" class="text-xs text-gray-400 mb-4">Log a salary, commission, bonus or advance paid to a staff member.</p>
+        <input type="hidden" id="prPayId">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Staff *</label><select id="prPayEmployee" onchange="prPayEmployeeChanged()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div>
+            <div><label class="block text-xs text-gray-400 mb-1">For month *</label><div class="flex gap-2"><select id="prPayMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prPayYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Date paid</label><input id="prPayDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Amount (NGN) *</label><input id="prPayAmount" type="number" min="0" step="500" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Type</label><select id="prPayKind" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="salary">Salary</option><option value="commission">Commission</option><option value="bonus">Bonus</option><option value="advance">Advance</option><option value="other">Other</option></select></div>
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Notes</label><textarea id="prPayNotes" rows="2" placeholder="e.g. Paid by transfer, GTB" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></textarea></div>
+        </div>
+        <p id="prPayMsg" class="text-sm hidden mt-3"></p>
+        <div class="flex gap-2 mt-4">
+            <button onclick="prSavePayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Save Payment</button>
+            <button onclick="prCloseModal('prPayModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- BACKFILL MODAL -->
+<div id="prBackfillModal" class="hidden fixed inset-0 bg-black/70 z-[70] items-center justify-center p-3" style="display:none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-lg w-full max-h-[92vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-white mb-1">Back-fill Monthly Salary</h3>
+        <p class="text-xs text-gray-400 mb-4">Use this when salary was paid every month but never logged. One salary record is created per month in the range. Months that already have a salary record are skipped.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Staff *</label><select id="prBfEmployee" onchange="prBfEmployeeChanged()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div>
+            <div><label class="block text-xs text-gray-400 mb-1">From month *</label><div class="flex gap-2"><select id="prBfFromMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prBfFromYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
+            <div><label class="block text-xs text-gray-400 mb-1">To month *</label><div class="flex gap-2"><select id="prBfToMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prBfToYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Amount per month</label><input id="prBfAmount" type="number" min="0" step="500" placeholder="Leave blank to use salary" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Type</label><select id="prBfKind" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="salary">Salary</option><option value="commission">Commission</option><option value="bonus">Bonus</option><option value="other">Other</option></select></div>
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Notes</label><input id="prBfNotes" type="text" placeholder="e.g. Paid in cash monthly, logged late" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></div>
+        </div>
+        <p id="prBfMsg" class="text-sm hidden mt-3"></p>
+        <div class="flex gap-2 mt-4">
+            <button onclick="prSubmitBackfill()" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 rounded-lg">Create Records</button>
+            <button onclick="prCloseModal('prBackfillModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
+        </div>
+    </div>
+</div>
+"""
+
+PAYROLL_PANEL_JS = """
+        // ===== PAYROLL PANEL (shared: CEO / Manager / Accountant) =====
+        const PR_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const PR_KIND_STYLE = {salary:'bg-blue-900/50 text-blue-300', commission:'bg-amber-900/50 text-amber-300', bonus:'bg-emerald-900/50 text-emerald-300', advance:'bg-purple-900/50 text-purple-300', other:'bg-gray-700 text-gray-300'};
+        let _prRows = [], _prStaff = [], _prLinkable = [], _prCanDelete = !!window.PR_IS_CEO, _prLedger = [];
+        const prFmt = v => String.fromCharCode(8358) + Number(v || 0).toLocaleString('en-NG', {maximumFractionDigits: 0});
+        const prEsc = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        const prToday = () => new Date().toISOString().slice(0, 10);
+        const prKindPill = k => `<span class="text-[10px] px-1.5 py-0.5 rounded-full ${PR_KIND_STYLE[k] || PR_KIND_STYLE.other}">${prEsc(k || 'other')}</span>`;
+
+        function prFillPeriodSelects(monthSel, yearSel, month, year) {
+            if (!monthSel || !yearSel) return;
+            const now = new Date();
+            monthSel.innerHTML = PR_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+            let ys = '';
+            for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 3; y--) ys += `<option value="${y}">${y}</option>`;
+            yearSel.innerHTML = ys;
+            monthSel.value = String(month || (now.getMonth() + 1));
+            yearSel.value = String(year || now.getFullYear());
+        }
+
+        function _initPayrollPickers() {
+            const yearSel = document.getElementById('payrollYear');
+            const monthSel = document.getElementById('payrollMonth');
+            if (!yearSel || yearSel.options.length) return;
+            prFillPeriodSelects(monthSel, yearSel);
+        }
+
+        function prPeriod() {
+            return { year: parseInt(document.getElementById('payrollYear').value), month: parseInt(document.getElementById('payrollMonth').value) };
+        }
+
+        function prShowTab(id) {
+            ['prTabMonth', 'prTabStaff', 'prTabLedger'].forEach(t => {
+                const el = document.getElementById(t);
+                if (el) el.classList.toggle('hidden', t !== id);
+            });
+            document.querySelectorAll('.pr-tab-btn').forEach(b => {
+                const on = b.dataset.prtab === id;
+                b.classList.toggle('border-slate-400', on); b.classList.toggle('text-white', on);
+                b.classList.toggle('border-transparent', !on); b.classList.toggle('text-gray-400', !on);
+            });
+            if (id === 'prTabLedger') prLoadLedger();
+        }
+
+        function prOpenModal(id) { const m = document.getElementById(id); m.style.display = 'flex'; m.classList.remove('hidden'); }
+        function prCloseModal(id) { const m = document.getElementById(id); m.style.display = 'none'; m.classList.add('hidden'); }
+        function prMsg(id, text, ok) {
+            const el = document.getElementById(id);
+            el.textContent = text; el.classList.remove('hidden');
+            el.className = 'text-sm mt-3 ' + (ok === true ? 'text-emerald-400' : ok === false ? 'text-red-400' : 'text-gray-400');
+        }
+
+        async function loadPayroll() {
+            _initPayrollPickers();
+            const { year, month } = prPeriod();
+            const tbody = document.getElementById('payrollTable');
+            tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr>';
+            try {
+                const [res, staffRes] = await Promise.all([
+                    fetchData(`/admin/api/payroll/summary?year=${year}&month=${month}`),
+                    fetchData('/admin/api/payroll/staff'),
+                ]);
+                if (!res.success) throw new Error(res.message || 'Failed');
+                _prRows = res.rows || [];
+                _prCanDelete = !!res.can_delete;
+                _prStaff = staffRes.staff || [];
+                _prLinkable = staffRes.linkable_accounts || [];
+                const t = res.totals || {};
+                document.getElementById('pr_commTotal').textContent = prFmt(t.commission_total);
+                document.getElementById('pr_salTotal').textContent = prFmt(t.salary_total);
+                document.getElementById('pr_earnTotal').textContent = prFmt(t.earned_total);
+                document.getElementById('pr_paidTotal').textContent = prFmt(t.paid_total);
+                document.getElementById('pr_outTotal').textContent = prFmt(t.outstanding_total);
+                const cnt = document.getElementById('prStaffCount');
+                if (cnt) cnt.textContent = '(' + _prStaff.filter(s => s.is_active).length + ')';
+                prRenderMonth();
+                prRenderStaff();
+                prFillStaffSelects();
+                if (!document.getElementById('prTabLedger').classList.contains('hidden')) prLoadLedger();
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-red-400">${prEsc(e.message || 'Error loading payroll')}</td></tr>`;
+            }
+        }
+
+        function prRenderMonth() {
+            const tbody = document.getElementById('payrollTable');
+            const { year, month } = prPeriod();
+            if (!_prRows.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-gray-500">No staff on payroll for ${PR_MONTHS[month - 1]} ${year}. <button onclick="prOpenStaffModal()" class="text-emerald-400 hover:text-emerald-300 underline">Add staff</button></td></tr>`;
+                return;
+            }
+            tbody.innerHTML = _prRows.map((r, idx) => {
+                const linesId = `prLines_${r.employee_id}`;
+                const histId = `prHist_${r.employee_id}`;
+                const hasLines = r.commission_lines && r.commission_lines.length;
+                const hasHistory = r.payment_history && r.payment_history.length;
+                const linesToggle = hasLines ? `<button onclick="document.getElementById('${linesId}').classList.toggle('hidden')" class="text-[11px] text-blue-400 hover:text-blue-300 ml-1" title="Show commission breakdown">[${r.commission_lines.length}]</button>` : '';
+                const histToggle = hasHistory ? `<button onclick="document.getElementById('${histId}').classList.toggle('hidden')" class="text-[11px] text-blue-400 hover:text-blue-300 ml-1" title="Show payments this month">[${r.payment_history.length}]</button>` : '';
+                const linesRow = hasLines ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
+                        <p class="text-xs text-gray-400 mb-2">Commission breakdown. Yearly Rent on the tenant is the gross total (base + 10% markup). The staff member earns the markup.</p>
+                        <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base</th><th class="text-right py-1">Commission</th></tr></thead>
+                        <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${prEsc(l.tenant_name)}</td><td class="py-1 text-gray-400">${prEsc(l.unit_number || '-')}</td><td class="py-1 text-right text-gray-300">${prFmt(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${prFmt(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${prFmt(l.commission)}</td></tr>`).join('')}</tbody></table></td></tr>` : '';
+                const histRow = hasHistory ? `<tr id="${histId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
+                        <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Paid On</th><th class="text-left py-1">Type</th><th class="text-right py-1">Amount</th><th class="text-left py-1 pl-3">Notes</th><th class="text-left py-1">By</th><th class="text-left py-1 pl-3">Actions</th></tr></thead>
+                        <tbody>${r.payment_history.map(p => prPaymentRowHtml(p, false)).join('')}</tbody></table></td></tr>` : '';
+                const outColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
+                const inactive = !r.is_active ? '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400">left</span>' : '';
+                const login = r.has_account ? '<i class="fas fa-user-check text-emerald-500 text-[10px] ml-1" title="Has portal login"></i>' : '';
+                const salaryCell = r.qualifies_for_commission && !(r.salary > 0)
+                    ? '<span class="text-gray-600 text-xs italic">commission</span>'
+                    : `<span class="text-blue-300">${prFmt(r.salary)}</span>`;
+                return `
+                    <tr class="border-b border-gray-700/70">
+                        <td class="py-2 pr-3 text-gray-100 font-medium">${prEsc(r.display_name)}${login}${inactive}</td>
+                        <td class="py-2 pr-3 text-gray-400 text-xs">${prEsc(r.role || '')}</td>
+                        <td class="py-2 pr-3 text-right">${salaryCell}</td>
+                        <td class="py-2 pr-3 text-right text-amber-400">${r.qualifies_for_commission ? prFmt(r.commission_total) + linesToggle : '<span class="text-gray-600">-</span>'}</td>
+                        <td class="py-2 pr-3 text-right text-emerald-400 font-semibold">${prFmt(r.total_earned)}</td>
+                        <td class="py-2 pr-3 text-right text-gray-200">${prFmt(r.already_paid)}${histToggle}</td>
+                        <td class="py-2 pr-3 text-right ${outColor} font-semibold">${prFmt(r.outstanding)}</td>
+                        <td class="py-2 pl-3">
+                            <div class="flex gap-1 items-center">
+                                <button onclick="prOpenPayModal(${r.employee_id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded">Pay</button>
+                                <button onclick="prOpenStaffModal(${r.employee_id})" class="text-xs text-gray-300 hover:text-white hover:bg-gray-700 px-2 py-1 rounded" title="Edit staff record"><i class="fas fa-pen"></i></button>
+                            </div>
+                        </td>
+                    </tr>${linesRow}${histRow}`;
+            }).join('');
+        }
+
+        function prPaymentRowHtml(p, withStaff) {
+            const del = _prCanDelete ? `<button onclick="prDeletePayment(${p.id})" class="text-red-400 hover:text-red-300 ml-2" title="Delete (CEO only)"><i class="fas fa-trash-alt"></i></button>` : '';
+            return `<tr class="border-t border-gray-700/40">
+                ${withStaff ? `<td class="py-1.5 text-gray-300 whitespace-nowrap">${prEsc(p.period_label)}</td>` : ''}
+                <td class="py-1.5 text-gray-400 whitespace-nowrap">${prEsc(p.paid_on || '-')}</td>
+                ${withStaff ? `<td class="py-1.5 text-gray-200">${prEsc(p.employee_name)}</td>` : ''}
+                <td class="py-1.5">${prKindPill(p.kind)}</td>
+                <td class="py-1.5 text-right text-emerald-400 whitespace-nowrap">${prFmt(p.amount)}</td>
+                <td class="py-1.5 text-gray-400 pl-3 max-w-[220px] truncate" title="${prEsc(p.notes)}">${prEsc(p.notes || '-')}</td>
+                <td class="py-1.5 text-gray-500 text-[11px] whitespace-nowrap">${prEsc(p.paid_by || '-')}</td>
+                <td class="py-1.5 pl-3 whitespace-nowrap"><button onclick="prEditPayment(${p.id})" class="text-blue-400 hover:text-blue-300" title="Edit"><i class="fas fa-pen"></i></button>${del}</td>
+            </tr>`;
+        }
+
+        // ---- Staff roster ----
+        function prRenderStaff() {
+            const tbody = document.getElementById('prStaffTable');
+            const showInactive = document.getElementById('prShowInactive')?.checked;
+            const rows = _prStaff.filter(s => showInactive || s.is_active);
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center text-gray-500">No staff yet. Click Add Staff to put someone on payroll.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(s => `
+                <tr class="border-b border-gray-700/70 ${s.is_active ? '' : 'opacity-60'}">
+                    <td class="py-2 pr-3 text-gray-100 font-medium">${prEsc(s.full_name)}</td>
+                    <td class="py-2 pr-3 text-gray-400 text-xs">${prEsc(s.job_title || '-')}</td>
+                    <td class="py-2 pr-3 text-gray-400 text-xs">${s.phone ? `<a href="tel:${prEsc(s.phone)}" class="hover:text-white">${prEsc(s.phone)}</a>` : '-'}</td>
+                    <td class="py-2 pr-3 text-right text-blue-300">${s.qualifies_for_commission && !(s.monthly_salary > 0) ? '<span class="text-gray-600 text-xs italic">commission</span>' : prFmt(s.monthly_salary)}</td>
+                    <td class="py-2 pl-3 text-gray-400 text-xs whitespace-nowrap">${prEsc(s.start_date || '-')}${s.end_date ? ' to ' + prEsc(s.end_date) : ''}</td>
+                    <td class="py-2 text-xs">${s.has_account ? `<span class="text-emerald-400"><i class="fas fa-user-check mr-1"></i>${prEsc(s.username)}</span>` : '<span class="text-gray-600">none</span>'}</td>
+                    <td class="py-2 text-xs">${s.is_active ? '<span class="text-emerald-400">Active</span>' : '<span class="text-gray-500">Inactive</span>'}</td>
+                    <td class="py-2 pl-3 whitespace-nowrap">
+                        <button onclick="prOpenStaffModal(${s.id})" class="text-blue-400 hover:text-blue-300 mr-2" title="Edit"><i class="fas fa-pen"></i></button>
+                        <button onclick="prToggleStaffActive(${s.id}, ${s.is_active ? 'false' : 'true'})" class="${s.is_active ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'} mr-2" title="${s.is_active ? 'Deactivate (keeps history)' : 'Reactivate'}"><i class="fas ${s.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i></button>
+                        ${_prCanDelete ? `<button onclick="prDeleteStaff(${s.id})" class="text-red-400 hover:text-red-300" title="Remove (CEO only, no payments)"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    </td>
+                </tr>`).join('');
+        }
+
+        function prFillStaffSelects() {
+            const opts = _prStaff.filter(s => s.is_active).map(s => `<option value="${s.id}">${prEsc(s.full_name)}${s.job_title ? ' (' + prEsc(s.job_title) + ')' : ''}</option>`).join('');
+            const inactive = _prStaff.filter(s => !s.is_active).map(s => `<option value="${s.id}">${prEsc(s.full_name)} (inactive)</option>`).join('');
+            ['prPayEmployee', 'prBfEmployee'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<option value="">Select staff</option>' + opts + inactive; });
+            const led = document.getElementById('prLedgerStaff');
+            if (led) { const cur = led.value; led.innerHTML = '<option value="">All staff</option>' + opts + inactive; led.value = cur; }
+            const link = document.getElementById('prStaffUser');
+            if (link) link.innerHTML = '<option value="">No login account</option>' + _prLinkable.map(a => `<option value="${a.id}" data-salary="${a.monthly_salary}">${prEsc(a.label)}</option>`).join('');
+        }
+
+        function prOpenStaffModal(id) {
+            const s = id ? _prStaff.find(x => x.id === id) : null;
+            document.getElementById('prStaffModalTitle').textContent = s ? 'Edit Staff' : 'Add Staff';
+            document.getElementById('prStaffId').value = s ? s.id : '';
+            document.getElementById('prStaffName').value = s ? s.full_name : '';
+            document.getElementById('prStaffTitle').value = s ? s.job_title : '';
+            document.getElementById('prStaffPhone').value = s ? s.phone : '';
+            document.getElementById('prStaffEmail').value = s ? s.email : '';
+            document.getElementById('prStaffSalary').value = s ? s.monthly_salary : '';
+            document.getElementById('prStaffStart').value = s ? (s.start_date || '') : prToday();
+            document.getElementById('prStaffNotes').value = s ? s.notes : '';
+            document.getElementById('prStaffSalaryFrom').value = prToday();
+            document.getElementById('prStaffSalaryFromWrap').classList.toggle('hidden', !s);
+            const link = document.getElementById('prStaffUser');
+            link.innerHTML = '<option value="">No login account</option>' + (s && s.user_id ? `<option value="${s.user_id}" selected>${prEsc(s.username)} (${prEsc(s.account_role)})</option>` : '') + _prLinkable.map(a => `<option value="${a.id}" data-salary="${a.monthly_salary}">${prEsc(a.label)}</option>`).join('');
+            link.value = s && s.user_id ? String(s.user_id) : '';
+            const msg = document.getElementById('prStaffMsg'); msg.classList.add('hidden');
+            prOpenModal('prStaffModal');
+            setTimeout(() => document.getElementById('prStaffName').focus(), 50);
+        }
+
+        async function prSaveStaff() {
+            const id = document.getElementById('prStaffId').value;
+            const payload = {
+                full_name: document.getElementById('prStaffName').value.trim(),
+                job_title: document.getElementById('prStaffTitle').value.trim(),
+                phone: document.getElementById('prStaffPhone').value.trim(),
+                email: document.getElementById('prStaffEmail').value.trim(),
+                monthly_salary: document.getElementById('prStaffSalary').value || 0,
+                start_date: document.getElementById('prStaffStart').value || null,
+                notes: document.getElementById('prStaffNotes').value.trim(),
+                user_id: document.getElementById('prStaffUser').value || null,
+            };
+            if (!payload.full_name) { prMsg('prStaffMsg', 'Full name is required', false); return; }
+            if (id) payload.salary_effective_from = document.getElementById('prStaffSalaryFrom').value || null;
+            prMsg('prStaffMsg', 'Saving...');
+            try {
+                const res = await fetchData(id ? '/admin/api/payroll/staff/' + id : '/admin/api/payroll/staff', {
+                    method: id ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                prMsg('prStaffMsg', res.message || 'Saved', true);
+                setTimeout(() => { prCloseModal('prStaffModal'); loadPayroll(); }, 500);
+            } catch (e) { prMsg('prStaffMsg', e.message || 'Error saving staff', false); }
+        }
+
+        async function prToggleStaffActive(id, makeActive) {
+            const s = _prStaff.find(x => x.id === id);
+            if (!s) return;
+            if (!makeActive && !confirm(`Deactivate ${s.full_name}? They stop accruing salary from today. Past records are kept.`)) return;
+            try {
+                await fetchData('/admin/api/payroll/staff/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ is_active: makeActive }) });
+                loadPayroll();
+            } catch (e) { alert(e.message || 'Error updating staff'); }
+        }
+
+        async function prDeleteStaff(id) {
+            const s = _prStaff.find(x => x.id === id);
+            if (!s || !confirm(`Remove ${s.full_name} from the roster entirely? Only possible when they have no payment records.`)) return;
+            try { await fetchData('/admin/api/payroll/staff/' + id, { method: 'DELETE' }); loadPayroll(); }
+            catch (e) { alert(e.message || 'Error removing staff'); }
+        }
+
+        // ---- Payments ----
+        function prOpenPayModal(employeeId, payment) {
+            const { year, month } = prPeriod();
+            const p = payment || null;
+            document.getElementById('prPayModalTitle').textContent = p ? 'Edit Payment' : 'Record Payment';
+            document.getElementById('prPayId').value = p ? p.id : '';
+            prFillPeriodSelects(document.getElementById('prPayMonth'), document.getElementById('prPayYear'), p ? p.period_month : month, p ? p.period_year : year);
+            const empSel = document.getElementById('prPayEmployee');
+            empSel.value = p ? String(p.employee_id || '') : (employeeId ? String(employeeId) : '');
+            document.getElementById('prPayDate').value = p ? (p.paid_on || prToday()) : prToday();
+            document.getElementById('prPayKind').value = p ? p.kind : 'salary';
+            document.getElementById('prPayNotes').value = p ? p.notes : '';
+            document.getElementById('prPayAmount').value = p ? p.amount : '';
+            document.getElementById('prPayMsg').classList.add('hidden');
+            if (!p) prPayEmployeeChanged();
+            prOpenModal('prPayModal');
+        }
+
+        function prPayEmployeeChanged() {
+            const empId = parseInt(document.getElementById('prPayEmployee').value);
+            const row = _prRows.find(r => r.employee_id === empId);
+            const who = document.getElementById('prPayWho');
+            const amt = document.getElementById('prPayAmount');
+            if (row) {
+                who.textContent = `${row.display_name}: earned ${prFmt(row.total_earned)}, paid ${prFmt(row.already_paid)}, outstanding ${prFmt(row.outstanding)} for ${PR_MONTHS[prPeriod().month - 1]} ${prPeriod().year}.`;
+                if (!document.getElementById('prPayId').value) {
+                    amt.value = row.outstanding > 0 ? Math.round(row.outstanding) : (row.salary > 0 ? Math.round(row.salary) : '');
+                    document.getElementById('prPayKind').value = row.commission_total > 0 && row.salary <= 0 ? 'commission' : 'salary';
+                }
+            } else {
+                const s = _prStaff.find(x => x.id === empId);
+                who.textContent = s ? `${s.full_name}: monthly salary ${prFmt(s.monthly_salary)}.` : 'Log a salary, commission, bonus or advance paid to a staff member.';
+                if (s && !document.getElementById('prPayId').value && s.monthly_salary > 0) amt.value = Math.round(s.monthly_salary);
+            }
+        }
+
+        async function prSavePayment() {
+            const id = document.getElementById('prPayId').value;
+            const payload = {
+                employee_id: document.getElementById('prPayEmployee').value,
+                amount: document.getElementById('prPayAmount').value,
+                kind: document.getElementById('prPayKind').value,
+                notes: document.getElementById('prPayNotes').value,
+                paid_on: document.getElementById('prPayDate').value,
+            };
+            const y = document.getElementById('prPayYear').value, m = document.getElementById('prPayMonth').value;
+            if (!payload.employee_id) { prMsg('prPayMsg', 'Choose a staff member', false); return; }
+            if (!(parseFloat(payload.amount) > 0)) { prMsg('prPayMsg', 'Enter an amount greater than zero', false); return; }
+            if (id) { payload.period_year = y; payload.period_month = m; } else { payload.year = y; payload.month = m; }
+            prMsg('prPayMsg', 'Saving...');
+            try {
+                const res = await fetchData(id ? '/admin/api/payroll/pay/' + id : '/admin/api/payroll/pay', {
+                    method: id ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                prMsg('prPayMsg', res.message || 'Saved', true);
+                setTimeout(() => { prCloseModal('prPayModal'); loadPayroll(); }, 500);
+            } catch (e) { prMsg('prPayMsg', e.message || 'Error saving payment', false); }
+        }
+
+        function prFindPayment(id) {
+            for (const r of _prRows) { const p = (r.payment_history || []).find(x => x.id === id); if (p) return p; }
+            return _prLedger.find(x => x.id === id) || null;
+        }
+        function prEditPayment(id) { const p = prFindPayment(id); if (p) prOpenPayModal(null, p); }
+
+        async function prDeletePayment(id) {
+            if (!confirm('Permanently delete this payment record? The outstanding balance will go back up.')) return;
+            try { await fetchData('/admin/api/payroll/pay/' + id, { method: 'DELETE' }); loadPayroll(); }
+            catch (e) { alert(e.message || 'Error deleting payment'); }
+        }
+
+        // ---- Back-fill ----
+        function prOpenBackfillModal() {
+            const now = new Date();
+            prFillPeriodSelects(document.getElementById('prBfFromMonth'), document.getElementById('prBfFromYear'), Math.max(1, now.getMonth() - 1), now.getFullYear());
+            prFillPeriodSelects(document.getElementById('prBfToMonth'), document.getElementById('prBfToYear'), now.getMonth() + 1, now.getFullYear());
+            document.getElementById('prBfAmount').value = '';
+            document.getElementById('prBfNotes').value = '';
+            document.getElementById('prBfMsg').classList.add('hidden');
+            prOpenModal('prBackfillModal');
+        }
+        function prBfEmployeeChanged() {
+            const s = _prStaff.find(x => x.id === parseInt(document.getElementById('prBfEmployee').value));
+            const amt = document.getElementById('prBfAmount');
+            amt.placeholder = s && s.monthly_salary > 0 ? 'Blank = ' + prFmt(s.monthly_salary) + ' (current salary)' : 'Enter amount per month';
+            if (s && s.start_date) {
+                const d = new Date(s.start_date + 'T00:00:00');
+                const fm = document.getElementById('prBfFromMonth'), fy = document.getElementById('prBfFromYear');
+                if (fy.querySelector(`option[value="${d.getFullYear()}"]`)) { fm.value = String(d.getMonth() + 1); fy.value = String(d.getFullYear()); }
+            }
+        }
+        async function prSubmitBackfill() {
+            const payload = {
+                employee_id: document.getElementById('prBfEmployee').value,
+                from_year: document.getElementById('prBfFromYear').value, from_month: document.getElementById('prBfFromMonth').value,
+                to_year: document.getElementById('prBfToYear').value, to_month: document.getElementById('prBfToMonth').value,
+                amount: document.getElementById('prBfAmount').value || null,
+                kind: document.getElementById('prBfKind').value,
+                notes: document.getElementById('prBfNotes').value,
+            };
+            if (!payload.employee_id) { prMsg('prBfMsg', 'Choose a staff member', false); return; }
+            prMsg('prBfMsg', 'Creating records...');
+            try {
+                const res = await fetchData('/admin/api/payroll/backfill', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const detail = (res.created || []).length ? ' Created: ' + res.created.join(', ') + '.' : '';
+                const skipped = (res.skipped || []).length ? ' Skipped: ' + res.skipped.join(', ') + '.' : '';
+                prMsg('prBfMsg', (res.message || 'Done') + '.' + detail + skipped, true);
+                setTimeout(() => { prCloseModal('prBackfillModal'); loadPayroll(); prShowTab('prTabLedger'); }, 1400);
+            } catch (e) { prMsg('prBfMsg', e.message || 'Error creating records', false); }
+        }
+
+        // ---- Ledger ----
+        async function prLoadLedger() {
+            const tbody = document.getElementById('prLedgerTable');
+            if (!tbody) return;
+            const params = new URLSearchParams();
+            const staff = document.getElementById('prLedgerStaff').value, kind = document.getElementById('prLedgerKind').value;
+            if (staff) params.set('employee_id', staff);
+            if (kind) params.set('kind', kind);
+            if (!document.getElementById('prLedgerAllMonths').checked) { const p = prPeriod(); params.set('year', p.year); params.set('month', p.month); }
+            tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr>';
+            try {
+                const res = await fetchData('/admin/api/payroll/ledger?' + params.toString());
+                _prLedger = res.payments || [];
+                _prCanDelete = !!res.can_delete;
+                document.getElementById('prLedgerTotal').textContent = `${_prLedger.length} record(s), total ${prFmt(res.total)}`;
+                tbody.innerHTML = _prLedger.length ? _prLedger.map(p => prPaymentRowHtml(p, true)).join('') : '<tr><td colspan="8" class="py-8 text-center text-gray-500">No payment records match.</td></tr>';
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-red-400">${prEsc(e.message || 'Error loading ledger')}</td></tr>`;
+            }
+        }
+"""
+
+
 ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -6451,84 +7529,9 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             </div>
         </section>
 
-        <!-- PAYROLL SECTION -->
+        <!-- PAYROLL SECTION (shared panel, see PAYROLL_PANEL_HTML) -->
         <section id="payrollSection" class="mb-8 hidden">
-            <div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
-                <div>
-                    <h2 class="text-xl font-semibold">Payroll</h2>
-                    <p class="text-xs text-gray-400 mt-1">Manager/Realtor: 10% commission per unit they serviced this month. Accountant/PA: flat monthly salary set on Accounts tab.</p>
-                </div>
-                <div class="flex items-end gap-2">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Year</label>
-                        <select id="payrollYear" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Month</label>
-                        <select id="payrollMonth" class="bg-gray-700 border border-gray-600 text-sm rounded-lg px-3 py-1.5 text-white"></select>
-                    </div>
-                    <button onclick="loadPayroll()" class="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg">Refresh</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission</p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">—</p></div>
-                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries</p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">—</p></div>
-                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned</p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">—</p></div>
-                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid</p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-300">—</p></div>
-                <div class="bg-gray-800 p-3 rounded-lg"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding</p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">—</p></div>
-            </div>
-
-            <div class="bg-gray-800 p-4 rounded-lg">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm min-w-[760px]">
-                        <thead>
-                            <tr class="border-b border-gray-600">
-                                <th class="py-2 text-left">User</th>
-                                <th class="py-2 text-left">Role</th>
-                                <th class="py-2 text-right">Commission</th>
-                                <th class="py-2 text-right">Salary</th>
-                                <th class="py-2 text-right">Total Earned</th>
-                                <th class="py-2 text-right">Paid</th>
-                                <th class="py-2 text-right">Outstanding</th>
-                                <th class="py-2 text-left pl-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="payrollTable"><tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Pay Modal -->
-            <div id="payrollPayModal" class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4" style="display:none;">
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-md w-full">
-                    <h3 class="text-lg font-semibold text-white mb-3">Record Payroll Payment</h3>
-                    <p id="prPayWho" class="text-sm text-gray-400 mb-3"></p>
-                    <input type="hidden" id="prPayUserId">
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Amount (₦) *</label>
-                            <input type="number" id="prPayAmount" step="1000" min="0" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Kind</label>
-                            <select id="prPayKind" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm">
-                                <option value="commission">Commission</option>
-                                <option value="salary">Salary</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="block text-xs text-gray-400 mb-1">Notes</label>
-                        <textarea id="prPayNotes" rows="2" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm"></textarea>
-                    </div>
-                    <p id="prPayMsg" class="text-sm hidden mb-2"></p>
-                    <div class="flex gap-2">
-                        <button onclick="submitPayrollPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg">Record Payment</button>
-                        <button onclick="closePayrollPayModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
-                    </div>
-                </div>
-            </div>
+""" + PAYROLL_PANEL_HTML + """
         </section>
 
         <!-- APPROVALS SECTION -->
@@ -10175,227 +11178,8 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
             }
         });
 
-        // ===== PAYROLL TAB =====
-        const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        let _payrollLastRows = [];
-
-        function _initPayrollPickers() {
-            const yearSel = document.getElementById('payrollYear');
-            const monthSel = document.getElementById('payrollMonth');
-            if (!yearSel || yearSel.options.length) return;
-            const now = new Date();
-            const startYear = now.getFullYear() - 2;
-            for (let y = now.getFullYear() + 1; y >= startYear; y--) {
-                const opt = document.createElement('option');
-                opt.value = y; opt.textContent = y;
-                if (y === now.getFullYear()) opt.selected = true;
-                yearSel.appendChild(opt);
-            }
-            for (let m = 1; m <= 12; m++) {
-                const opt = document.createElement('option');
-                opt.value = m; opt.textContent = MONTH_NAMES[m-1];
-                if (m === now.getMonth() + 1) opt.selected = true;
-                monthSel.appendChild(opt);
-            }
-        }
-
-        async function loadPayroll() {
-            _initPayrollPickers();
-            const year = document.getElementById('payrollYear').value;
-            const month = document.getElementById('payrollMonth').value;
-            const tbody = document.getElementById('payrollTable');
-            tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">Loading...</td></tr>';
-            try {
-                const res = await fetchData(`/admin/api/payroll/summary?year=${year}&month=${month}`);
-                if (!res.success) throw new Error(res.message || 'Failed');
-                _payrollLastRows = res.rows || [];
-                document.getElementById('pr_commTotal').textContent = fmtNGN(res.totals.commission_total);
-                document.getElementById('pr_salTotal').textContent = fmtNGN(res.totals.salary_total);
-                document.getElementById('pr_earnTotal').textContent = fmtNGN(res.totals.earned_total);
-                document.getElementById('pr_paidTotal').textContent = fmtNGN(res.totals.paid_total);
-                document.getElementById('pr_outTotal').textContent = fmtNGN(res.totals.outstanding_total);
-
-                if (!_payrollLastRows.length) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No payroll-eligible staff for this month</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = _payrollLastRows.map((r, idx) => {
-                    const linesId = `prLines_${r.user_id}`;
-                    const histId = `prHist_${r.user_id}`;
-                    const hasLines = r.commission_lines && r.commission_lines.length;
-                    const hasHistory = r.payment_history && r.payment_history.length;
-                    const linesToggle = hasLines
-                        ? `<button onclick="document.getElementById('${linesId}').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 ml-1">[${r.commission_lines.length}]</button>`
-                        : '';
-                    const histToggle = hasHistory
-                        ? `<button onclick="document.getElementById('${histId}').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 ml-1">[${r.payment_history.length}]</button>`
-                        : '';
-                    const linesRow = hasLines
-                        ? `<tr id="${linesId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
-                                <p class="text-xs text-gray-400 mb-2">Breakdown — Yearly Rent stored on tenant is the gross total (base + 10% markup). Manager earns the markup; company keeps the base.</p>
-                                <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Tenant</th><th class="text-left py-1">Unit</th><th class="text-right py-1">Tenant Pays</th><th class="text-right py-1">Base (company)</th><th class="text-right py-1">Commission (10%)</th></tr></thead>
-                                <tbody>${r.commission_lines.map(l => `<tr class="border-t border-gray-700/40"><td class="py-1 text-gray-300">${escapeHtml(l.tenant_name)}</td><td class="py-1 text-gray-400">${escapeHtml(l.unit_number || '—')}</td><td class="py-1 text-right text-gray-300">${fmtNGN(l.annual_rent)}</td><td class="py-1 text-right text-emerald-400">${fmtNGN(l.base_rent)}</td><td class="py-1 text-right text-amber-400">${fmtNGN(l.commission)}</td></tr>`).join('')}</tbody></table>
-                           </td></tr>`
-                        : '';
-                    const histRow = hasHistory
-                        ? `<tr id="${histId}" class="hidden"><td colspan="8" class="bg-gray-900/40 px-4 py-3">
-                                <p class="text-xs text-gray-400 mb-2">Payment history for this month — edit a mistake or remove an entry:</p>
-                                <table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="text-left py-1">Paid</th><th class="text-left py-1">Kind</th><th class="text-right py-1">Amount</th><th class="text-left py-1 pl-3">Notes</th><th class="text-left py-1">By</th><th class="text-left py-1 pl-3">Actions</th></tr></thead>
-                                <tbody>${r.payment_history.map(p => `<tr class="border-t border-gray-700/40">
-                                    <td class="py-1 text-gray-400">${(p.paid_at || '').slice(0,10)}</td>
-                                    <td class="py-1 text-gray-300">${p.kind}</td>
-                                    <td class="py-1 text-right text-emerald-400">${fmtNGN(p.amount)}</td>
-                                    <td class="py-1 text-gray-400 pl-3 max-w-[200px] truncate" title="${(p.notes||'').replace(/"/g,'&quot;')}">${escapeHtml(p.notes || '—')}</td>
-                                    <td class="py-1 text-gray-500 text-[11px]">${p.paid_by || '—'}</td>
-                                    <td class="py-1 pl-3"><button onclick="editPayrollPayment(${p.id}, ${p.amount}, '${p.kind}', '${(p.notes||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" class="text-blue-400 hover:text-blue-300 mr-2">Edit</button><button onclick="deletePayrollPayment(${p.id})" class="text-red-400 hover:text-red-300">Delete</button></td>
-                                </tr>`).join('')}</tbody></table>
-                           </td></tr>`
-                        : '';
-                    const outstandingColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
-                    const payDisabled = r.outstanding <= 0 ? 'opacity-40 pointer-events-none' : '';
-                    const salaryCell = r.qualifies_for_commission
-                        ? `<span class="text-gray-600 text-xs italic">— commission only —</span>`
-                        : `<input type="number" min="0" step="1000" value="${r.salary || 0}" data-user-id="${r.user_id}" onchange="saveInlineSalary(this)" onblur="saveInlineSalary(this)" class="w-28 text-right bg-gray-700 border border-gray-600 rounded px-2 py-1 text-blue-300 text-sm" title="Set monthly salary — saves on blur">`;
-                    return `
-                        <tr class="border-b border-gray-700">
-                            <td class="py-2 pr-3 text-gray-200">${escapeHtml(r.display_name)}</td>
-                            <td class="py-2 pr-3 text-gray-400 text-xs">${r.role}</td>
-                            <td class="py-2 pr-3 text-right text-amber-400">${fmtNGN(r.commission_total)}${linesToggle}</td>
-                            <td class="py-2 pr-3 text-right">${salaryCell}</td>
-                            <td class="py-2 pr-3 text-right text-emerald-400 font-semibold">${fmtNGN(r.total_earned)}</td>
-                            <td class="py-2 pr-3 text-right text-gray-300">${fmtNGN(r.already_paid)}${histToggle}</td>
-                            <td class="py-2 pr-3 text-right ${outstandingColor} font-semibold">${fmtNGN(r.outstanding)}</td>
-                            <td class="py-2 pl-3">
-                                <div class="flex gap-1 items-center">
-                                    <button onclick='openPayrollPayModal(${idx})' class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded ${payDisabled}">Pay</button>
-                                    <button onclick='terminateEmployee(${r.user_id}, ${JSON.stringify(r.display_name).replace(/"/g,"&quot;")})' title="Terminate (remove from payroll)" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-2 py-1 rounded">
-                                        <i class="fas fa-user-slash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        ${linesRow}
-                        ${histRow}
-                    `;
-                }).join('');
-            } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-red-400">${e.message || 'Error loading payroll'}</td></tr>`;
-            }
-        }
-
-        function openPayrollPayModal(idx) {
-            const row = _payrollLastRows[idx];
-            if (!row) return;
-            document.getElementById('prPayUserId').value = row.user_id;
-            document.getElementById('prPayWho').textContent = `${escapeHtml(row.display_name)} — outstanding ${fmtNGN(row.outstanding)}`;
-            document.getElementById('prPayAmount').value = Math.round(row.outstanding);
-            document.getElementById('prPayKind').value = row.commission_total > 0 ? 'commission' : 'salary';
-            document.getElementById('prPayNotes').value = '';
-            const msg = document.getElementById('prPayMsg');
-            msg.classList.add('hidden'); msg.textContent = '';
-            const modal = document.getElementById('payrollPayModal');
-            modal.style.display = 'flex';
-            modal.classList.remove('hidden');
-        }
-
-        function closePayrollPayModal() {
-            const modal = document.getElementById('payrollPayModal');
-            modal.style.display = 'none';
-            modal.classList.add('hidden');
-        }
-
-        // Track last-saved value per input so blur doesn't double-save
-        const _inlineSalaryDirty = new WeakMap();
-        async function saveInlineSalary(inputEl) {
-            const userId = inputEl.getAttribute('data-user-id');
-            const newVal = parseFloat(inputEl.value || '0');
-            if (!(newVal >= 0)) { alert('Salary must be 0 or positive'); return; }
-            const lastSaved = _inlineSalaryDirty.get(inputEl);
-            if (lastSaved !== undefined && Math.abs(lastSaved - newVal) < 0.001) return;
-            inputEl.disabled = true;
-            try {
-                await fetchData('/admin/api/payroll/salary', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ user_id: userId, monthly_salary: newVal })
-                });
-                _inlineSalaryDirty.set(inputEl, newVal);
-                inputEl.classList.add('border-emerald-500');
-                setTimeout(() => inputEl.classList.remove('border-emerald-500'), 800);
-                loadPayroll();
-            } catch (e) {
-                alert(e.message || 'Error saving salary');
-                inputEl.classList.add('border-red-500');
-            } finally {
-                inputEl.disabled = false;
-            }
-        }
-
-        async function terminateEmployee(userId, displayName) {
-            if (!confirm(`Terminate ${displayName}? They'll be deactivated and dropped from payroll. You can reactivate them later from the Accounts tab.`)) return;
-            try {
-                await fetchData('/admin/api/accounts/' + userId, {
-                    method: 'PUT', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ is_active: false })
-                });
-                loadPayroll();
-                if (typeof loadAccounts === 'function') loadAccounts();
-            } catch (e) { alert(e.message || 'Error terminating employee'); }
-        }
-
-        async function editPayrollPayment(id, currentAmount, currentKind, currentNotes) {
-            const newAmountStr = prompt('New amount (₦):', String(currentAmount));
-            if (newAmountStr === null) return;
-            const newAmount = parseFloat(newAmountStr);
-            if (!(newAmount > 0)) { alert('Amount must be positive'); return; }
-            const newKindStr = prompt('Kind (commission or salary):', currentKind);
-            if (newKindStr === null) return;
-            const newKind = newKindStr.trim().toLowerCase();
-            if (newKind !== 'commission' && newKind !== 'salary') { alert('Kind must be commission or salary'); return; }
-            const newNotesStr = prompt('Notes (optional):', currentNotes || '');
-            if (newNotesStr === null) return;
-            try {
-                await fetchData('/admin/api/payroll/pay/' + id, {
-                    method: 'PUT', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ amount: newAmount, kind: newKind, notes: newNotesStr })
-                });
-                loadPayroll();
-            } catch (e) { alert(e.message || 'Error editing payment'); }
-        }
-
-        async function deletePayrollPayment(id) {
-            if (!confirm('Permanently remove this payment record? This will increase the outstanding balance.')) return;
-            try {
-                await fetchData('/admin/api/payroll/pay/' + id, { method: 'DELETE' });
-                loadPayroll();
-            } catch (e) { alert(e.message || 'Error removing payment'); }
-        }
-
-        async function submitPayrollPayment() {
-            const user_id = document.getElementById('prPayUserId').value;
-            const amount = document.getElementById('prPayAmount').value;
-            const kind = document.getElementById('prPayKind').value;
-            const notes = document.getElementById('prPayNotes').value;
-            const year = document.getElementById('payrollYear').value;
-            const month = document.getElementById('payrollMonth').value;
-            const msg = document.getElementById('prPayMsg');
-            msg.classList.remove('hidden');
-            msg.textContent = 'Saving...';
-            msg.className = 'text-sm text-gray-400';
-            try {
-                const res = await fetchData('/admin/api/payroll/pay', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ user_id, amount, kind, notes, year, month })
-                });
-                msg.textContent = res.message || 'Recorded';
-                msg.className = 'text-sm text-emerald-400';
-                setTimeout(() => { closePayrollPayModal(); loadPayroll(); }, 700);
-            } catch (e) {
-                msg.textContent = e.message || 'Error recording payment';
-                msg.className = 'text-sm text-red-400';
-            }
-        }
+        window.PR_IS_CEO = true;
+""" + PAYROLL_PANEL_JS + """
 
         // ===== SIGNUP APPROVALS =====
         const APPROVAL_ROLE_COLORS = { INVESTOR:'bg-emerald-700', MANAGER:'bg-blue-700', ACCOUNTANT:'bg-green-700', REALTOR:'bg-amber-700', PA:'bg-purple-700' };
@@ -11291,6 +12075,26 @@ ROLE_DASHBOARD_TEMPLATE = """
         /* tab bar scrolls on mobile */
         #mgrTabBar { scrollbar-width: none; }
         #mgrTabBar::-webkit-scrollbar { display: none; }
+        /* Sidebar layout (mirrors the CEO dashboard) */
+        .ceo-nav-btn { color: #94a3b8; transition: all 0.15s; }
+        .ceo-nav-btn:hover { background: rgba(71,85,105,0.5); color: #e2e8f0; }
+        .ceo-nav-btn.active { background: #475569; color: #ffffff; font-weight: 600; }
+        #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 240px; transition: width 0.25s ease, transform 0.25s ease; overflow: hidden; z-index: 50; display: flex; flex-direction: column; background: #0f172a; border-right: 1px solid rgba(71,85,105,0.4); }
+        #sidebar.collapsed { width: 60px; }
+        #sidebar.collapsed .sb-label { display: none; }
+        #sidebar.collapsed .sb-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        #sidebar.collapsed #sidebarBrand { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+        #sidebarToggleBtn { flex-shrink: 0; transition: transform 0.25s ease; }
+        #sidebar.collapsed #sidebarToggleBtn { transform: rotate(180deg); }
+        #mainWrapper { margin-left: 240px; transition: margin-left 0.25s ease; min-height: 100vh; max-width: 100vw; overflow-x: hidden; }
+        #mainWrapper.sidebar-collapsed { margin-left: 60px; }
+        @media (max-width: 767px) {
+            #sidebar { transform: translateX(-100%); width: 240px; }
+            #sidebar.mobile-open { transform: translateX(0); }
+            #mainWrapper { margin-left: 0 !important; }
+        }
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
         /* compact mobile padding */
         @media (max-width: 640px) {
             main { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
@@ -11351,6 +12155,144 @@ ROLE_DASHBOARD_TEMPLATE = """
         let activeRole = USER_ROLE;
     </script>
 
+    <script>
+        // ===== SIDEBAR NAVIGATION (role portals) =====
+        const ROLE_LABELS = {MANAGER:'Manager', ACCOUNTANT:'Accountant', REALTOR:'Realtor', PA:'Assistant', INVESTOR:'Investor'};
+        const ROLE_NAV = {
+            MANAGER: [
+                {label:'Overview', icon:'fa-chart-line', tab:'mgrTabOverview'},
+                {label:'Units & Tenants', icon:'fa-door-open', tab:'mgrTabUnits'},
+                {label:'Inquiries', icon:'fa-inbox', tab:'mgrTabInquiries', badge:'mgrInquiriesBadge'},
+                {label:'Construction', icon:'fa-hard-hat', tab:'mgrTabConstruction'},
+                {label:'Capital Calc', icon:'fa-calculator', tab:'mgrTabCapital'},
+                {label:'Maintenance', icon:'fa-tools', tab:'mgrTabMaintenance'},
+                {label:'Payroll', icon:'fa-hand-holding-usd', panel:'payrollPanelSection'},
+            ],
+            ACCOUNTANT: [
+                {label:'Overview', icon:'fa-chart-line', scroll:'roleSection_ACCOUNTANT'},
+                {label:'Payments', icon:'fa-money-bill-wave', scroll:'accBlockPayments'},
+                {label:'Cash Flow', icon:'fa-water', scroll:'accBlockCashFlow'},
+                {label:'Project Expenses', icon:'fa-receipt', scroll:'accBlockExpenses'},
+                {label:'Rent Roll', icon:'fa-list', scroll:'accBlockRentRoll'},
+                {label:'Payroll', icon:'fa-hand-holding-usd', panel:'payrollPanelSection'},
+            ],
+            REALTOR: [
+                {label:'Overview', icon:'fa-chart-line', scroll:'roleSection_REALTOR'},
+                {label:'Lead Pipeline', icon:'fa-filter', scroll:'rlBlockPipeline'},
+                {label:'Units Ready', icon:'fa-door-open', scroll:'rlBlockUnits'},
+                {label:'Commission', icon:'fa-percent', scroll:'rlBlockCommission'},
+            ],
+            PA: [
+                {label:'Overview', icon:'fa-gauge-high', tab:'paTabOverview'},
+                {label:'Inquiries', icon:'fa-user-plus', tab:'paTabInquiries', badge:'paInqBadge'},
+                {label:'Messages', icon:'fa-envelope', tab:'paTabMessages', badge:'paMsgBadge'},
+            ],
+            INVESTOR: [
+                {label:'Overview', icon:'fa-home', inv:'overview'},
+                {label:'Returns', icon:'fa-chart-line', inv:'returns'},
+                {label:'Project', icon:'fa-hard-hat', inv:'project'},
+                {label:'Profile', icon:'fa-user', inv:'profile'},
+            ],
+        };
+
+        let sidebarCollapsed = false;
+        try { sidebarCollapsed = localStorage.getItem('role_sidebar_collapsed') === 'true'; } catch (e) {}
+        function applySidebarState() {
+            const sb = document.getElementById('sidebar'), mw = document.getElementById('mainWrapper');
+            if (!sb || !mw) return;
+            sb.classList.toggle('collapsed', sidebarCollapsed);
+            mw.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+        }
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            if (!sb) return;
+            if (window.innerWidth < 768) {
+                const open = !sb.classList.contains('mobile-open');
+                sb.classList.toggle('mobile-open', open);
+                document.getElementById('sidebarOverlay').classList.toggle('hidden', !open);
+            } else {
+                sidebarCollapsed = !sidebarCollapsed;
+                try { localStorage.setItem('role_sidebar_collapsed', sidebarCollapsed); } catch (e) {}
+                applySidebarState();
+            }
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar')?.classList.remove('mobile-open');
+            document.getElementById('sidebarOverlay')?.classList.add('hidden');
+        }
+
+        function buildRoleSidebar() {
+            const nav = document.getElementById('roleSidebarNav');
+            if (!nav) return;
+            const multi = ALL_ROLES.length > 1;
+            const seenPanels = new Set();
+            let html = '';
+            ALL_ROLES.forEach(role => {
+                const items = ROLE_NAV[role] || [{label: ROLE_LABELS[role] || role, icon: 'fa-th-large'}];
+                if (multi) html += `<p class="sb-label text-[10px] uppercase tracking-widest text-slate-500 px-3 pt-3 pb-1">${ROLE_LABELS[role] || role}</p>`;
+                items.forEach((it, idx) => {
+                    if (it.panel) { if (seenPanels.has(it.panel)) return; seenPanels.add(it.panel); }
+                    const badge = it.badge ? `<span id="sb_${it.badge}" class="hidden ml-auto bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none"></span>` : '';
+                    html += `<button data-nav="${role}:${idx}" onclick="navTo('${role}', ${idx})" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left"><i class="fas ${it.icon} w-5 text-center flex-shrink-0"></i><span class="sb-label flex-1">${it.label}</span>${badge}</button>`;
+                });
+            });
+            nav.innerHTML = html;
+            // Mirror in-page badges (inquiry / message counts) onto the sidebar
+            nav.querySelectorAll('[id^="sb_"]').forEach(sb => {
+                const srcEl = document.getElementById(sb.id.slice(3));
+                if (!srcEl) return;
+                const sync = () => { const t = srcEl.textContent.trim(); sb.textContent = t; sb.classList.toggle('hidden', srcEl.classList.contains('hidden') || !t || t === '0'); };
+                new MutationObserver(sync).observe(srcEl, {childList: true, characterData: true, subtree: true, attributes: true});
+                sync();
+            });
+            // The sidebar replaces the in-page tab bars
+            ['mgrTabBar', 'paTabBar'].forEach(id => { const el = document.getElementById(id); if (el && el.parentElement) el.parentElement.classList.add('hidden'); });
+            const invTop = document.getElementById('invTopTabNav'); if (invTop) invTop.classList.add('md:!hidden');
+            applySidebarState();
+            markNavActive(USER_ROLE, 0);
+        }
+
+        function markNavActive(role, idx) {
+            document.querySelectorAll('#roleSidebarNav .ceo-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === role + ':' + idx));
+        }
+
+        function navTo(role, idx) {
+            const it = (ROLE_NAV[role] || [])[idx];
+            if (!it) return;
+            const panel = document.getElementById('payrollPanelSection');
+            const titleEl = document.getElementById('portalTitle');
+            if (it.panel) {
+                ALL_ROLES.forEach(r => document.getElementById('roleSection_' + r)?.classList.add('hidden'));
+                if (panel) panel.classList.remove('hidden');
+                if (titleEl) titleEl.textContent = 'Payroll';
+                if (typeof loadPayroll === 'function') loadPayroll();
+                window.scrollTo({top: 0});
+            } else {
+                if (panel) panel.classList.add('hidden');
+                if (activeRole !== role) {
+                    switchRole(role);
+                } else {
+                    ALL_ROLES.forEach(r => document.getElementById('roleSection_' + r)?.classList.toggle('hidden', r !== role));
+                    if (titleEl && typeof ROLE_TITLES !== 'undefined') titleEl.textContent = ROLE_TITLES[role] || role + ' Portal';
+                }
+                if (it.tab) { if (role === 'MANAGER') showMgrTab(it.tab); else if (role === 'PA') showPaTab(it.tab); }
+                if (it.inv && typeof switchInvestorScreen === 'function') switchInvestorScreen(it.inv);
+                if (it.scroll && idx > 0) {
+                    const el = document.getElementById(it.scroll);
+                    if (el) setTimeout(() => el.scrollIntoView({behavior: 'smooth', block: 'start'}), 60);
+                } else {
+                    window.scrollTo({top: 0});
+                }
+            }
+            markNavActive(role, idx);
+            if (window.innerWidth < 768) closeSidebar();
+        }
+        document.addEventListener('DOMContentLoaded', buildRoleSidebar);
+
+        window.PR_IS_CEO = false;
+""" + PAYROLL_PANEL_JS + """
+    </script>
+
     <!-- CONTRACT SIGNING OVERLAY -->
     {% if needs_contract_signing %}
     <div id="contractOverlay" class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
@@ -11406,12 +12348,37 @@ ROLE_DASHBOARD_TEMPLATE = """
     </div>
     {% endif %}
 
+    <!-- SIDEBAR (sections grouped per role; one group per role for multi-role users) -->
+    <aside id="sidebar" class="fixed top-0 left-0 h-full bg-slate-900 border-r border-slate-700/60 z-50 flex flex-col">
+        <div id="sidebarBrand" class="h-16 flex items-center gap-3 px-3 border-b border-slate-700/60 flex-shrink-0">
+            <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="h-9 w-9 rounded-full object-cover flex-shrink-0 ring-2 ring-slate-400/40">
+            <div class="sb-label min-w-0 flex-1 overflow-hidden">
+                <p class="text-sm font-bold text-white leading-tight whitespace-nowrap">BrightWave</p>
+                <p class="text-xs text-slate-400 truncate">{{ user_name }}</p>
+            </div>
+            <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 flex-shrink-0" title="Toggle sidebar">
+                <i class="fas fa-chevron-left text-xs"></i>
+            </button>
+        </div>
+        <nav id="roleSidebarNav" class="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5"></nav>
+        <div class="flex-shrink-0 px-2 pb-3 pt-2 border-t border-slate-700/60 space-y-0.5">
+            <a href="/admin/logout" class="ceo-nav-btn sb-item w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm text-left block">
+                <i class="fas fa-sign-out-alt w-5 text-center flex-shrink-0"></i><span class="sb-label">Logout</span>
+            </a>
+        </div>
+    </aside>
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 hidden" onclick="closeSidebar()"></div>
+
+    <div id="mainWrapper">
     <header class="bg-gray-800 shadow border-b border-gray-700">
         <div class="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
             <!-- Top row: brand + logout -->
-            <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-3 min-w-0">
-                    <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover ring-2 ring-slate-600 flex-shrink-0">
+                    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors flex-shrink-0" title="Menu">
+                        <i class="fas fa-bars text-base"></i>
+                    </button>
+                    <img src="/assets/images/brightwave-logo.png" alt="BrightWave" class="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover ring-2 ring-slate-600 flex-shrink-0 md:hidden">
                     <div class="min-w-0">
                     <p class="text-xs text-gray-500 uppercase tracking-widest hidden sm:block">BrightWave Habitat Enterprise</p>
                     <h1 id="portalTitle" class="text-base sm:text-xl font-bold text-slate-300 truncate">
@@ -11435,19 +12402,6 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <a href="/admin/logout" class="text-gray-400 hover:text-white text-xs sm:text-sm border border-gray-600 rounded-lg px-2 sm:px-3 py-1.5 flex-shrink-0">Logout</a>
                 </div>
             </div>
-            {% if all_roles | length > 1 %}
-            <!-- Role switcher row — scrollable on mobile -->
-            <div class="overflow-x-auto -mx-1">
-                <div id="roleSwitcher" class="flex gap-1 bg-gray-700/60 p-1 rounded-lg min-w-max mx-1">
-                    {% for r in all_roles %}
-                    <button onclick="switchRole('{{ r }}')" id="roleBtn_{{ r }}"
-                        class="role-switch-btn flex-none text-xs font-medium px-3 py-1.5 rounded-md transition-colors {% if r == user_role %}bg-slate-600 text-white{% else %}text-gray-400 hover:text-white{% endif %}">
-                        {{ r }}
-                    </button>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
         </div>
     </header>
 
@@ -11496,8 +12450,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div id="invProjectTabs" class="flex flex-wrap gap-2"></div>
                 </div>
 
-                <!-- TAB NAV (top, visible md+) -->
-                <div class="hidden md:flex items-center gap-1 bg-gray-800/60 border border-gray-700/40 rounded-xl p-1">
+                <!-- TAB NAV (top, visible md+; hidden once the sidebar is built) -->
+                <div id="invTopTabNav" class="hidden md:flex items-center gap-1 bg-gray-800/60 border border-gray-700/40 rounded-xl p-1">
                     <button data-inv-tab="overview" onclick="switchInvestorScreen('overview')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-white bg-slate-700"><i class="fas fa-home mr-2"></i>Overview</button>
                     <button data-inv-tab="returns" onclick="switchInvestorScreen('returns')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-gray-400 hover:text-white"><i class="fas fa-chart-line mr-2"></i>Returns</button>
                     <button data-inv-tab="project" onclick="switchInvestorScreen('project')" class="inv-tab-btn flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-colors text-gray-400 hover:text-white"><i class="fas fa-hard-hat mr-2"></i>Project</button>
@@ -12057,7 +13011,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     <div class="min-w-0"><p class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5 truncate" id="acc_budget_label">Budget Remaining</p><p id="acc_budget_remaining" class="text-xl sm:text-2xl font-bold truncate">-</p></div>
                 </div>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
+            <div id="accBlockPayments" class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-6">
                 <div class="bg-gray-800 rounded-xl p-4 sm:p-6">
                     <h3 class="font-semibold text-lg mb-4 text-slate-300">Record Payment</h3>
                     <form id="accountantPaymentForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -12097,7 +13051,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div id="accUnitsSummary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
             </div>
             <!-- Cash Flow Summary -->
-            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
+            <div id="accBlockCashFlow" class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Cash Flow Summary</h3>
                     <span class="text-xs text-gray-500" id="cf_subtitle">All time · approved expenses</span>
@@ -12135,7 +13089,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                     </div>
                 </div>
             </div>
-            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
+            <div id="accBlockExpenses" class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Recent Project Expenses</h3>
                     <div id="accExpenseBreakdown" class="text-xs text-gray-400 text-right"></div>
@@ -12149,7 +13103,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div id="accExpenseList" class="space-y-3"></div>
             </div>
             <!-- Rent Roll -->
-            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
+            <div id="accBlockRentRoll" class="bg-gray-800 rounded-xl p-4 sm:p-6 mt-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Rent Roll</h3>
                     <div id="accRentRollTotals" class="text-xs text-gray-400 text-right"></div>
@@ -12193,7 +13147,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 </div>
             </div>
             <!-- Lead Pipeline Summary -->
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+            <div id="rlBlockPipeline" class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
                 <div class="lg:col-span-3 bg-gray-800 rounded-xl p-4">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <h4 class="text-sm font-semibold text-slate-300 flex items-center gap-2"><i class="fas fa-filter text-slate-400 text-xs"></i> Lead Pipeline</h4>
@@ -12208,7 +13162,7 @@ ROLE_DASHBOARD_TEMPLATE = """
             </div>
             <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
-                    <h3 class="font-semibold text-lg text-slate-300">Units Ready To Lease</h3>
+                    <h3 id="rlBlockUnits" class="font-semibold text-lg text-slate-300">Units Ready To Lease</h3>
                     <span class="text-xs text-gray-500 hidden sm:block">Live availability for leasing conversations</span>
                 </div>
                 <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Unit</th><th class="py-2 text-left text-gray-400">Status</th><th class="py-2 text-left text-gray-400">Yearly Rent</th><th class="py-2 text-left text-gray-400">Notes</th></tr></thead><tbody id="rel_unitsTable"></tbody></table></div>
@@ -12218,7 +13172,7 @@ ROLE_DASHBOARD_TEMPLATE = """
                 <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><thead><tr class="border-b border-gray-700"><th class="py-2 text-left text-gray-400">Property</th><th class="py-2 text-left text-gray-400">Type</th><th class="py-2 text-left text-gray-400">Location</th><th class="py-2 text-left text-gray-400">Price</th><th class="py-2 text-left text-gray-400">Status</th></tr></thead><tbody id="rel_propertiesTable"></tbody></table></div>
             </div>
             <!-- Commission Tracker -->
-            <div class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
+            <div id="rlBlockCommission" class="bg-gray-800 rounded-xl p-4 sm:p-6 mb-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
                     <h3 class="font-semibold text-lg text-slate-300">Commission Tracker</h3>
                     <span class="text-xs text-gray-500">This month · leases you serviced</span>
@@ -12389,7 +13343,15 @@ ROLE_DASHBOARD_TEMPLATE = """
         </div>
         {% endfor %}
 
+        {% if 'MANAGER' in all_roles or 'ACCOUNTANT' in all_roles %}
+        <!-- PAYROLL (shared panel, see PAYROLL_PANEL_HTML) -->
+        <section id="payrollPanelSection" class="hidden">
+""" + PAYROLL_PANEL_HTML + """
+        </section>
+        {% endif %}
+
     </main>
+    </div><!-- /mainWrapper -->
 
     <script>
         async function fetchData(url, options = {}) {
@@ -12471,6 +13433,7 @@ ROLE_DASHBOARD_TEMPLATE = """
 
         function switchRole(role) {
             activeRole = role;
+            document.getElementById('payrollPanelSection')?.classList.add('hidden');
             ALL_ROLES.forEach(r => {
                 const sec = document.getElementById('roleSection_' + r);
                 if (sec) sec.classList.toggle('hidden', r !== role);
@@ -13055,6 +14018,8 @@ ROLE_DASHBOARD_TEMPLATE = """
                 btn.classList.toggle('text-gray-400', !active);
             });
             // Mobile bottom nav
+            const invIdx = ['overview', 'returns', 'project', 'profile'].indexOf(name);
+            if (invIdx >= 0 && typeof markNavActive === 'function') markNavActive('INVESTOR', invIdx);
             document.querySelectorAll('.inv-tab-btn-mobile').forEach(btn => {
                 const active = btn.getAttribute('data-inv-tab') === name;
                 btn.classList.toggle('text-emerald-400', active);
@@ -14894,10 +15859,10 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
             if (role === 'INVESTOR') {
                 return [
                     { id: 'welcome', title: 'Welcome to your portal', text: 'Quick 4-step tour so you know where everything lives. You can skip any time.', buttons: [skip, next] },
-                    { id: 'overview', title: 'Overview', text: 'Headline numbers — what you invested, your net ROI, what\\'s been paid out, and site progress.', attachTo: { element: '[data-inv-tab="overview"]', on: 'bottom' }, buttons: [skip, next] },
-                    { id: 'returns', title: 'Returns', text: 'Year-by-year payout schedule with paid/scheduled status. For equity investors, your stake and projected revenue.', attachTo: { element: '[data-inv-tab="returns"]', on: 'bottom' }, buttons: [skip, next] },
-                    { id: 'project', title: 'Project', text: 'Live construction progress and milestones posted by the project team.', attachTo: { element: '[data-inv-tab="project"]', on: 'bottom' }, buttons: [skip, next] },
-                    { id: 'profile', title: 'Profile', text: 'Your investment details, signed agreement, and direct line to the CEO.', attachTo: { element: '[data-inv-tab="profile"]', on: 'bottom' }, buttons: [skip, done] },
+                    { id: 'overview', title: 'Overview', text: 'Headline numbers — what you invested, your net ROI, what\\'s been paid out, and site progress.', attachTo: { element: window.innerWidth >= 768 ? '#roleSidebarNav [data-nav="INVESTOR:0"]' : '.inv-tab-btn-mobile[data-inv-tab="overview"]', on: window.innerWidth >= 768 ? 'right' : 'top' }, buttons: [skip, next] },
+                    { id: 'returns', title: 'Returns', text: 'Year-by-year payout schedule with paid/scheduled status. For equity investors, your stake and projected revenue.', attachTo: { element: window.innerWidth >= 768 ? '#roleSidebarNav [data-nav="INVESTOR:1"]' : '.inv-tab-btn-mobile[data-inv-tab="returns"]', on: window.innerWidth >= 768 ? 'right' : 'top' }, buttons: [skip, next] },
+                    { id: 'project', title: 'Project', text: 'Live construction progress and milestones posted by the project team.', attachTo: { element: window.innerWidth >= 768 ? '#roleSidebarNav [data-nav="INVESTOR:2"]' : '.inv-tab-btn-mobile[data-inv-tab="project"]', on: window.innerWidth >= 768 ? 'right' : 'top' }, buttons: [skip, next] },
+                    { id: 'profile', title: 'Profile', text: 'Your investment details, signed agreement, and direct line to the CEO.', attachTo: { element: window.innerWidth >= 768 ? '#roleSidebarNav [data-nav="INVESTOR:3"]' : '.inv-tab-btn-mobile[data-inv-tab="profile"]', on: window.innerWidth >= 768 ? 'right' : 'top' }, buttons: [skip, done] },
                 ];
             }
             if (role === 'MANAGER' || role === 'REALTOR') {
@@ -14930,7 +15895,11 @@ body{font-family:'Times New Roman',serif;color:#000;background:#fff;font-size:11
             setTimeout(() => _tour.start(), 800);
         }
 
-        document.addEventListener('DOMContentLoaded', startTour);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Never run the tour on top of the agreement-signing overlay; it will show on the next visit.
+            if (document.getElementById('contractOverlay')) return;
+            startTour();
+        });
     })();
     </script>
 
