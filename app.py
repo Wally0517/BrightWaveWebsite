@@ -5546,6 +5546,420 @@ def admin_payroll_pay_detail(payment_id):
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
 
+# ---- Payroll PDF reports (individual payment statement + monthly register) ----
+def _payroll_pdf(doc_title, subtitle):
+    """Branded A4 fpdf2 document with letterhead, running header and footer.
+    Returns (pdf, font_name, usable_width)."""
+    import base64
+    import io as _io
+    from fpdf import FPDF
+
+    TEAL = (15, 118, 110)
+    INK = (17, 24, 39)
+    SLATE = (71, 85, 105)
+    FAINT = (148, 163, 184)
+    RULE = (203, 213, 225)
+
+    class PayrollPDF(FPDF):
+        brand_font = 'helvetica'
+        doc_title = ''
+
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_font(self.brand_font, '', 8)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  ' + self.doc_title, align='C', new_x='LMARGIN', new_y='NEXT')
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y() + 1, self.w - self.r_margin, self.get_y() + 1)
+            self.set_y(self.get_y() + 5)
+
+        def footer(self):
+            self.set_y(-14)
+            self.set_draw_color(*RULE)
+            self.set_line_width(0.2)
+            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+            self.set_y(-12)
+            self.set_font(self.brand_font, '', 7.5)
+            self.set_text_color(*FAINT)
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  brightwavehabitat.com  |  Generated ' + datetime.utcnow().strftime('%d %b %Y %H:%M UTC'), align='L')
+            self.cell(0, 5, f'Page {self.page_no()}/{{nb}}', align='R')
+
+    pdf = PayrollPDF(orientation='P', unit='mm', format='A4')
+    pdf.doc_title = doc_title
+    font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'fonts')
+    reg = os.path.join(font_dir, 'DejaVuSans.ttf')
+    bold = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
+    if os.path.exists(reg) and os.path.exists(bold):
+        pdf.add_font('Deja', '', reg)
+        pdf.add_font('Deja', 'B', bold)
+        pdf.brand_font = 'Deja'
+    F = pdf.brand_font
+    pdf.set_margins(16, 18, 16)
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+
+    # Letterhead
+    try:
+        logo_bytes = base64.b64decode(RESIDENT_TERMS_LOGO_DATA_URI.split(',', 1)[1])
+        pdf.image(_io.BytesIO(logo_bytes), x=pdf.l_margin, y=pdf.get_y(), w=14, h=14)
+    except Exception:
+        pass
+    pdf.set_xy(pdf.l_margin + 18, pdf.get_y())
+    pdf.set_font(F, 'B', 14)
+    pdf.set_text_color(*TEAL)
+    pdf.cell(usable - 18, 7, 'BRIGHTWAVE HABITAT ENTERPRISE', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_x(pdf.l_margin + 18)
+    pdf.set_font(F, '', 8.5)
+    pdf.set_text_color(*SLATE)
+    pdf.cell(usable - 18, 4.5, 'Malete, Kwara State, Nigeria  |  brightwavehabitat.com  |  brightwavehabitat@gmail.com', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_y(pdf.get_y() + 4)
+    pdf.set_draw_color(*TEAL)
+    pdf.set_line_width(0.6)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.set_y(pdf.get_y() + 5)
+    pdf.set_font(F, 'B', 13)
+    pdf.set_text_color(*INK)
+    pdf.cell(usable, 7, doc_title.upper(), align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_font(F, '', 9)
+    pdf.set_text_color(*SLATE)
+    pdf.cell(usable, 5, subtitle, align='C', new_x='LMARGIN', new_y='NEXT')
+    pdf.set_y(pdf.get_y() + 4)
+    pdf._palette = {'TEAL': TEAL, 'INK': INK, 'SLATE': SLATE, 'FAINT': FAINT, 'RULE': RULE}
+    return pdf, F, usable
+
+
+def _pdf_money(v, font_ok=True):
+    s = f"{float(v or 0):,.0f}"
+    return ('₦' if font_ok else 'NGN ') + s
+
+
+def _pdf_table(pdf, F, usable, columns, rows, total_row=None, zebra=True, font_size=8.5):
+    """columns: list of (label, width_fraction, align). rows: list of lists of str."""
+    P = pdf._palette
+    widths = [usable * c[1] for c in columns]
+    pdf.set_font(F, 'B', font_size)
+    pdf.set_fill_color(241, 245, 249)
+    pdf.set_text_color(*P['SLATE'])
+    pdf.set_draw_color(*P['RULE'])
+    pdf.set_line_width(0.2)
+    for (label, _, align), w in zip(columns, widths):
+        pdf.cell(w, 7, label, border='B', align=align, fill=True)
+    pdf.ln(7)
+    pdf.set_font(F, '', font_size)
+    pdf.set_text_color(*P['INK'])
+    for i, row in enumerate(rows):
+        if pdf.get_y() > pdf.h - 30:
+            pdf.add_page()
+            pdf.set_font(F, 'B', font_size)
+            pdf.set_text_color(*P['SLATE'])
+            for (label, _, align), w in zip(columns, widths):
+                pdf.cell(w, 7, label, border='B', align=align, fill=True)
+            pdf.ln(7)
+            pdf.set_font(F, '', font_size)
+            pdf.set_text_color(*P['INK'])
+        fill = zebra and i % 2 == 1
+        if fill:
+            pdf.set_fill_color(248, 250, 252)
+        # Measure tallest cell (notes may wrap)
+        line_h = 5.5
+        n_lines = 1
+        for (label, _, align), w, val in zip(columns, widths, row):
+            lines = pdf.multi_cell(w, line_h, str(val), align=align, dry_run=True, output='LINES')
+            n_lines = max(n_lines, len(lines))
+        row_h = line_h * n_lines + 1.5
+        y0 = pdf.get_y()
+        x = pdf.l_margin
+        for (label, _, align), w, val in zip(columns, widths, row):
+            pdf.set_xy(x, y0)
+            pdf.multi_cell(w, line_h, str(val), align=align, fill=fill, new_x='RIGHT', new_y='TOP', max_line_height=line_h)
+            x += w
+        pdf.set_xy(pdf.l_margin, y0 + row_h)
+        pdf.line(pdf.l_margin, y0 + row_h, pdf.l_margin + usable, y0 + row_h)
+    if total_row:
+        pdf.set_font(F, 'B', font_size)
+        pdf.set_fill_color(236, 253, 245)
+        for (label, _, align), w, val in zip(columns, widths, total_row):
+            pdf.cell(w, 7, str(val), align=align, fill=True)
+        pdf.ln(7)
+    pdf.ln(3)
+
+
+def _pdf_kv_block(pdf, F, usable, pairs, cols=2):
+    """Grid of label/value pairs."""
+    P = pdf._palette
+    col_w = usable / cols
+    for i in range(0, len(pairs), cols):
+        y0 = pdf.get_y()
+        for j in range(cols):
+            if i + j >= len(pairs):
+                break
+            label, value = pairs[i + j]
+            pdf.set_xy(pdf.l_margin + j * col_w, y0)
+            pdf.set_font(F, '', 7.5)
+            pdf.set_text_color(*P['FAINT'])
+            pdf.cell(col_w, 4, label.upper(), new_x='LEFT', new_y='NEXT')
+            pdf.set_font(F, 'B', 9.5)
+            pdf.set_text_color(*P['INK'])
+            pdf.cell(col_w, 5, str(value), new_x='LEFT', new_y='NEXT')
+        pdf.set_xy(pdf.l_margin, y0 + 10.5)
+    pdf.ln(2)
+
+
+def _pdf_signatures(pdf, F, usable, left_label, right_label):
+    P = pdf._palette
+    if pdf.get_y() > pdf.h - 50:
+        pdf.add_page()
+    pdf.ln(10)
+    y = pdf.get_y()
+    half = usable / 2 - 8
+    pdf.set_draw_color(*P['INK'])
+    pdf.set_line_width(0.3)
+    pdf.line(pdf.l_margin, y + 10, pdf.l_margin + half, y + 10)
+    pdf.line(pdf.l_margin + usable - half, y + 10, pdf.l_margin + usable, y + 10)
+    pdf.set_y(y + 11)
+    pdf.set_font(F, 'B', 8.5)
+    pdf.set_text_color(*P['SLATE'])
+    pdf.cell(half, 5, left_label)
+    pdf.set_x(pdf.l_margin + usable - half)
+    pdf.cell(half, 5, right_label, new_x='LMARGIN', new_y='NEXT')
+
+
+MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+
+def _naira_words(amount):
+    """Amount in words for receipts, e.g. 110000 -> 'One Hundred and Ten Thousand Naira Only'."""
+    ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+            'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
+    tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+    def below_thousand(n):
+        parts = []
+        if n >= 100:
+            parts.append(ones[n // 100] + ' Hundred')
+            n %= 100
+            if n:
+                parts.append('and')
+        if n >= 20:
+            parts.append(tens[n // 10] + ('-' + ones[n % 10] if n % 10 else ''))
+        elif n:
+            parts.append(ones[n])
+        return ' '.join(parts)
+
+    n = int(round(float(amount or 0)))
+    kobo = int(round((float(amount or 0) - n) * 100))
+    if n == 0:
+        words = 'Zero'
+    else:
+        chunks, scales, words_parts = [], ['', ' Thousand', ' Million', ' Billion'], []
+        while n:
+            chunks.append(n % 1000)
+            n //= 1000
+        for i in range(len(chunks) - 1, -1, -1):
+            if chunks[i]:
+                words_parts.append(below_thousand(chunks[i]) + scales[i])
+        words = ', '.join(words_parts[:-1]) + (' and ' if len(words_parts) > 1 and chunks[0] and chunks[0] < 100 else (', ' if len(words_parts) > 1 else '')) + words_parts[-1]
+    out = words + ' Naira'
+    if kobo:
+        out += f', {below_thousand(kobo)} Kobo'
+    return out + ' Only'
+
+
+def _pdf_date(iso):
+    try:
+        return datetime.strptime(str(iso)[:10], '%Y-%m-%d').strftime('%d %b %Y')
+    except (TypeError, ValueError):
+        return iso or '-'
+
+
+def _month_iter(fy, fm, ty, tm):
+    y, m = fy, fm
+    n = 0
+    while (y, m) <= (ty, tm) and n < 120:
+        yield y, m
+        n += 1
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+
+def _parse_ym(value, default):
+    if not value:
+        return default
+    try:
+        y, m = str(value).split('-')[:2]
+        y, m = int(y), int(m)
+        if not (1 <= m <= 12):
+            raise ValueError
+        return y, m
+    except (TypeError, ValueError):
+        raise ValueError('Use YYYY-MM for from/to')
+
+
+@app.route('/admin/payroll/statement/<int:employee_id>')
+@login_required
+@payroll_required
+def admin_payroll_statement_pdf(employee_id):
+    """Individual Payment Statement: month-by-month earned vs paid, every payment record,
+    totals and signature lines. Usable as proof of payment."""
+    emp = Employee.query.get(employee_id)
+    if not emp:
+        return make_response('Staff member not found', 404)
+    today = date_type.today()
+    try:
+        default_from = (emp.start_date.year, emp.start_date.month) if emp.start_date else (today.year, 1)
+        fy, fm = _parse_ym(request.args.get('from'), default_from)
+        ty, tm = _parse_ym(request.args.get('to'), (today.year, today.month))
+    except ValueError as ve:
+        return make_response(str(ve), 400)
+    if (fy, fm) > (ty, tm):
+        fy, fm, ty, tm = ty, tm, fy, fm
+    # Include any months with payments outside the employee's active window
+    first_pay = (PayrollPayment.query.filter_by(employee_id=emp.id)
+                 .order_by(PayrollPayment.period_year.asc(), PayrollPayment.period_month.asc()).first())
+    if first_pay and (first_pay.period_year, first_pay.period_month) < (fy, fm) and not request.args.get('from'):
+        fy, fm = first_pay.period_year, first_pay.period_month
+
+    try:
+        period_label = f"Period: {MONTH_FULL[fm-1]} {fy} to {MONTH_FULL[tm-1]} {ty}"
+        pdf, F, usable = _payroll_pdf('Staff Payment Statement', period_label)
+        money = lambda v: _pdf_money(v, F == 'Deja')
+        actor = get_current_admin()
+        user = emp.user
+        _pdf_kv_block(pdf, F, usable, [
+            ('Staff member', emp.full_name),
+            ('Position', emp.job_title or (user.role.title() if user else 'Staff')),
+            ('Phone', emp.phone or 'Not provided'),
+            ('Email', emp.email or 'Not provided'),
+            ('Start date', emp.start_date.strftime('%d %b %Y') if emp.start_date else '-'),
+            ('Status', ('Active' if emp.is_active else 'Left ' + (emp.end_date.strftime('%d %b %Y') if emp.end_date else ''))),
+            ('Current monthly salary', money(emp.monthly_salary)),
+            ('Statement reference', f"BW-PS-{emp.id:04d}-{today.strftime('%Y%m%d')}"),
+        ], cols=2)
+
+        # Month-by-month summary
+        pdf.set_font(F, 'B', 10)
+        pdf.set_text_color(*pdf._palette['TEAL'])
+        pdf.cell(usable, 6, 'Monthly summary', new_x='LMARGIN', new_y='NEXT')
+        rows = []
+        t_sal = t_com = t_earn = t_paid = 0.0
+        all_payments = []
+        for y, m in _month_iter(fy, fm, ty, tm):
+            d = compute_employee_payroll(emp, y, m)
+            if not d['active_in_month'] and not d['payment_history']:
+                continue
+            bal = d['total_earned'] - d['already_paid']
+            rows.append([f"{MONTH_ABBR[m-1]} {y}", money(d['salary']), money(d['commission_total']), money(d['total_earned']),
+                         money(d['already_paid']), ('Settled' if abs(bal) < 1 else ('Owed ' + money(bal) if bal > 0 else 'Overpaid ' + money(-bal)))])
+            t_sal += d['salary']; t_com += d['commission_total']; t_earn += d['total_earned']; t_paid += d['already_paid']
+            all_payments.extend(d['payment_history'])
+        if not rows:
+            rows = [['No activity in this period', '', '', '', '', '']]
+        t_bal = t_earn - t_paid
+        _pdf_table(pdf, F, usable,
+                   [('Month', 0.16, 'L'), ('Salary', 0.16, 'R'), ('Commission', 0.17, 'R'), ('Total due', 0.17, 'R'), ('Paid', 0.16, 'R'), ('Balance', 0.18, 'R')],
+                   rows,
+                   total_row=['TOTAL', money(t_sal), money(t_com), money(t_earn), money(t_paid),
+                              ('Settled' if abs(t_bal) < 1 else ('Owed ' + money(t_bal) if t_bal > 0 else 'Overpaid ' + money(-t_bal)))])
+
+        # Payment records
+        pdf.set_font(F, 'B', 10)
+        pdf.set_text_color(*pdf._palette['TEAL'])
+        pdf.cell(usable, 6, f'Payment records ({len(all_payments)})', new_x='LMARGIN', new_y='NEXT')
+        all_payments.sort(key=lambda p: (p['period_year'], p['period_month'], p['paid_at'] or ''))
+        prow = [[p['period_label'], _pdf_date(p['paid_on']), (p['kind'] or '').title(), money(p['amount']),
+                 (p['notes'] or '-'), p['paid_by'] or '-'] for p in all_payments] or [['No payments recorded', '', '', '', '', '']]
+        _pdf_table(pdf, F, usable,
+                   [('For month', 0.14, 'L'), ('Date paid', 0.14, 'L'), ('Type', 0.12, 'L'), ('Amount', 0.16, 'R'), ('Notes', 0.28, 'L'), ('Recorded by', 0.16, 'L')],
+                   prow, total_row=['TOTAL PAID', '', '', money(t_paid), '', ''])
+
+        pdf.set_font(F, 'B', 9)
+        pdf.set_text_color(*pdf._palette['INK'])
+        pdf.cell(usable, 5.5, 'Total paid in words: ' + _naira_words(t_paid), new_x='LMARGIN', new_y='NEXT')
+        pdf.ln(1)
+        pdf.set_font(F, '', 8)
+        pdf.set_text_color(*pdf._palette['SLATE'])
+        pdf.multi_cell(usable, 4.5, 'This statement is produced from the BrightWave Habitat Enterprise payroll records and serves as a record of payments made to the staff member named above. '
+                       'Commission is 10% of the gross yearly rent on units serviced by the staff member in the month shown. '
+                       f'Prepared by {_actor_name(actor)} on {today.strftime("%d %B %Y")}.')
+        pdf.ln(2)
+        pdf.set_font(F, 'B', 8.5)
+        pdf.set_text_color(*pdf._palette['INK'])
+        pdf.multi_cell(usable, 4.5, 'Acknowledgement: I confirm that I have received the payments listed in this statement in full and that the balance shown is correct.')
+        _pdf_signatures(pdf, F, usable, 'Staff member: name, signature and date', 'For BrightWave Habitat Enterprise (Management)')
+        pdf_bytes = bytes(pdf.output())
+    except Exception:
+        app.logger.exception('Payroll statement PDF failed')
+        return make_response('PDF generation failed. Check server logs.', 500)
+    safe = re.sub(r'[^A-Za-z0-9]+', '-', emp.full_name).strip('-') or 'staff'
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    disposition = 'inline' if request.args.get('inline') else 'attachment'
+    resp.headers['Content-Disposition'] = f'{disposition}; filename="BrightWave-Payment-Statement-{safe}-{fy}{fm:02d}-{ty}{tm:02d}.pdf"'
+    return resp
+
+
+@app.route('/admin/payroll/register')
+@login_required
+@payroll_required
+def admin_payroll_register_pdf():
+    """Monthly payroll register: every staff member for one month with earned, paid and balance."""
+    try:
+        year, month = _parse_period(request.args)
+    except (TypeError, ValueError) as ve:
+        return make_response(str(ve) or 'Invalid period', 400)
+    try:
+        pdf, F, usable = _payroll_pdf('Monthly Payroll Register', f"{MONTH_FULL[month-1]} {year}  |  Ref: BW-PR-{year}{month:02d}")
+        money = lambda v: _pdf_money(v, F == 'Deja')
+        employees = Employee.query.order_by(Employee.full_name.asc()).all()
+        paid_ids = {r[0] for r in db.session.query(PayrollPayment.employee_id)
+                    .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month).distinct()}
+        rows, t = [], {'salary': 0.0, 'commission_total': 0.0, 'total_earned': 0.0, 'already_paid': 0.0}
+        details = []
+        for emp in employees:
+            if not (_employee_active_in_month(emp, year, month) or emp.id in paid_ids):
+                continue
+            d = compute_employee_payroll(emp, year, month)
+            bal = d['total_earned'] - d['already_paid']
+            rows.append([d['display_name'], d['role'] or '-', money(d['salary']), money(d['commission_total']),
+                         money(d['total_earned']), money(d['already_paid']), ('Settled' if abs(bal) < 1 else money(bal))])
+            for k in t:
+                t[k] += d[k]
+            for p in d['payment_history']:
+                details.append([d['display_name'], _pdf_date(p['paid_on']), (p['kind'] or '').title(), money(p['amount']), p['notes'] or '-', p['paid_by'] or '-'])
+        if not rows:
+            rows = [['No staff on payroll this month', '', '', '', '', '', '']]
+        t_bal = t['total_earned'] - t['already_paid']
+        _pdf_kv_block(pdf, F, usable, [
+            ('Staff on payroll', str(len([r for r in rows if r[1] != '']))),
+            ('Total due', money(t['total_earned'])),
+            ('Total paid', money(t['already_paid'])),
+            ('Outstanding', money(max(t_bal, 0))),
+        ], cols=4)
+        _pdf_table(pdf, F, usable,
+                   [('Staff', 0.22, 'L'), ('Role', 0.13, 'L'), ('Salary', 0.13, 'R'), ('Commission', 0.13, 'R'), ('Total due', 0.13, 'R'), ('Paid', 0.13, 'R'), ('Balance', 0.13, 'R')],
+                   rows, total_row=['TOTAL', '', money(t['salary']), money(t['commission_total']), money(t['total_earned']), money(t['already_paid']), ('Settled' if abs(t_bal) < 1 else money(t_bal))])
+        pdf.set_font(F, 'B', 10)
+        pdf.set_text_color(*pdf._palette['TEAL'])
+        pdf.cell(usable, 6, f'Payments recorded for {MONTH_ABBR[month-1]} {year} ({len(details)})', new_x='LMARGIN', new_y='NEXT')
+        _pdf_table(pdf, F, usable,
+                   [('Staff', 0.2, 'L'), ('Date paid', 0.13, 'L'), ('Type', 0.12, 'L'), ('Amount', 0.15, 'R'), ('Notes', 0.25, 'L'), ('Recorded by', 0.15, 'L')],
+                   details or [['No payments recorded', '', '', '', '', '']])
+        _pdf_signatures(pdf, F, usable, 'Prepared by (name, signature, date)', 'Approved by CEO (signature, date)')
+        pdf_bytes = bytes(pdf.output())
+    except Exception:
+        app.logger.exception('Payroll register PDF failed')
+        return make_response('PDF generation failed. Check server logs.', 500)
+    resp = make_response(pdf_bytes)
+    resp.headers['Content-Type'] = 'application/pdf'
+    resp.headers['Content-Disposition'] = f'attachment; filename="BrightWave-Payroll-Register-{year}-{month:02d}.pdf"'
+    return resp
+
+
 # ========== INVESTOR PROFILE API ==========
 @app.route('/admin/api/investors', methods=['GET', 'POST'])
 @login_required
@@ -6562,6 +6976,7 @@ PAYROLL_PANEL_HTML = """
     <button onclick="prOpenPayModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-plus"></i>Record Payment</button>
     <button onclick="prOpenBackfillModal()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-calendar-plus"></i>Back-fill Months</button>
     <button onclick="prOpenStaffModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-user-plus"></i>Add Staff</button>
+    <button onclick="prOpenRegisterPdf()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2 ml-auto" title="PDF of everyone on payroll for the selected month"><i class="fas fa-file-pdf text-red-300"></i>Month Register PDF</button>
 </div>
 
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
@@ -6639,6 +7054,7 @@ PAYROLL_PANEL_HTML = """
         </div>
         <label class="inline-flex items-center gap-2 text-xs text-gray-400 pb-2"><input type="checkbox" id="prLedgerAllMonths" onchange="prLoadLedger()" class="rounded" checked> All months</label>
         <p id="prLedgerTotal" class="text-xs text-gray-400 ml-auto pb-2"></p>
+        <button onclick="prOpenStatementPdf()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 mb-1" title="PDF statement for the selected staff member and months"><i class="fas fa-file-pdf text-red-300"></i>Statement PDF</button>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm min-w-[860px]">
@@ -6853,6 +7269,7 @@ PAYROLL_PANEL_JS = """
                             <div class="flex gap-1 items-center">
                                 <button onclick="prOpenPayModal(${r.employee_id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded">Pay</button>
                                 <button onclick="prOpenStaffModal(${r.employee_id})" class="text-xs text-gray-300 hover:text-white hover:bg-gray-700 px-2 py-1 rounded" title="Edit staff record"><i class="fas fa-pen"></i></button>
+                                <a href="/admin/payroll/statement/${r.employee_id}" class="text-xs text-red-300 hover:text-red-200 hover:bg-gray-700 px-2 py-1 rounded" title="Download payment statement (PDF)"><i class="fas fa-file-pdf"></i></a>
                             </div>
                         </td>
                     </tr>${linesRow}${histRow}`;
@@ -6892,6 +7309,7 @@ PAYROLL_PANEL_JS = """
                     <td class="py-2 text-xs">${s.has_account ? `<span class="text-emerald-400"><i class="fas fa-user-check mr-1"></i>${prEsc(s.username)}</span>` : '<span class="text-gray-600">none</span>'}</td>
                     <td class="py-2 text-xs">${s.is_active ? '<span class="text-emerald-400">Active</span>' : '<span class="text-gray-500">Inactive</span>'}</td>
                     <td class="py-2 pl-3 whitespace-nowrap">
+                        <a href="/admin/payroll/statement/${s.id}" class="text-red-300 hover:text-red-200 mr-2" title="Payment statement (PDF)"><i class="fas fa-file-pdf"></i></a>
                         <button onclick="prOpenStaffModal(${s.id})" class="text-blue-400 hover:text-blue-300 mr-2" title="Edit"><i class="fas fa-pen"></i></button>
                         <button onclick="prToggleStaffActive(${s.id}, ${s.is_active ? 'false' : 'true'})" class="${s.is_active ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'} mr-2" title="${s.is_active ? 'Deactivate (keeps history)' : 'Reactivate'}"><i class="fas ${s.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i></button>
                         ${_prCanDelete ? `<button onclick="prDeleteStaff(${s.id})" class="text-red-400 hover:text-red-300" title="Remove (CEO only, no payments)"><i class="fas fa-trash-alt"></i></button>` : ''}
@@ -7080,6 +7498,21 @@ PAYROLL_PANEL_JS = """
                 prMsg('prBfMsg', (res.message || 'Done') + '.' + detail + skipped, true);
                 setTimeout(() => { prCloseModal('prBackfillModal'); loadPayroll(); prShowTab('prTabLedger'); }, 1400);
             } catch (e) { prMsg('prBfMsg', e.message || 'Error creating records', false); }
+        }
+
+        function prOpenRegisterPdf() {
+            const p = prPeriod();
+            window.open(`/admin/payroll/register?year=${p.year}&month=${p.month}`, '_blank');
+        }
+        function prOpenStatementPdf() {
+            const staff = document.getElementById('prLedgerStaff').value;
+            if (!staff) { alert('Pick a staff member in the Staff filter first.'); return; }
+            let q = '';
+            if (!document.getElementById('prLedgerAllMonths').checked) {
+                const p = prPeriod(); const ym = `${p.year}-${String(p.month).padStart(2, '0')}`;
+                q = `?from=${ym}&to=${ym}`;
+            }
+            window.open('/admin/payroll/statement/' + staff + q, '_blank');
         }
 
         // ---- Ledger ----

@@ -149,3 +149,21 @@ def test_sqlite_migration_rebuilds_legacy_tables(client):
         assert 'payroll_payment_old' not in tables
         db.session.add(PayrollPayment(employee_id=emp.id, period_year=2026, period_month=9, amount=1, kind='salary'))
         db.session.commit()
+
+
+def test_statement_and_register_pdfs(client):
+    headers = _login_as(client, 'mgr_pdf', 'MANAGER')
+    r = client.post('/admin/api/payroll/staff', json={'full_name': 'Bola Cleaner', 'job_title': 'Cleaner', 'monthly_salary': 35000, 'start_date': '2026-08-01'}, headers=headers)
+    emp_id = json.loads(r.data)['employee']['id']
+    r = client.post('/admin/api/payroll/backfill', json={'employee_id': emp_id, 'from_year': 2026, 'from_month': 8, 'to_year': 2026, 'to_month': 10}, headers=headers)
+    assert r.status_code == 200
+    r = client.get(f'/admin/payroll/statement/{emp_id}')
+    assert r.status_code == 200 and r.data.startswith(b'%PDF') and 'Payment-Statement-Bola-Cleaner' in r.headers['Content-Disposition']
+    r = client.get(f'/admin/payroll/statement/{emp_id}?from=2026-09&to=2026-09&inline=1')
+    assert r.status_code == 200 and r.headers['Content-Disposition'].startswith('inline')
+    r = client.get('/admin/payroll/register?year=2026&month=9')
+    assert r.status_code == 200 and r.data.startswith(b'%PDF')
+    assert client.get('/admin/payroll/statement/999999').status_code == 404
+    client.get('/admin/logout')
+    _login_as(client, 'pa_pdf', 'PA')
+    assert client.get(f'/admin/payroll/statement/{emp_id}').status_code == 403
