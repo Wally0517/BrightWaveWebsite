@@ -672,7 +672,34 @@ def _migrate_payroll_to_employees(dialect):
     - payroll_payment / salary_history gain employee_id and user_id becomes nullable
       (SQLite cannot ALTER a NOT NULL constraint, so the table is rebuilt).
     - every staff Admin gets an Employee row; existing rows are linked by user_id.
+    Gunicorn starts several workers at once, so the rebuild is serialised with a
+    file lock; workers that lose the race simply re-inspect and find nothing to do.
     """
+    lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', '.payroll-migrate.lock')
+    lock_fh = None
+    try:
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        lock_fh = open(lock_path, 'a+')
+        try:
+            import fcntl
+            fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)
+        except ImportError:
+            pass  # Windows dev box: single process, no lock needed
+    except OSError:
+        lock_fh = None
+    try:
+        _migrate_payroll_to_employees_locked(dialect)
+    finally:
+        if lock_fh is not None:
+            try:
+                import fcntl
+                fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+            except ImportError:
+                pass
+            lock_fh.close()
+
+
+def _migrate_payroll_to_employees_locked(dialect):
     rebuilt = {
         'payroll_payment': ['id', 'user_id', 'period_year', 'period_month', 'amount', 'kind',
                             'source_tenant_id', 'notes', 'paid_at', 'paid_by'],
