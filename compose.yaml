@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    container_name: brightwave-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./uploads/expense-receipts:/app/assets/uploads/expense-receipts
+      - ./uploads/property-images:/app/assets/images/properties
+      - ./uploads/site-images:/app/assets/images/site
+      - ./uploads/site-videos:/app/assets/videos/site
+      - ./app.py:/app/app.py
+      - ./index.html:/app/index.html
+      - ./about.html:/app/about.html

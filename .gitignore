@@ -28,3 +28,11 @@ Thumbs.db
 
 # Local uploaded media (keep repo lean; real assets live on the server)
 assets/videos/
+
+# Production-only files on the VPS (never commit)
+.env.production
+data/
+uploads/
+*.bak.*
+*.bak
+index.html.bak.*
