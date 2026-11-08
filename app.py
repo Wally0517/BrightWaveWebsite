@@ -376,6 +376,29 @@ class Employee(db.Model):
     user = db.relationship('Admin', foreign_keys=[user_id])
 
 
+class PayrollStatement(db.Model):
+    """A signed, issued Staff Payment Statement. Snapshots the totals at signing time so
+    the PDF can be reproduced exactly, with the management e-signature and the staff
+    member's acknowledgement (typed on the spot) and timestamps."""
+    __tablename__ = 'payroll_statement'
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    reference = db.Column(db.String(40), unique=True, nullable=False)
+    from_year = db.Column(db.Integer, nullable=False)
+    from_month = db.Column(db.Integer, nullable=False)
+    to_year = db.Column(db.Integer, nullable=False)
+    to_month = db.Column(db.Integer, nullable=False)
+    total_earned = db.Column(db.Float, default=0.0)
+    total_paid = db.Column(db.Float, default=0.0)
+    signed_by_name = db.Column(db.String(120), nullable=False)
+    signed_by_user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    signed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    staff_ack_name = db.Column(db.String(120), nullable=True)
+    staff_ack_at = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    employee = db.relationship('Employee', foreign_keys=[employee_id])
+
+
 class PayrollPayment(db.Model):
     __tablename__ = 'payroll_payment'
     id = db.Column(db.Integer, primary_key=True)
@@ -658,7 +681,7 @@ def ensure_runtime_schema_updates():
     if not inspector.has_table('salary_history'):
         db.create_all()
 
-    if not inspector.has_table('employee'):
+    if not inspector.has_table('employee') or not inspector.has_table('payroll_statement'):
         db.create_all()
 
     db.session.commit()
@@ -3251,12 +3274,10 @@ def admin_dashboard():
             resp.headers[k] = v
         return resp
 
-    # Non-CEO: handle contract signing flow
-    contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
-    if not contract:
-        contract = UserContract(user_id=admin.id, contract_type=admin.role, status='pending_user_signature')
-        db.session.add(contract)
-        db.session.commit()
+    # Non-CEO: handle contract signing flow. Always use the agreement for the
+    # account's CURRENT primary role (a stale contract from a previous role used
+    # to be shown, e.g. a Manager agreement to someone later made an Investor).
+    contract = get_or_create_contract_for_role(admin, admin.role)
 
     needs_contract_signing = (contract.status == 'pending_user_signature')
     awaiting_ceo_signature = (contract.status == 'pending_ceo_signature')
@@ -4027,8 +4048,8 @@ def sign_my_contract():
         if not signature or len(signature) < 2:
             return jsonify({"success": False, "message": "Signature is required"}), 400
 
-        contract = UserContract.query.filter_by(user_id=admin.id).order_by(UserContract.created_at.desc()).first()
-        if not contract or contract.status != 'pending_user_signature':
+        contract = get_or_create_contract_for_role(admin, admin.role)
+        if contract.status != 'pending_user_signature':
             return jsonify({"success": False, "message": "No contract pending your signature"}), 400
 
         contract.user_signature = signature
@@ -5036,6 +5057,16 @@ def compute_employee_payroll(emp, year, month):
 
     active_in_month = _employee_active_in_month(emp, year, month)
     salary = get_effective_monthly_salary(emp, year, month) if active_in_month else 0.0
+    prorated_days = None
+    if active_in_month and salary > 0:
+        start_of_month, end_of_month = _month_bounds(year, month)
+        days_in_month = (end_of_month - start_of_month).days + 1
+        first_day = max(start_of_month, emp.start_date) if emp.start_date else start_of_month
+        last_day = min(end_of_month, emp.end_date) if emp.end_date else end_of_month
+        worked = (last_day - first_day).days + 1
+        if 0 < worked < days_in_month:
+            prorated_days = (worked, days_in_month)
+            salary = round(salary * worked / days_in_month)
 
     payments_q = (
         PayrollPayment.query
@@ -5055,6 +5086,7 @@ def compute_employee_payroll(emp, year, month):
         'display_name': emp.full_name,
         'role': emp.job_title or (user.role if user else 'Staff'),
         'active_in_month': active_in_month,
+        'prorated_days': prorated_days,
         'commission_lines': commission_lines,
         'commission_total': commission_total,
         'salary': salary,
@@ -5737,9 +5769,9 @@ def _pdf_kv_block(pdf, F, usable, pairs, cols=2):
 
 def _pdf_signatures(pdf, F, usable, left_label, right_label):
     P = pdf._palette
-    if pdf.get_y() > pdf.h - 50:
+    if pdf.get_y() > pdf.h - 34:
         pdf.add_page()
-    pdf.ln(10)
+    pdf.ln(7)
     y = pdf.get_y()
     half = usable / 2 - 8
     pdf.set_draw_color(*P['INK'])
@@ -5827,6 +5859,153 @@ def _parse_ym(value, default):
         raise ValueError('Use YYYY-MM for from/to')
 
 
+def serialize_statement(st):
+    return {
+        'id': st.id, 'employee_id': st.employee_id, 'reference': st.reference,
+        'employee_name': st.employee.full_name if st.employee else '',
+        'from_year': st.from_year, 'from_month': st.from_month, 'to_year': st.to_year, 'to_month': st.to_month,
+        'period_label': f"{MONTH_ABBR[st.from_month-1]} {st.from_year} to {MONTH_ABBR[st.to_month-1]} {st.to_year}",
+        'total_earned': float(st.total_earned or 0), 'total_paid': float(st.total_paid or 0),
+        'signed_by_name': st.signed_by_name, 'signed_at': st.signed_at.isoformat() if st.signed_at else None,
+        'staff_ack_name': st.staff_ack_name, 'staff_ack_at': st.staff_ack_at.isoformat() if st.staff_ack_at else None,
+        'notes': st.notes or '',
+        'pdf_url': f"/admin/payroll/statement/{st.employee_id}?statement_id={st.id}",
+    }
+
+
+def _statement_totals(emp, fy, fm, ty, tm):
+    earned = paid = 0.0
+    for y, m in _month_iter(fy, fm, ty, tm):
+        d = compute_employee_payroll(emp, y, m)
+        earned += d['total_earned']
+        paid += d['already_paid']
+    return earned, paid
+
+
+@app.route('/admin/api/payroll/statements')
+@login_required
+@payroll_required
+def admin_payroll_statements_list():
+    q = PayrollStatement.query
+    if request.args.get('employee_id'):
+        try:
+            q = q.filter(PayrollStatement.employee_id == int(request.args['employee_id']))
+        except ValueError:
+            return jsonify({"success": False, "message": "Invalid employee_id"}), 400
+    rows = q.order_by(PayrollStatement.signed_at.desc()).limit(200).all()
+    return jsonify({'success': True, 'statements': [serialize_statement(x) for x in rows]})
+
+
+@app.route('/admin/api/payroll/statements', methods=['POST'])
+@login_required
+@payroll_required
+def admin_payroll_statement_sign():
+    """Issue a signed statement: management types their full name as the e-signature;
+    the staff member may type their name as acknowledgement at the same time."""
+    try:
+        actor = get_current_admin()
+        data = request.get_json() or {}
+        emp = Employee.query.get(int(data.get('employee_id') or 0))
+        if not emp:
+            return jsonify({"success": False, "message": "Staff member not found"}), 404
+        signature = (data.get('signature') or '').strip()
+        if len(signature) < 2:
+            return jsonify({"success": False, "message": "Type your full name to sign"}), 400
+        today = date_type.today()
+        try:
+            default_from = (emp.start_date.year, emp.start_date.month) if emp.start_date else (today.year, 1)
+            fy, fm = _parse_ym(data.get('from'), default_from)
+            ty, tm = _parse_ym(data.get('to'), (today.year, today.month))
+        except ValueError as ve:
+            return jsonify({"success": False, "message": str(ve)}), 400
+        if (fy, fm) > (ty, tm):
+            fy, fm, ty, tm = ty, tm, fy, fm
+        earned, paid = _statement_totals(emp, fy, fm, ty, tm)
+        seq = PayrollStatement.query.count() + 1
+        ref = f"BW-PS-{today.strftime('%Y%m%d')}-{emp.id:03d}-{seq:04d}"
+        while PayrollStatement.query.filter_by(reference=ref).first():
+            seq += 1
+            ref = f"BW-PS-{today.strftime('%Y%m%d')}-{emp.id:03d}-{seq:04d}"
+        ack = (data.get('staff_ack_name') or '').strip()
+        st = PayrollStatement(
+            employee_id=emp.id, reference=ref,
+            from_year=fy, from_month=fm, to_year=ty, to_month=tm,
+            total_earned=earned, total_paid=paid,
+            signed_by_name=signature, signed_by_user_id=actor.id if actor else None,
+            signed_at=datetime.utcnow(),
+            staff_ack_name=ack or None, staff_ack_at=datetime.utcnow() if ack else None,
+            notes=(data.get('notes') or '').strip() or None,
+        )
+        db.session.add(st)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Statement signed and issued", "statement": serialize_statement(st)})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error signing statement: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
+
+
+@app.route('/admin/api/payroll/statements/<int:statement_id>/acknowledge', methods=['POST'])
+@login_required
+@payroll_required
+def admin_payroll_statement_ack(statement_id):
+    """Add the staff member's typed acknowledgement to an already-issued statement."""
+    st = PayrollStatement.query.get(statement_id)
+    if not st:
+        return jsonify({"success": False, "message": "Statement not found"}), 404
+    data = request.get_json() or {}
+    ack = (data.get('staff_ack_name') or '').strip()
+    if len(ack) < 2:
+        return jsonify({"success": False, "message": "Staff member should type their full name"}), 400
+    st.staff_ack_name = ack
+    st.staff_ack_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Acknowledgement recorded", "statement": serialize_statement(st)})
+
+
+@app.route('/admin/api/payroll/statements/<int:statement_id>', methods=['DELETE'])
+@login_required
+@payroll_required
+def admin_payroll_statement_delete(statement_id):
+    if get_current_admin().role != 'CEO':
+        return jsonify({"success": False, "message": "Only the CEO can void an issued statement"}), 403
+    st = PayrollStatement.query.get(statement_id)
+    if not st:
+        return jsonify({"success": False, "message": "Statement not found"}), 404
+    db.session.delete(st)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Statement voided"})
+
+
+def _pdf_signed_block(pdf, F, usable, st):
+    """Digital signature panel printed in place of the blank signature lines."""
+    P = pdf._palette
+    if pdf.get_y() > pdf.h - 58:
+        pdf.add_page()
+    pdf.ln(3)
+    y0 = pdf.get_y()
+    half = usable / 2 - 4
+    pdf.set_draw_color(*P['RULE'])
+    pdf.set_fill_color(240, 253, 250)
+    pdf.set_line_width(0.3)
+    def panel(x, title, name, when, extra=''):
+        pdf.rect(x, y0, half, 26, style='DF')
+        pdf.set_xy(x + 3, y0 + 2)
+        pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['FAINT'])
+        pdf.cell(half - 6, 4, title.upper(), new_x='LEFT', new_y='NEXT')
+        pdf.set_font(F, 'B', 11); pdf.set_text_color(*P['TEAL'])
+        pdf.cell(half - 6, 7, name if name else 'Not yet acknowledged', new_x='LEFT', new_y='NEXT')
+        pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['SLATE'])
+        pdf.cell(half - 6, 4, (('Digitally signed ' + when) if name else 'Staff member has not acknowledged this statement yet') + extra, new_x='LEFT', new_y='NEXT')
+    when_m = st.signed_at.strftime('%d %b %Y, %H:%M UTC') if st.signed_at else ''
+    when_s = st.staff_ack_at.strftime('%d %b %Y, %H:%M UTC') if st.staff_ack_at else ''
+    panel(pdf.l_margin, 'Received and acknowledged by (staff member)', st.staff_ack_name, when_s)
+    panel(pdf.l_margin + usable - half, 'For BrightWave Habitat Enterprise (management)', st.signed_by_name, when_m)
+    pdf.set_xy(pdf.l_margin, y0 + 29)
+    pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['FAINT'])
+    pdf.multi_cell(usable, 4, f'Statement reference {st.reference}. Signatures were captured electronically in the BrightWave management portal and are recorded with the date and time shown; this document is valid without a handwritten signature.')
+
+
 @app.route('/admin/payroll/statement/<int:employee_id>')
 @login_required
 @payroll_required
@@ -5837,18 +6016,25 @@ def admin_payroll_statement_pdf(employee_id):
     if not emp:
         return make_response('Staff member not found', 404)
     today = date_type.today()
+    signed = None
+    if request.args.get('statement_id'):
+        signed = PayrollStatement.query.get(request.args.get('statement_id', type=int))
+        if not signed or signed.employee_id != emp.id:
+            return make_response('Signed statement not found', 404)
     try:
         default_from = (emp.start_date.year, emp.start_date.month) if emp.start_date else (today.year, 1)
         fy, fm = _parse_ym(request.args.get('from'), default_from)
         ty, tm = _parse_ym(request.args.get('to'), (today.year, today.month))
     except ValueError as ve:
         return make_response(str(ve), 400)
+    if signed:
+        fy, fm, ty, tm = signed.from_year, signed.from_month, signed.to_year, signed.to_month
     if (fy, fm) > (ty, tm):
         fy, fm, ty, tm = ty, tm, fy, fm
     # Include any months with payments outside the employee's active window
     first_pay = (PayrollPayment.query.filter_by(employee_id=emp.id)
                  .order_by(PayrollPayment.period_year.asc(), PayrollPayment.period_month.asc()).first())
-    if first_pay and (first_pay.period_year, first_pay.period_month) < (fy, fm) and not request.args.get('from'):
+    if not signed and first_pay and (first_pay.period_year, first_pay.period_month) < (fy, fm) and not request.args.get('from'):
         fy, fm = first_pay.period_year, first_pay.period_month
 
     try:
@@ -5865,22 +6051,48 @@ def admin_payroll_statement_pdf(employee_id):
             ('Start date', emp.start_date.strftime('%d %b %Y') if emp.start_date else '-'),
             ('Status', ('Active' if emp.is_active else 'Left ' + (emp.end_date.strftime('%d %b %Y') if emp.end_date else ''))),
             ('Current monthly salary', money(emp.monthly_salary)),
-            ('Statement reference', f"BW-PS-{emp.id:04d}-{today.strftime('%Y%m%d')}"),
+            ('Statement reference', signed.reference if signed else f"DRAFT-{emp.id:03d}-{today.strftime('%Y%m%d')}"),
         ], cols=2)
+        if not signed:
+            pdf.set_font(F, 'B', 8)
+            pdf.set_text_color(185, 28, 28)
+            pdf.cell(usable, 5, 'UNSIGNED DRAFT. Use "Sign & issue" in the portal to produce the official signed statement.', new_x='LMARGIN', new_y='NEXT')
+            pdf.ln(1)
 
-        # Month-by-month summary
+        # Year-to-date figures (1 Jan of the current year to this month, independent of the period shown)
+        ytd = {'earned': 0.0, 'paid': 0.0, 'count': 0}
+        for y, m in _month_iter(today.year, 1, today.year, today.month):
+            d = compute_employee_payroll(emp, y, m)
+            ytd['earned'] += d['total_earned']; ytd['paid'] += d['already_paid']; ytd['count'] += len(d['payment_history'])
+        ytd_bal = ytd['earned'] - ytd['paid']
+        pdf.set_font(F, 'B', 10)
+        pdf.set_text_color(*pdf._palette['TEAL'])
+        pdf.cell(usable, 6, f'Year to date ({today.year})', new_x='LMARGIN', new_y='NEXT')
+        _pdf_kv_block(pdf, F, usable, [
+            ('Earned YTD', money(ytd['earned'])),
+            ('Paid YTD', money(ytd['paid'])),
+            ('Balance YTD', ('Settled' if abs(ytd_bal) < 1 else ('Owed ' + money(ytd_bal) if ytd_bal > 0 else 'Overpaid ' + money(-ytd_bal)))),
+            ('Payments YTD', str(ytd['count'])),
+        ], cols=4)
+
+        # Month-by-month summary for the statement period
         pdf.set_font(F, 'B', 10)
         pdf.set_text_color(*pdf._palette['TEAL'])
         pdf.cell(usable, 6, 'Monthly summary', new_x='LMARGIN', new_y='NEXT')
         rows = []
         t_sal = t_com = t_earn = t_paid = 0.0
         all_payments = []
+        prorate_notes = []
         for y, m in _month_iter(fy, fm, ty, tm):
             d = compute_employee_payroll(emp, y, m)
             if not d['active_in_month'] and not d['payment_history']:
                 continue
             bal = d['total_earned'] - d['already_paid']
-            rows.append([f"{MONTH_ABBR[m-1]} {y}", money(d['salary']), money(d['commission_total']), money(d['total_earned']),
+            label = f"{MONTH_ABBR[m-1]} {y}"
+            if d.get('prorated_days'):
+                label += ' *'
+                prorate_notes.append(f"{MONTH_ABBR[m-1]} {y}: {d['prorated_days'][0]} of {d['prorated_days'][1]} days")
+            rows.append([label, money(d['salary']), money(d['commission_total']), money(d['total_earned']),
                          money(d['already_paid']), ('Settled' if abs(bal) < 1 else ('Owed ' + money(bal) if bal > 0 else 'Overpaid ' + money(-bal)))])
             t_sal += d['salary']; t_com += d['commission_total']; t_earn += d['total_earned']; t_paid += d['already_paid']
             all_payments.extend(d['payment_history'])
@@ -5892,6 +6104,11 @@ def admin_payroll_statement_pdf(employee_id):
                    rows,
                    total_row=['TOTAL', money(t_sal), money(t_com), money(t_earn), money(t_paid),
                               ('Settled' if abs(t_bal) < 1 else ('Owed ' + money(t_bal) if t_bal > 0 else 'Overpaid ' + money(-t_bal)))])
+        if prorate_notes:
+            pdf.set_font(F, '', 7.5)
+            pdf.set_text_color(*pdf._palette['SLATE'])
+            pdf.multi_cell(usable, 4, '* Salary pro-rated by days worked: ' + '; '.join(prorate_notes) + '.')
+            pdf.ln(2)
 
         # Payment records
         pdf.set_font(F, 'B', 10)
@@ -5917,7 +6134,10 @@ def admin_payroll_statement_pdf(employee_id):
         pdf.set_font(F, 'B', 8.5)
         pdf.set_text_color(*pdf._palette['INK'])
         pdf.multi_cell(usable, 4.5, 'Acknowledgement: I confirm that I have received the payments listed in this statement in full and that the balance shown is correct.')
-        _pdf_signatures(pdf, F, usable, 'Staff member: name, signature and date', 'For BrightWave Habitat Enterprise (Management)')
+        if signed:
+            _pdf_signed_block(pdf, F, usable, signed)
+        else:
+            _pdf_signatures(pdf, F, usable, 'Staff member: name, signature and date', 'For BrightWave Habitat Enterprise (Management)')
         pdf_bytes = bytes(pdf.output())
     except Exception:
         app.logger.exception('Payroll statement PDF failed')
@@ -5926,7 +6146,8 @@ def admin_payroll_statement_pdf(employee_id):
     resp = make_response(pdf_bytes)
     resp.headers['Content-Type'] = 'application/pdf'
     disposition = 'inline' if request.args.get('inline') else 'attachment'
-    resp.headers['Content-Disposition'] = f'{disposition}; filename="BrightWave-Payment-Statement-{safe}-{fy}{fm:02d}-{ty}{tm:02d}.pdf"'
+    tag = ('Signed-' + signed.reference) if signed else 'DRAFT'
+    resp.headers['Content-Disposition'] = f'{disposition}; filename="BrightWave-Payment-Statement-{safe}-{tag}-{fy}{fm:02d}-{ty}{tm:02d}.pdf"'
     return resp
 
 
@@ -7003,7 +7224,7 @@ PAYROLL_PANEL_HTML = """
     <button onclick="prOpenPayModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-plus"></i>Record Payment</button>
     <button onclick="prOpenBackfillModal()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-calendar-plus"></i>Back-fill Months</button>
     <button onclick="prOpenStaffModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-user-plus"></i>Add Staff</button>
-    <button onclick="prOpenRegisterPdf()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2 ml-auto" title="PDF of everyone on payroll for the selected month"><i class="fas fa-file-pdf text-red-300"></i>Month Register PDF</button>
+    <button onclick="prOpenRegisterPdf(this)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2 ml-auto" title="PDF of everyone on payroll for the selected month"><i class="fas fa-file-pdf text-red-300"></i>Month Register PDF</button>
 </div>
 
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
@@ -7081,7 +7302,7 @@ PAYROLL_PANEL_HTML = """
         </div>
         <label class="inline-flex items-center gap-2 text-xs text-gray-400 pb-2"><input type="checkbox" id="prLedgerAllMonths" onchange="prLoadLedger()" class="rounded" checked> All months</label>
         <p id="prLedgerTotal" class="text-xs text-gray-400 ml-auto pb-2"></p>
-        <button onclick="prOpenStatementPdf()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 mb-1" title="PDF statement for the selected staff member and months"><i class="fas fa-file-pdf text-red-300"></i>Statement PDF</button>
+        <button onclick="prOpenStatementPdf(this)" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 mb-1" title="Sign and issue a statement for the selected staff member"><i class="fas fa-file-signature text-red-300"></i>Statement</button>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm min-w-[860px]">
@@ -7135,16 +7356,48 @@ PAYROLL_PANEL_HTML = """
         <input type="hidden" id="prPayId">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Staff *</label><select id="prPayEmployee" onchange="prPayEmployeeChanged()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div>
-            <div><label class="block text-xs text-gray-400 mb-1">For month *</label><div class="flex gap-2"><select id="prPayMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prPayYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Date paid</label><input id="prPayDate" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Date paid *</label><input id="prPayDate" type="date" onchange="prPayDateChanged()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Salary for month *</label><div class="flex gap-2"><select id="prPayMonth" onchange="prPayPeriodTouched()" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prPayYear" onchange="prPayPeriodTouched()" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
             <div><label class="block text-xs text-gray-400 mb-1">Amount (NGN) *</label><input id="prPayAmount" type="number" min="0" step="500" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Type</label><select id="prPayKind" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="salary">Salary</option><option value="commission">Commission</option><option value="bonus">Bonus</option><option value="advance">Advance</option><option value="other">Other</option></select></div>
             <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Notes</label><textarea id="prPayNotes" rows="2" placeholder="e.g. Paid by transfer, GTB" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></textarea></div>
         </div>
+        <p id="prPayPreview" class="text-xs text-emerald-300 bg-emerald-900/20 border border-emerald-800/40 rounded-lg px-3 py-2 mt-3"></p>
         <p id="prPayMsg" class="text-sm hidden mt-3"></p>
         <div class="flex gap-2 mt-4">
             <button onclick="prSavePayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Save Payment</button>
             <button onclick="prCloseModal('prPayModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- STATEMENT MODAL -->
+<div id="prStmtModal" class="hidden fixed inset-0 bg-black/70 z-[70] items-center justify-center p-3" style="display:none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-lg w-full max-h-[92vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-white mb-1">Payment Statement</h3>
+        <p id="prStmtWho" class="text-xs text-gray-400 mb-4"></p>
+        <input type="hidden" id="prStmtEmployee">
+        <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-gray-400 mb-1">From month</label><div class="flex gap-2"><select id="prStmtFromMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prStmtFromYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
+            <div><label class="block text-xs text-gray-400 mb-1">To month</label><div class="flex gap-2"><select id="prStmtToMonth" class="flex-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select><select id="prStmtToYear" class="w-24 px-2 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></select></div></div>
+        </div>
+        <div class="mt-4 p-3 rounded-lg bg-gray-900/50 border border-gray-700 space-y-3">
+            <p class="text-xs font-semibold text-emerald-300 uppercase tracking-wide">Sign &amp; issue</p>
+            <div><label class="block text-xs text-gray-400 mb-1">Management signature: type your full name *</label><input id="prStmtSignature" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Staff acknowledgement: staff member types their full name (optional, can be added later)</label><input id="prStmtAck" type="text" placeholder="Hand the phone to the staff member" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></div>
+            <p class="text-[11px] text-gray-500">Signing records your name, the date and time, and a reference number on the PDF. The totals are locked at signing.</p>
+            <div class="flex gap-2 flex-wrap">
+                <button onclick="prSignStatement(this)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-pen-nib"></i>Sign &amp; Download PDF</button>
+                <button onclick="prDraftStatement(this)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-alt"></i>Unsigned draft</button>
+            </div>
+            <p id="prStmtMsg" class="text-sm hidden"></p>
+        </div>
+        <div class="mt-4">
+            <p class="text-xs font-semibold text-gray-300 uppercase tracking-wide mb-2">Issued statements</p>
+            <div id="prStmtHistory" class="space-y-2 text-sm"><p class="text-gray-500 text-xs">Loading...</p></div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="prCloseModal('prStmtModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Close</button>
         </div>
     </div>
 </div>
@@ -7280,9 +7533,10 @@ PAYROLL_PANEL_JS = """
                 const outColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
                 const inactive = !r.is_active ? '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400">left</span>' : '';
                 const login = r.has_account ? '<i class="fas fa-user-check text-emerald-500 text-[10px] ml-1" title="Has portal login"></i>' : '';
+                const prorate = r.prorated_days ? `<span class="block text-[10px] text-gray-500">${r.prorated_days[0]}/${r.prorated_days[1]} days</span>` : '';
                 const salaryCell = r.qualifies_for_commission && !(r.salary > 0)
                     ? '<span class="text-gray-600 text-xs italic">commission</span>'
-                    : `<span class="text-blue-300">${prFmt(r.salary)}</span>`;
+                    : `<span class="text-blue-300">${prFmt(r.salary)}</span>${prorate}`;
                 return `
                     <tr class="border-b border-gray-700/70">
                         <td class="py-2 pr-3 text-gray-100 font-medium">${prEsc(r.display_name)}${login}${inactive}</td>
@@ -7296,7 +7550,7 @@ PAYROLL_PANEL_JS = """
                             <div class="flex gap-1 items-center">
                                 <button onclick="prOpenPayModal(${r.employee_id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded">Pay</button>
                                 <button onclick="prOpenStaffModal(${r.employee_id})" class="text-xs text-gray-300 hover:text-white hover:bg-gray-700 px-2 py-1 rounded" title="Edit staff record"><i class="fas fa-pen"></i></button>
-                                <a href="/admin/payroll/statement/${r.employee_id}" class="text-xs text-red-300 hover:text-red-200 hover:bg-gray-700 px-2 py-1 rounded" title="Download payment statement (PDF)"><i class="fas fa-file-pdf"></i></a>
+                                <button onclick="prOpenStatementModal(${r.employee_id})" class="text-xs text-red-300 hover:text-red-200 hover:bg-gray-700 px-2 py-1 rounded" title="Payment statement: sign and issue PDF"><i class="fas fa-file-signature"></i></button>
                             </div>
                         </td>
                     </tr>${linesRow}${histRow}`;
@@ -7336,7 +7590,7 @@ PAYROLL_PANEL_JS = """
                     <td class="py-2 text-xs">${s.has_account ? `<span class="text-emerald-400"><i class="fas fa-user-check mr-1"></i>${prEsc(s.username)}</span>` : '<span class="text-gray-600">none</span>'}</td>
                     <td class="py-2 text-xs">${s.is_active ? '<span class="text-emerald-400">Active</span>' : '<span class="text-gray-500">Inactive</span>'}</td>
                     <td class="py-2 pl-3 whitespace-nowrap">
-                        <a href="/admin/payroll/statement/${s.id}" class="text-red-300 hover:text-red-200 mr-2" title="Payment statement (PDF)"><i class="fas fa-file-pdf"></i></a>
+                        <button onclick="prOpenStatementModal(${s.id})" class="text-red-300 hover:text-red-200 mr-2" title="Payment statement: sign and issue PDF"><i class="fas fa-file-signature"></i></button>
                         <button onclick="prOpenStaffModal(${s.id})" class="text-blue-400 hover:text-blue-300 mr-2" title="Edit"><i class="fas fa-pen"></i></button>
                         <button onclick="prToggleStaffActive(${s.id}, ${s.is_active ? 'false' : 'true'})" class="${s.is_active ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'} mr-2" title="${s.is_active ? 'Deactivate (keeps history)' : 'Reactivate'}"><i class="fas ${s.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i></button>
                         ${_prCanDelete ? `<button onclick="prDeleteStaff(${s.id})" class="text-red-400 hover:text-red-300" title="Remove (CEO only, no payments)"><i class="fas fa-trash-alt"></i></button>` : ''}
@@ -7430,8 +7684,36 @@ PAYROLL_PANEL_JS = """
             document.getElementById('prPayNotes').value = p ? p.notes : '';
             document.getElementById('prPayAmount').value = p ? p.amount : '';
             document.getElementById('prPayMsg').classList.add('hidden');
+            _prPayPeriodTouched = !!p;
             if (!p) prPayEmployeeChanged();
+            ['prPayAmount', 'prPayKind', 'prPayNotes'].forEach(id => document.getElementById(id).oninput = prPayPreviewUpdate);
+            prPayPreviewUpdate();
             prOpenModal('prPayModal');
+        }
+
+        let _prPayPeriodTouched = false;
+        function prPayPeriodTouched() { _prPayPeriodTouched = true; prPayPreviewUpdate(); }
+        function prPayDateChanged() {
+            // New entry: the month being paid for follows the date paid unless the user chose a month themselves.
+            const v = document.getElementById('prPayDate').value;
+            if (v && !_prPayPeriodTouched) {
+                const d = new Date(v + 'T00:00:00');
+                const ySel = document.getElementById('prPayYear');
+                if (ySel.querySelector(`option[value="${d.getFullYear()}"]`)) { ySel.value = String(d.getFullYear()); document.getElementById('prPayMonth').value = String(d.getMonth() + 1); }
+            }
+            prPayPreviewUpdate();
+        }
+        function prPayPreviewUpdate() {
+            const el = document.getElementById('prPayPreview');
+            if (!el) return;
+            const empSel = document.getElementById('prPayEmployee');
+            const who = empSel.options[empSel.selectedIndex] ? empSel.options[empSel.selectedIndex].text : '';
+            const amt = parseFloat(document.getElementById('prPayAmount').value || '0');
+            const kind = document.getElementById('prPayKind').value;
+            const m = parseInt(document.getElementById('prPayMonth').value), y = document.getElementById('prPayYear').value;
+            const d = document.getElementById('prPayDate').value;
+            if (!empSel.value || !(amt > 0)) { el.textContent = 'Fill in the staff member and amount to see a summary.'; return; }
+            el.textContent = `Recording ${prFmt(amt)} ${kind} for ${PR_MONTHS[m - 1]} ${y}` + (d ? `, paid on ${d}` : '') + ` to ${who}.`;
         }
 
         function prPayEmployeeChanged() {
@@ -7441,6 +7723,7 @@ PAYROLL_PANEL_JS = """
             const amt = document.getElementById('prPayAmount');
             if (row) {
                 who.textContent = `${row.display_name}: earned ${prFmt(row.total_earned)}, paid ${prFmt(row.already_paid)}, outstanding ${prFmt(row.outstanding)} for ${PR_MONTHS[prPeriod().month - 1]} ${prPeriod().year}.`;
+                prPayPreviewUpdate();
                 if (!document.getElementById('prPayId').value) {
                     amt.value = row.outstanding > 0 ? Math.round(row.outstanding) : (row.salary > 0 ? Math.round(row.salary) : '');
                     document.getElementById('prPayKind').value = row.commission_total > 0 && row.salary <= 0 ? 'commission' : 'salary';
@@ -7449,6 +7732,7 @@ PAYROLL_PANEL_JS = """
                 const s = _prStaff.find(x => x.id === empId);
                 who.textContent = s ? `${s.full_name}: monthly salary ${prFmt(s.monthly_salary)}.` : 'Log a salary, commission, bonus or advance paid to a staff member.';
                 if (s && !document.getElementById('prPayId').value && s.monthly_salary > 0) amt.value = Math.round(s.monthly_salary);
+                prPayPreviewUpdate();
             }
         }
 
@@ -7527,19 +7811,114 @@ PAYROLL_PANEL_JS = """
             } catch (e) { prMsg('prBfMsg', e.message || 'Error creating records', false); }
         }
 
-        function prOpenRegisterPdf() {
-            const p = prPeriod();
-            window.open(`/admin/payroll/register?year=${p.year}&month=${p.month}`, '_blank');
-        }
-        function prOpenStatementPdf() {
-            const staff = document.getElementById('prLedgerStaff').value;
-            if (!staff) { alert('Pick a staff member in the Staff filter first.'); return; }
-            let q = '';
-            if (!document.getElementById('prLedgerAllMonths').checked) {
-                const p = prPeriod(); const ym = `${p.year}-${String(p.month).padStart(2, '0')}`;
-                q = `?from=${ym}&to=${ym}`;
+        // PDFs: fetch as a blob, then share sheet on phones (works inside the home-screen app,
+        // where a plain download link fails silently) or a normal download on desktop.
+        async function prDownloadPdf(url, el) {
+            const oldHtml = el ? el.innerHTML : '';
+            if (el) el.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch(url, { credentials: 'same-origin' });
+                if (!res.ok) { const e = await res.text().catch(() => ''); throw new Error(e.slice(0, 120) || ('HTTP ' + res.status)); }
+                const blob = await res.blob();
+                const cd = res.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename="([^"]+)"/);
+                const fname = m ? m[1] : 'BrightWave-Payroll.pdf';
+                const file = new File([blob], fname, { type: 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try { await navigator.share({ files: [file], title: fname.replace('.pdf', '') }); return; }
+                    catch (err) { if (err && err.name === 'AbortError') return; }
+                }
+                const href = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = href; a.download = fname; a.rel = 'noopener';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(href), 60000);
+            } catch (e) {
+                alert('Could not prepare the PDF: ' + (e.message || e));
+            } finally {
+                if (el) el.innerHTML = oldHtml;
             }
-            window.open('/admin/payroll/statement/' + staff + q, '_blank');
+        }
+        // ---- Signed statements ----
+        function prOpenStatementModal(employeeId) {
+            const s = _prStaff.find(x => x.id === employeeId);
+            if (!s) return;
+            document.getElementById('prStmtEmployee').value = s.id;
+            document.getElementById('prStmtWho').textContent = `${s.full_name}${s.job_title ? ', ' + s.job_title : ''}. Choose the months, then sign to issue the official statement.`;
+            const now = new Date();
+            let fy = now.getFullYear(), fm = 1;
+            if (s.start_date) { const d = new Date(s.start_date + 'T00:00:00'); if (d.getFullYear() >= now.getFullYear() - 3) { fy = d.getFullYear(); fm = d.getMonth() + 1; } }
+            prFillPeriodSelects(document.getElementById('prStmtFromMonth'), document.getElementById('prStmtFromYear'), fm, fy);
+            prFillPeriodSelects(document.getElementById('prStmtToMonth'), document.getElementById('prStmtToYear'), now.getMonth() + 1, now.getFullYear());
+            document.getElementById('prStmtSignature').value = window.PR_USER_NAME || '';
+            document.getElementById('prStmtAck').value = '';
+            document.getElementById('prStmtMsg').classList.add('hidden');
+            prOpenModal('prStmtModal');
+            prLoadStatementHistory(s.id);
+        }
+        function prStmtRange() {
+            const pad = v => String(v).padStart(2, '0');
+            return { from: `${document.getElementById('prStmtFromYear').value}-${pad(document.getElementById('prStmtFromMonth').value)}`, to: `${document.getElementById('prStmtToYear').value}-${pad(document.getElementById('prStmtToMonth').value)}` };
+        }
+        function prDraftStatement(el) {
+            const id = document.getElementById('prStmtEmployee').value; const r = prStmtRange();
+            prDownloadPdf(`/admin/payroll/statement/${id}?from=${r.from}&to=${r.to}`, el);
+        }
+        async function prSignStatement(el) {
+            const id = document.getElementById('prStmtEmployee').value; const r = prStmtRange();
+            const signature = document.getElementById('prStmtSignature').value.trim();
+            if (signature.length < 2) { prMsg('prStmtMsg', 'Type your full name to sign', false); return; }
+            prMsg('prStmtMsg', 'Signing...');
+            try {
+                const res = await fetchData('/admin/api/payroll/statements', { method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ employee_id: id, from: r.from, to: r.to, signature, staff_ack_name: document.getElementById('prStmtAck').value.trim() }) });
+                prMsg('prStmtMsg', `${res.message}. Reference ${res.statement.reference}.`, true);
+                prLoadStatementHistory(parseInt(id));
+                await prDownloadPdf(res.statement.pdf_url, el);
+            } catch (e) { prMsg('prStmtMsg', e.message || 'Could not sign', false); }
+        }
+        async function prLoadStatementHistory(employeeId) {
+            const box = document.getElementById('prStmtHistory');
+            try {
+                const res = await fetchData('/admin/api/payroll/statements?employee_id=' + employeeId);
+                const list = res.statements || [];
+                if (!list.length) { box.innerHTML = '<p class="text-gray-500 text-xs">No signed statements yet.</p>'; return; }
+                box.innerHTML = list.map(st => `
+                    <div class="flex items-start justify-between gap-2 bg-gray-900/40 border border-gray-700/60 rounded-lg px-3 py-2">
+                        <div class="min-w-0">
+                            <p class="text-gray-200 text-xs font-medium">${prEsc(st.reference)} <span class="text-gray-500 font-normal">${prEsc(st.period_label)}</span></p>
+                            <p class="text-[11px] text-gray-400">Signed by ${prEsc(st.signed_by_name)} on ${prEsc((st.signed_at || '').slice(0, 10))}. ${st.staff_ack_name ? 'Acknowledged by ' + prEsc(st.staff_ack_name) + ' on ' + prEsc((st.staff_ack_at || '').slice(0, 10)) + '.' : '<button onclick="prAckStatement(' + st.id + ', ' + st.employee_id + ')" class="text-amber-300 hover:text-amber-200 underline">Add staff acknowledgement</button>'}</p>
+                            <p class="text-[11px] text-gray-500">Paid ${prFmt(st.total_paid)} of ${prFmt(st.total_earned)} earned</p>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <button onclick="prDownloadPdf('${st.pdf_url}', this)" class="text-red-300 hover:text-red-200" title="Download signed PDF"><i class="fas fa-file-pdf"></i></button>
+                            ${_prCanDelete ? `<button onclick="prVoidStatement(${st.id}, ${st.employee_id})" class="text-gray-500 hover:text-red-400" title="Void (CEO only)"><i class="fas fa-trash-alt"></i></button>` : ''}
+                        </div>
+                    </div>`).join('');
+            } catch (e) { box.innerHTML = `<p class="text-red-400 text-xs">${prEsc(e.message || 'Error')}</p>`; }
+        }
+        async function prAckStatement(statementId, employeeId) {
+            const name = prompt('Staff member: please type your full name to acknowledge receipt of the payments on this statement.');
+            if (!name || name.trim().length < 2) return;
+            try {
+                await fetchData('/admin/api/payroll/statements/' + statementId + '/acknowledge', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ staff_ack_name: name.trim() }) });
+                prLoadStatementHistory(employeeId);
+            } catch (e) { alert(e.message || 'Could not record acknowledgement'); }
+        }
+        async function prVoidStatement(statementId, employeeId) {
+            if (!confirm('Void this issued statement? It will no longer be on record.')) return;
+            try { await fetchData('/admin/api/payroll/statements/' + statementId, { method: 'DELETE' }); prLoadStatementHistory(employeeId); }
+            catch (e) { alert(e.message || 'Could not void'); }
+        }
+
+        function prOpenRegisterPdf(el) {
+            const p = prPeriod();
+            prDownloadPdf(`/admin/payroll/register?year=${p.year}&month=${p.month}`, el);
+        }
+        function prOpenStatementPdf(el) {
+            const staff = parseInt(document.getElementById('prLedgerStaff').value);
+            if (!staff) { alert('Pick a staff member in the Staff filter first.'); return; }
+            prOpenStatementModal(staff);
         }
 
         // ---- Ledger ----
@@ -11639,6 +12018,7 @@ ENHANCED_ADMIN_DASHBOARD_TEMPLATE = """
         });
 
         window.PR_IS_CEO = true;
+        window.PR_USER_NAME = {{ user_name | tojson }};
 """ + PAYROLL_PANEL_JS + """
 
         // ===== SIGNUP APPROVALS =====
@@ -12750,6 +13130,7 @@ ROLE_DASHBOARD_TEMPLATE = """
         document.addEventListener('DOMContentLoaded', buildRoleSidebar);
 
         window.PR_IS_CEO = false;
+        window.PR_USER_NAME = USER_NAME;
 """ + PAYROLL_PANEL_JS + """
     </script>
 

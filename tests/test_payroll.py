@@ -167,3 +167,59 @@ def test_statement_and_register_pdfs(client):
     client.get('/admin/logout')
     _login_as(client, 'pa_pdf', 'PA')
     assert client.get(f'/admin/payroll/statement/{emp_id}').status_code == 403
+
+
+def test_first_month_salary_is_prorated_and_statement_has_ytd(client):
+    headers = _login_as(client, 'mgr_pro', 'MANAGER')
+    r = client.post('/admin/api/payroll/staff', json={'full_name': 'Ayuba Okwonu', 'monthly_salary': 30000, 'start_date': '2026-08-25'}, headers=headers)
+    emp_id = json.loads(r.data)['employee']['id']
+    r = client.get('/admin/api/payroll/summary?year=2026&month=8')
+    row = next(x for x in json.loads(r.data)['rows'] if x['employee_id'] == emp_id)
+    assert row['salary'] == round(30000 * 7 / 31) and row['prorated_days'] == [7, 31]
+    r = client.get('/admin/api/payroll/summary?year=2026&month=9')
+    row = next(x for x in json.loads(r.data)['rows'] if x['employee_id'] == emp_id)
+    assert row['salary'] == 30000 and row['prorated_days'] is None
+    r = client.get(f'/admin/payroll/statement/{emp_id}')
+    assert r.status_code == 200 and r.data.startswith(b'%PDF')
+
+
+def test_dashboard_uses_contract_for_current_role(client):
+    from app import UserContract
+    with flask_app.app_context():
+        inv = create_admin('temi', role='INVESTOR')
+        inv_id = inv.id
+        db.session.add(UserContract(user_id=inv_id, contract_type='MANAGER', status='pending_user_signature'))
+        db.session.commit()
+    assert login(client, 'temi').status_code == 200
+    page = client.get('/admin/dashboard')
+    assert page.status_code == 200 and b'Investment Agreement' in page.data and b'Manager Agreement' not in page.data
+    r = client.post('/admin/api/my-contract/sign', json={'signature': 'Temitope Queen'}, headers=admin_headers(client))
+    assert r.status_code == 200, r.data
+    with flask_app.app_context():
+        c = UserContract.query.filter_by(user_id=inv_id, contract_type='INVESTOR').first()
+        assert c is not None and c.status == 'pending_ceo_signature'
+
+
+def test_sign_and_acknowledge_statement(client):
+    headers = _login_as(client, 'mgr_sign', 'MANAGER')
+    r = client.post('/admin/api/payroll/staff', json={'full_name': 'Ayuba Okwonu', 'monthly_salary': 30000, 'start_date': '2026-09-01'}, headers=headers)
+    emp_id = json.loads(r.data)['employee']['id']
+    client.post('/admin/api/payroll/backfill', json={'employee_id': emp_id, 'from_year': 2026, 'from_month': 9, 'to_year': 2026, 'to_month': 10}, headers=headers)
+    # refuse without a signature
+    r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': ''}, headers=headers)
+    assert r.status_code == 400
+    r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': 'Walihlah Hamza'}, headers=headers)
+    assert r.status_code == 200, r.data
+    st = json.loads(r.data)['statement']
+    assert st['reference'].startswith('BW-PS-') and st['total_paid'] == 60000 and st['total_earned'] == 60000 and st['staff_ack_name'] is None
+    r = client.get(st['pdf_url'])
+    assert r.status_code == 200 and r.data.startswith(b'%PDF') and 'Signed-' in r.headers['Content-Disposition']
+    # unsigned draft is clearly marked in the filename
+    r = client.get(f'/admin/payroll/statement/{emp_id}')
+    assert 'DRAFT' in r.headers['Content-Disposition']
+    r = client.post(f"/admin/api/payroll/statements/{st['id']}/acknowledge", json={'staff_ack_name': 'Ayuba Okwonu'}, headers=headers)
+    assert r.status_code == 200 and json.loads(r.data)['statement']['staff_ack_at']
+    r = client.get(f'/admin/api/payroll/statements?employee_id={emp_id}')
+    assert len(json.loads(r.data)['statements']) == 1
+    # only the CEO can void
+    assert client.delete(f"/admin/api/payroll/statements/{st['id']}", headers=headers).status_code == 403
