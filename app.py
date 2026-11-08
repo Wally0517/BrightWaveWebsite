@@ -372,6 +372,9 @@ class Employee(db.Model):
     # Day of month the pay period starts. 1 = calendar months. 25 = paid for the 25th to the 24th
     # (e.g. someone who started on the 25th and is paid month-by-month from that date).
     pay_cycle_day = db.Column(db.Integer, default=1)
+    # True = the days between the start date and the first full period are not charged
+    # (the first payment is treated as covering them). False = pro-rate them by days.
+    waive_partial_first_month = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -678,6 +681,8 @@ def ensure_runtime_schema_updates():
     employee_columns = {column['name'] for column in inspector.get_columns('employee')} if inspector.has_table('employee') else set()
     if employee_columns and 'pay_cycle_day' not in employee_columns:
         db.session.execute(text('ALTER TABLE employee ADD COLUMN pay_cycle_day INTEGER DEFAULT 1'))
+    if employee_columns and 'waive_partial_first_month' not in employee_columns:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN waive_partial_first_month BOOLEAN DEFAULT 0'))
 
     if not inspector.has_table('payroll_payment'):
         db.create_all()
@@ -5052,6 +5057,7 @@ def serialize_employee(emp):
         'end_date': emp.end_date.isoformat() if emp.end_date else None,
         'is_active': bool(emp.is_active),
         'pay_cycle_day': int(emp.pay_cycle_day or 1),
+        'waive_partial_first_month': bool(emp.waive_partial_first_month),
         'notes': emp.notes or '',
         'created_at': emp.created_at.isoformat() if emp.created_at else None,
         'created_by': emp.created_by or '',
@@ -5096,8 +5102,12 @@ def compute_employee_payroll(emp, year, month):
         last_day = min(period_end, emp.end_date) if emp.end_date else period_end
         worked = (last_day - first_day).days + 1
         if 0 < worked < days_in_period:
-            prorated_days = (worked, days_in_period)
-            salary = round(salary * worked / days_in_period)
+            if emp.start_date and first_day == emp.start_date and emp.start_date > period_start and bool(emp.waive_partial_first_month):
+                prorated_days = (0, days_in_period)  # partial first period covered by the first payment
+                salary = 0.0
+            else:
+                prorated_days = (worked, days_in_period)
+                salary = round(salary * worked / days_in_period)
 
     payments_q = (
         PayrollPayment.query
@@ -5247,6 +5257,7 @@ def admin_payroll_staff():
         emp = Employee(
             full_name=full_name,
             pay_cycle_day=pay_cycle_day,
+            waive_partial_first_month=bool(data.get('waive_partial_first_month')),
             job_title=(data.get('job_title') or '').strip() or (user.role.title() if user else None),
             phone=(data.get('phone') or '').strip() or None,
             email=(data.get('email') or '').strip().lower() or (user.email if user else None),
@@ -5322,6 +5333,8 @@ def admin_payroll_staff_detail(employee_id):
                 emp.end_date = date_type.today()
             if emp.is_active:
                 emp.end_date = None
+        if 'waive_partial_first_month' in data:
+            emp.waive_partial_first_month = bool(data['waive_partial_first_month'])
         if 'pay_cycle_day' in data:
             try:
                 d = int(data.get('pay_cycle_day') or 1)
@@ -6143,7 +6156,10 @@ def admin_payroll_statement_pdf(employee_id):
             label = d['period_label']
             if d.get('prorated_days'):
                 label += ' *'
-                prorate_notes.append(f"{d['period_label']}: {d['prorated_days'][0]} of {d['prorated_days'][1]} days")
+                if d['prorated_days'][0] == 0:
+                    prorate_notes.append(f"{d['period_label']}: partial first period from {emp.start_date.strftime('%d %b')} covered by the first payment, not charged")
+                else:
+                    prorate_notes.append(f"{d['period_label']}: {d['prorated_days'][0]} of {d['prorated_days'][1]} days")
             rows.append([label, money(d['salary']), money(d['commission_total']), money(d['total_earned']),
                          money(d['already_paid']), ('Settled' if abs(bal) < 1 else ('Owed ' + money(bal) if bal > 0 else 'Overpaid ' + money(-bal)))])
             t_sal += d['salary']; t_com += d['commission_total']; t_earn += d['total_earned']; t_paid += d['already_paid']
@@ -6159,7 +6175,7 @@ def admin_payroll_statement_pdf(employee_id):
         if prorate_notes:
             pdf.set_font(F, '', 7.5)
             pdf.set_text_color(*pdf._palette['SLATE'])
-            pdf.multi_cell(usable, 4, '* Salary pro-rated by days worked: ' + '; '.join(prorate_notes) + '.')
+            pdf.multi_cell(usable, 4, '* ' + '; '.join(prorate_notes) + '.')
             pdf.ln(2)
 
         # Payment records
@@ -7387,7 +7403,8 @@ PAYROLL_PANEL_HTML = """
             <div><label class="block text-xs text-gray-400 mb-1">Phone</label><input id="prStaffPhone" type="tel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Monthly salary (NGN) *</label><input id="prStaffSalary" type="number" min="0" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Start date</label><input id="prStaffStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
-            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Pay period</label><select id="prStaffCycle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="1">Calendar month (1st to end of month)</option></select><p class="text-[11px] text-gray-500 mt-1">Choose a day if the person is paid month-to-month from their start date, e.g. started on the 25th and each payment covers the 25th to the 24th.</p></div>
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Pay period</label><select id="prStaffCycle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="1">Calendar month (1st to end of month)</option></select><p class="text-[11px] text-gray-500 mt-1">Choose a day if the person is paid month-to-month from their start date, e.g. started on the 25th and each payment covers the 25th to the 24th.</p>
+            <label class="inline-flex items-start gap-2 text-xs text-gray-300 mt-2"><input type="checkbox" id="prStaffWaive" class="rounded mt-0.5"> <span>First partial month is covered by the first payment (do not charge the days between the start date and the first full period)</span></label></div>
             <div id="prStaffSalaryFromWrap" class="hidden"><label class="block text-xs text-gray-400 mb-1">New salary effective from</label><input id="prStaffSalaryFrom" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Email</label><input id="prStaffEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Portal login (optional)</label><select id="prStaffUser" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">No login account</option></select></div>
@@ -7586,7 +7603,7 @@ PAYROLL_PANEL_JS = """
                 const outColor = r.outstanding > 0 ? 'text-red-400' : 'text-gray-500';
                 const inactive = !r.is_active ? '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400">left</span>' : '';
                 const login = r.has_account ? '<i class="fas fa-user-check text-emerald-500 text-[10px] ml-1" title="Has portal login"></i>' : '';
-                const prorate = r.prorated_days ? `<span class="block text-[10px] text-gray-500">${r.prorated_days[0]}/${r.prorated_days[1]} days</span>` : '';
+                const prorate = r.prorated_days ? (r.prorated_days[0] === 0 ? '<span class="block text-[10px] text-gray-500">partial month, covered</span>' : `<span class="block text-[10px] text-gray-500">${r.prorated_days[0]}/${r.prorated_days[1]} days</span>`) : '';
                 const cycle = r.pay_cycle_day > 1 ? `<span class="block text-[10px] text-gray-500">${r.period_started ? 'Period ' : 'Starts '}${prEsc(r.period_label)}</span>` : '';
                 const salaryCell = r.qualifies_for_commission && !(r.salary > 0)
                     ? '<span class="text-gray-600 text-xs italic">commission</span>'
@@ -7675,6 +7692,7 @@ PAYROLL_PANEL_JS = """
             const cyc = document.getElementById('prStaffCycle');
             if (cyc.options.length < 2) { for (let d = 2; d <= 28; d++) { const o = document.createElement('option'); o.value = d; o.textContent = `From the ${d}${d === 2 ? 'nd' : d === 3 ? 'rd' : d === 21 ? 'st' : d === 22 ? 'nd' : d === 23 ? 'rd' : 'th'} to the ${d - 1}${(d - 1) === 1 ? 'st' : (d - 1) === 2 ? 'nd' : (d - 1) === 3 ? 'rd' : (d - 1) === 21 ? 'st' : (d - 1) === 22 ? 'nd' : (d - 1) === 23 ? 'rd' : 'th'} of next month`; cyc.appendChild(o); } }
             cyc.value = s ? String(s.pay_cycle_day || 1) : '1';
+            document.getElementById('prStaffWaive').checked = s ? !!s.waive_partial_first_month : false;
             document.getElementById('prStaffNotes').value = s ? s.notes : '';
             document.getElementById('prStaffSalaryFrom').value = prToday();
             document.getElementById('prStaffSalaryFromWrap').classList.toggle('hidden', !s);
@@ -7696,6 +7714,7 @@ PAYROLL_PANEL_JS = """
                 monthly_salary: document.getElementById('prStaffSalary').value || 0,
                 start_date: document.getElementById('prStaffStart').value || null,
                 pay_cycle_day: document.getElementById('prStaffCycle').value || 1,
+                waive_partial_first_month: document.getElementById('prStaffWaive').checked,
                 notes: document.getElementById('prStaffNotes').value.trim(),
                 user_id: document.getElementById('prStaffUser').value || null,
             };

@@ -254,3 +254,21 @@ def test_pay_cycle_from_the_25th_matches_upfront_then_monthly_payments(client):
         assert nov['salary'] == 0 and nov['outstanding'] == 0 and nov['period_started'] is False
         r = client.get(f"/admin/payroll/statement/{emp['id']}")
         assert r.status_code == 200 and r.data.startswith(b'%PDF')
+
+
+def test_calendar_months_with_waived_partial_first_month(client):
+    """Ayuba, calendar version: started 25 Aug, first 30k covers 25 Aug-30 Sep, then 30k each
+    at the start of Oct and Nov. August is not charged; nothing owed."""
+    headers = _login_as(client, 'mgr_waive', 'MANAGER')
+    r = client.post('/admin/api/payroll/staff', json={'full_name': 'Ayuba Okwonu', 'monthly_salary': 30000, 'start_date': '2026-08-25', 'waive_partial_first_month': True}, headers=headers)
+    emp = json.loads(r.data)['employee']
+    assert emp['waive_partial_first_month'] is True and emp['pay_cycle_day'] == 1
+    for (m, paid_on) in [(9, '2026-08-25'), (10, '2026-10-04'), (11, '2026-11-07')]:
+        assert client.post('/admin/api/payroll/pay', json={'employee_id': emp['id'], 'amount': 30000, 'year': 2026, 'month': m, 'kind': 'salary', 'paid_on': paid_on}, headers=headers).status_code == 200
+    aug = next(x for x in json.loads(client.get('/admin/api/payroll/summary?year=2026&month=8').data)['rows'] if x['employee_id'] == emp['id'])
+    assert aug['salary'] == 0 and aug['outstanding'] == 0 and aug['prorated_days'] == [0, 31]
+    for m in (9, 10, 11):
+        row = next(x for x in json.loads(client.get(f'/admin/api/payroll/summary?year=2026&month={m}').data)['rows'] if x['employee_id'] == emp['id'])
+        assert row['salary'] == 30000 and row['already_paid'] == 30000 and row['outstanding'] == 0
+    r = client.get(f"/admin/payroll/statement/{emp['id']}")
+    assert r.status_code == 200 and r.data.startswith(b'%PDF')
