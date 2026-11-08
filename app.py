@@ -5420,7 +5420,19 @@ def admin_payroll_summary():
                 ytd['salary_total'] += d['salary']; ytd['commission_total'] += d['commission_total']
                 ytd['earned_total'] += d['total_earned']; ytd['paid_total'] += d['already_paid']; ytd['outstanding_total'] += d['outstanding']
         actor = get_current_admin()
-        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals, 'ytd': ytd,
+        # All-time totals (from the earliest start date or payment up to the selected month)
+        all_time = {'salary_total': 0.0, 'commission_total': 0.0, 'earned_total': 0.0, 'paid_total': 0.0, 'outstanding_total': 0.0}
+        starts = [e.start_date for e in employees if e.start_date]
+        first_pay = db.session.query(db.func.min(PayrollPayment.period_year), db.func.min(PayrollPayment.period_month)).first()
+        first_y = min([d.year for d in starts] + ([first_pay[0]] if first_pay and first_pay[0] else [year]))
+        for emp in employees:
+            for y, m in _month_iter(first_y, 1, year, month):
+                if not (_employee_active_in_month(emp, y, m) or PayrollPayment.query.filter_by(employee_id=emp.id, period_year=y, period_month=m).first()):
+                    continue
+                d = compute_employee_payroll(emp, y, m)
+                all_time['salary_total'] += d['salary']; all_time['commission_total'] += d['commission_total']
+                all_time['earned_total'] += d['total_earned']; all_time['paid_total'] += d['already_paid']; all_time['outstanding_total'] += d['outstanding']
+        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals, 'ytd': ytd, 'all_time': all_time,
                         'can_delete': actor.role == 'CEO'})
     except Exception as e:
         logger.error(f"Error in payroll summary: {str(e)}")
@@ -7668,8 +7680,9 @@ PAYROLL_PANEL_JS = """
                 document.getElementById('pr_outTotal').textContent = prFmt(yt.outstanding_total);
                 const mLabel = `${PR_MONTHS[month - 1]} ${year}: `;
                 document.getElementById('pr_salYtd').textContent = mLabel + prFmt(t.salary_total);
-                document.getElementById('pr_commYtd').textContent = mLabel + prFmt(t.commission_total);
-                document.getElementById('pr_earnYtd').textContent = mLabel + prFmt(t.earned_total);
+                const at = res.all_time || {};
+                document.getElementById('pr_commYtd').textContent = mLabel + prFmt(t.commission_total) + '  |  All time: ' + prFmt(at.commission_total);
+                document.getElementById('pr_earnYtd').textContent = mLabel + prFmt(t.earned_total) + '  |  All time: ' + prFmt(at.earned_total);
                 document.getElementById('pr_paidYtd').textContent = `${year} to date: ` + prFmt(yt.paid_total);
                 document.getElementById('pr_paidMonthLabel').textContent = `(${PR_MONTHS[month - 1]} ${year})`;
                 document.getElementById('pr_outYtd').textContent = mLabel + prFmt(t.outstanding_total);
