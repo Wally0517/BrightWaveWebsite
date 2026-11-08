@@ -6098,7 +6098,7 @@ def _pdf_signed_block(pdf, F, usable, st):
     INK = (17, 24, 39)
     GREY = (107, 114, 128)
     block_h = 37
-    if pdf.get_y() > pdf.h - (block_h + 30):
+    if pdf.get_y() + block_h + 9 > pdf.h - pdf.b_margin:
         pdf.add_page()
     pdf.ln(3)
     y0 = pdf.get_y()
@@ -6136,7 +6136,7 @@ def _pdf_signed_block(pdf, F, usable, st):
     panel(pdf.l_margin, 'Staff member: received and acknowledged', st.staff_ack_name or emp_name, st.staff_ack_image, when_s, staff_signed)
     panel(pdf.l_margin + usable - half, 'For BrightWave Habitat Enterprise (management)', st.signed_by_name, st.signed_by_image, when_m, True)
     pdf.set_xy(pdf.l_margin, y0 + block_h)
-    pdf.set_font(F, '', 7); pdf.set_text_color(*GREY)
+    pdf.set_font(F, '', 6.8); pdf.set_text_color(*GREY)
     note = f'Ref {st.reference}. Management signature captured electronically in the BrightWave portal, {when_m}.'
     note += (f' Staff acknowledgement captured electronically, {when_s}.') if staff_signed else ' Staff member to sign and date on receipt.'
     pdf.multi_cell(usable, 3.6, note)
