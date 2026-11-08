@@ -4875,6 +4875,41 @@ def admin_payment_detail(payment_id):
 # Access: CEO, MANAGER and ACCOUNTANT can view/add/edit. Deleting records is CEO-only.
 PAYROLL_COMMISSION_RATE = 0.10
 PAYROLL_COMMISSION_ROLES = {'MANAGER', 'REALTOR'}
+
+# Nigeria runs on West Africa Time (UTC+1, no daylight saving). Timestamps are stored as naive UTC;
+# everything shown to people (dashboard, PDFs) is converted with these helpers.
+from datetime import timezone as _tz
+WAT = _tz(timedelta(hours=1), name='WAT')
+
+
+def _to_wat(dt):
+    if not dt:
+        return None
+    return dt.replace(tzinfo=_tz.utc).astimezone(WAT)
+
+
+def _now_wat():
+    return datetime.now(_tz.utc).astimezone(WAT)
+
+
+def _today_wat():
+    return _now_wat().date()
+
+
+def _fmt_wat(dt, with_time=True):
+    d = _to_wat(dt)
+    if not d:
+        return ''
+    return d.strftime('%d %b %Y, %H:%M') + ' WAT' if with_time else d.strftime('%d %b %Y')
+
+
+def _utc_at(day, now=None):
+    """Naive-UTC datetime for a WAT calendar day: today keeps the current time, another day uses midday WAT."""
+    now = now or _now_wat()
+    if day == now.date():
+        return datetime.utcnow()
+    return datetime.combine(day, datetime.min.time().replace(hour=12)).replace(tzinfo=WAT).astimezone(_tz.utc).replace(tzinfo=None)
+
 PAYROLL_ACCESS_ROLES = ('CEO', 'MANAGER', 'ACCOUNTANT')
 PAYROLL_KINDS = ('salary', 'commission', 'bonus', 'advance', 'other')
 
@@ -4926,7 +4961,7 @@ def _employee_for_admin(admin, create=False, actor=None):
             email=admin.email,
             user_id=admin.id,
             monthly_salary=float(admin.monthly_salary or 0),
-            start_date=date_type.today(),
+            start_date=_today_wat(),
             is_active=bool(admin.is_active),
             created_by=_actor_name(actor),
         )
@@ -4943,7 +4978,7 @@ def _employee_for_admin(admin, create=False, actor=None):
 
 def _record_salary_change(employee, new_salary, actor, effective_from=None):
     """Close any open SalaryHistory row for the employee and insert a new one."""
-    effective_from = effective_from or date_type.today()
+    effective_from = effective_from or _today_wat()
     open_row = (
         SalaryHistory.query
         .filter(SalaryHistory.employee_id == employee.id, SalaryHistory.effective_to.is_(None))
@@ -5018,7 +5053,7 @@ def _employee_active_in_month(emp, year, month):
         return False
     if not emp.is_active and not emp.end_date:
         return False
-    if period_start > date_type.today():
+    if period_start > _today_wat():
         return False  # the period has not started yet, so nothing is due
     return True
 
@@ -5038,7 +5073,7 @@ def serialize_payroll_payment(p):
         'notes': p.notes or '',
         'paid_by': p.paid_by or '',
         'paid_at': p.paid_at.isoformat() if p.paid_at else None,
-        'paid_on': p.paid_at.date().isoformat() if p.paid_at else None,
+        'paid_on': _to_wat(p.paid_at).date().isoformat() if p.paid_at else None,
         'source_tenant_id': p.source_tenant_id,
     }
 
@@ -5137,7 +5172,7 @@ def compute_employee_payroll(emp, year, month):
         'period_label': _period_label(emp, year, month),
         'period_start': period_start.isoformat(),
         'period_end': period_end.isoformat(),
-        'period_started': period_start <= date_type.today(),
+        'period_started': period_start <= _today_wat(),
         'prorated_days': prorated_days,
         'commission_lines': commission_lines,
         'commission_total': commission_total,
@@ -5164,7 +5199,7 @@ def compute_user_payroll(user, year, month):
 
 
 def _parse_period(args_or_data, default_today=True):
-    today = date_type.today()
+    today = _today_wat()
     year = args_or_data.get('year', today.year if default_today else None)
     month = args_or_data.get('month', today.month if default_today else None)
     year = int(year)
@@ -5187,7 +5222,7 @@ def admin_my_commission():
         admin = get_current_admin()
         if not admin:
             return jsonify({"success": False, "message": "Not authenticated"}), 401
-        today = date_type.today()
+        today = _today_wat()
         data = compute_user_payroll(admin, today.year, today.month)
         return jsonify({
             'success': True,
@@ -5241,7 +5276,7 @@ def admin_payroll_staff():
         except (TypeError, ValueError):
             return jsonify({"success": False, "message": "Monthly salary must be 0 or more"}), 400
         try:
-            start_date = _parse_date(data.get('start_date'), default=date_type.today())
+            start_date = _parse_date(data.get('start_date'), default=_today_wat())
             end_date = _parse_date(data.get('end_date'))
         except ValueError as ve:
             return jsonify({"success": False, "message": str(ve)}), 400
@@ -5272,7 +5307,7 @@ def admin_payroll_staff():
             monthly_salary=salary,
             start_date=start_date,
             end_date=end_date,
-            is_active=end_date is None or end_date >= date_type.today(),
+            is_active=end_date is None or end_date >= _today_wat(),
             notes=(data.get('notes') or '').strip() or None,
             created_by=_actor_name(actor),
         )
@@ -5331,13 +5366,13 @@ def admin_payroll_staff_detail(employee_id):
                 emp.start_date = _parse_date(data.get('start_date'))
             if 'end_date' in data:
                 emp.end_date = _parse_date(data.get('end_date'))
-            salary_from = _parse_date(data.get('salary_effective_from'), default=date_type.today())
+            salary_from = _parse_date(data.get('salary_effective_from'), default=_today_wat())
         except ValueError as ve:
             return jsonify({"success": False, "message": str(ve)}), 400
         if 'is_active' in data:
             emp.is_active = bool(data['is_active'])
             if not emp.is_active and not emp.end_date:
-                emp.end_date = date_type.today()
+                emp.end_date = _today_wat()
             if emp.is_active:
                 emp.end_date = None
         if 'waive_partial_first_month' in data:
@@ -5399,7 +5434,7 @@ def admin_payroll_summary():
         rows = []
         for emp in employees:
             period_start, period_end = _pay_period_bounds(emp, year, month)
-            upcoming = (emp.pay_cycle_day or 1) > 1 and period_start > date_type.today() and emp.is_active and (not emp.start_date or emp.start_date <= period_end)
+            upcoming = (emp.pay_cycle_day or 1) > 1 and period_start > _today_wat() and emp.is_active and (not emp.start_date or emp.start_date <= period_end)
             if _employee_active_in_month(emp, year, month) or emp.id in paid_ids or upcoming:
                 rows.append(compute_employee_payroll(emp, year, month))
 
@@ -5462,7 +5497,7 @@ def admin_payroll_pay():
         try:
             amount = float(data['amount'])
             year, month = _parse_period(data)
-            paid_on = _parse_date(data.get('paid_on'), default=date_type.today())
+            paid_on = _parse_date(data.get('paid_on'), default=_today_wat())
         except (TypeError, ValueError) as ve:
             return jsonify({"success": False, "message": str(ve) or "Invalid value"}), 400
         if amount <= 0:
@@ -5484,7 +5519,7 @@ def admin_payroll_pay():
             kind=kind,
             source_tenant_id=int(data['source_tenant_id']) if data.get('source_tenant_id') else None,
             notes=(data.get('notes') or '').strip() or None,
-            paid_at=datetime.combine(paid_on, datetime.utcnow().time()),
+            paid_at=_utc_at(paid_on),
             paid_by=_actor_name(actor),
         )
         db.session.add(payment)
@@ -5540,7 +5575,7 @@ def admin_payroll_backfill():
                     db.session.add(PayrollPayment(
                         employee_id=emp.id, user_id=emp.user_id, period_year=y, period_month=m,
                         amount=amt, kind=kind, notes=notes,
-                        paid_at=datetime.combine(min(last, date_type.today()), datetime.min.time()),
+                        paid_at=_utc_at(min(last, _today_wat())),
                         paid_by=_actor_name(actor),
                     ))
                     created.append(f"{MONTH_ABBR[m-1]} {y}")
@@ -5614,7 +5649,7 @@ def admin_payroll_set_salary():
             return jsonify({"success": False, "message": "monthly_salary is required"}), 400
         try:
             amount = float(amount)
-            effective_from = _parse_date(data.get('effective_from'), default=date_type.today())
+            effective_from = _parse_date(data.get('effective_from'), default=_today_wat())
         except (TypeError, ValueError) as ve:
             return jsonify({"success": False, "message": str(ve) or "Invalid numeric value"}), 400
         if amount < 0:
@@ -5685,10 +5720,10 @@ def admin_payroll_pay_detail(payment_id):
         if 'paid_on' in data and data['paid_on']:
             try:
                 d = _parse_date(data['paid_on'])
-                payment.paid_at = datetime.combine(d, (payment.paid_at or datetime.utcnow()).time())
+                payment.paid_at = _utc_at(d)
             except ValueError as ve:
                 return jsonify({"success": False, "message": str(ve)}), 400
-        payment.notes = ((payment.notes or '').rstrip() + f"\n[edited by {_actor_name(actor)} on {date_type.today().isoformat()}]").strip() if data.get('mark_edited') else payment.notes
+        payment.notes = ((payment.notes or '').rstrip() + f"\n[edited by {_actor_name(actor)} on {_today_wat().isoformat()}]").strip() if data.get('mark_edited') else payment.notes
         db.session.commit()
         return jsonify({"success": True, "message": "Payment updated", "payment": serialize_payroll_payment(payment)})
     except Exception as e:
@@ -5734,7 +5769,7 @@ def _payroll_pdf(doc_title, subtitle):
             self.set_y(-12)
             self.set_font(self.brand_font, '', 7.5)
             self.set_text_color(*FAINT)
-            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  brightwavehabitat.com  |  Generated ' + datetime.utcnow().strftime('%d %b %Y %H:%M UTC'), align='L')
+            self.cell(0, 5, 'BrightWave Habitat Enterprise  |  brightwavehabitat.com  |  Generated ' + _now_wat().strftime('%d %b %Y %H:%M') + ' WAT', align='L')
             self.cell(0, 5, f'Page {self.page_no()}/{{nb}}', align='R')
 
     pdf = PayrollPDF(orientation='P', unit='mm', format='A4')
@@ -5975,7 +6010,9 @@ def serialize_statement(st):
         'period_label': f"{MONTH_ABBR[st.from_month-1]} {st.from_year} to {MONTH_ABBR[st.to_month-1]} {st.to_year}",
         'total_earned': float(st.total_earned or 0), 'total_paid': float(st.total_paid or 0),
         'signed_by_name': st.signed_by_name, 'signed_at': st.signed_at.isoformat() if st.signed_at else None,
+        'signed_on': _fmt_wat(st.signed_at, with_time=False), 'signed_at_wat': _fmt_wat(st.signed_at),
         'staff_ack_name': st.staff_ack_name, 'staff_ack_at': st.staff_ack_at.isoformat() if st.staff_ack_at else None,
+        'staff_ack_on': _fmt_wat(st.staff_ack_at, with_time=False), 'staff_ack_at_wat': _fmt_wat(st.staff_ack_at),
         'has_signature_image': bool(st.signed_by_image), 'has_staff_image': bool(st.staff_ack_image),
         'notes': st.notes or '',
         'pdf_url': f"/admin/payroll/statement/{st.employee_id}?statement_id={st.id}",
@@ -6027,7 +6064,7 @@ def admin_payroll_statement_sign():
             return jsonify({"success": False, "message": str(ve)}), 400
         if not sig_img:
             return jsonify({"success": False, "message": "Draw your signature on the pad to sign"}), 400
-        today = date_type.today()
+        today = _today_wat()
         try:
             default_from = (emp.start_date.year, emp.start_date.month) if emp.start_date else (today.year, 1)
             fy, fm = _parse_ym(data.get('from'), default_from)
@@ -6045,13 +6082,18 @@ def admin_payroll_statement_sign():
         ack = (data.get('staff_ack_name') or '').strip()
         if ack_img and not ack:
             ack = emp.full_name
+        try:
+            signed_on = _parse_date(data.get('signed_on'), default=_today_wat())
+            ack_on = _parse_date(data.get('staff_ack_on'), default=signed_on)
+        except ValueError as ve:
+            return jsonify({"success": False, "message": str(ve)}), 400
         st = PayrollStatement(
             employee_id=emp.id, reference=ref,
             from_year=fy, from_month=fm, to_year=ty, to_month=tm,
             total_earned=earned, total_paid=paid,
             signed_by_name=signature, signed_by_user_id=actor.id if actor else None,
-            signed_at=datetime.utcnow(),
-            staff_ack_name=ack or None, staff_ack_at=datetime.utcnow() if ack else None,
+            signed_at=_utc_at(signed_on),
+            staff_ack_name=ack or None, staff_ack_at=_utc_at(ack_on) if ack else None,
             signed_by_image=sig_img, staff_ack_image=ack_img if ack else None,
             notes=(data.get('notes') or '').strip() or None,
         )
@@ -6082,7 +6124,11 @@ def admin_payroll_statement_ack(statement_id):
         return jsonify({"success": False, "message": "The staff member should draw their signature on the pad"}), 400
     st.staff_ack_name = ack if len(ack) >= 2 else (st.employee.full_name if st.employee else ack)
     st.staff_ack_image = ack_img
-    st.staff_ack_at = datetime.utcnow()
+    try:
+        ack_on = _parse_date(data.get('staff_ack_on'), default=_today_wat())
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
+    st.staff_ack_at = _utc_at(ack_on)
     db.session.commit()
     return jsonify({"success": True, "message": "Acknowledgement recorded", "statement": serialize_statement(st)})
 
@@ -6142,8 +6188,8 @@ def _pdf_signed_block(pdf, F, usable, st):
         else:
             pdf.cell(half, 4, 'Signature                                   Date', new_x='LEFT', new_y='NEXT')
 
-    when_m = st.signed_at.strftime('%d %b %Y, %H:%M UTC') if st.signed_at else ''
-    when_s = st.staff_ack_at.strftime('%d %b %Y, %H:%M UTC') if st.staff_ack_at else ''
+    when_m = _fmt_wat(st.signed_at)
+    when_s = _fmt_wat(st.staff_ack_at)
     staff_signed = bool(st.staff_ack_image or st.staff_ack_name)
     panel(pdf.l_margin, 'Staff member: received and acknowledged', st.staff_ack_name or emp_name, st.staff_ack_image, when_s, staff_signed)
     panel(pdf.l_margin + usable - half, 'For BrightWave Habitat Enterprise (management)', st.signed_by_name, st.signed_by_image, when_m, True)
@@ -6163,7 +6209,7 @@ def admin_payroll_statement_pdf(employee_id):
     emp = Employee.query.get(employee_id)
     if not emp:
         return make_response('Staff member not found', 404)
-    today = date_type.today()
+    today = _today_wat()
     signed = None
     if request.args.get('statement_id'):
         signed = PayrollStatement.query.get(request.args.get('statement_id', type=int))
@@ -7539,12 +7585,18 @@ PAYROLL_PANEL_HTML = """
             <div>
                 <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Management: draw your signature *</label><button type="button" onclick="prSigPads.mgmt.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
                 <canvas id="prSigMgmt" width="720" height="220" class="w-full h-28 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
-                <input id="prStmtSignature" type="text" placeholder="Your full name (printed under the signature)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+                    <input id="prStmtSignature" type="text" placeholder="Your full name (printed under the signature)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                    <input id="prStmtSignedOn" type="date" title="Date signed" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                </div>
             </div>
             <div>
                 <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Staff member: draw signature (optional, hand them the phone; can be added later)</label><button type="button" onclick="prSigPads.staff.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
                 <canvas id="prSigStaff" width="720" height="220" class="w-full h-28 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
-                <input id="prStmtAck" type="text" placeholder="Staff member's full name (defaults to their name on record)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+                    <input id="prStmtAck" type="text" placeholder="Staff member's full name (defaults to their name on record)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+                    <input id="prStmtAckOn" type="date" title="Date signed" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                </div>
             </div>
             <p class="text-[11px] text-gray-500">Signatures are printed on the PDF in black ink with the date, time and a reference number. If the staff member has not signed here, the PDF leaves a signature line for them. Totals are locked at signing.</p>
             <div class="flex gap-2 flex-wrap">
@@ -7571,7 +7623,10 @@ PAYROLL_PANEL_HTML = """
         <input type="hidden" id="prAckStatementId"><input type="hidden" id="prAckEmployeeId">
         <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Draw signature *</label><button type="button" onclick="prSigPads.ack.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
         <canvas id="prSigAck" width="720" height="220" class="w-full h-32 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
-        <input id="prAckName" type="text" placeholder="Full name (printed under the signature)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+        <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+            <input id="prAckName" type="text" placeholder="Full name (printed under the signature)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+            <input id="prAckOn" type="date" title="Date signed" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+        </div>
         <p id="prAckMsg" class="text-sm hidden mt-3"></p>
         <div class="flex gap-2 mt-4">
             <button onclick="prSubmitAck()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Save acknowledgement</button>
@@ -7609,7 +7664,7 @@ PAYROLL_PANEL_JS = """
         let _prRows = [], _prStaff = [], _prLinkable = [], _prCanDelete = !!window.PR_IS_CEO, _prLedger = [];
         const prFmt = v => String.fromCharCode(8358) + Number(v || 0).toLocaleString('en-NG', {maximumFractionDigits: 0});
         const prEsc = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-        const prToday = () => new Date().toISOString().slice(0, 10);
+        const prToday = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);  // West Africa Time (UTC+1)
         const prKindPill = k => `<span class="text-[10px] px-1.5 py-0.5 rounded-full ${PR_KIND_STYLE[k] || PR_KIND_STYLE.other}">${prEsc(k || 'other')}</span>`;
 
         function prFillPeriodSelects(monthSel, yearSel, month, year) {
@@ -8074,6 +8129,8 @@ PAYROLL_PANEL_JS = """
             prFillPeriodSelects(document.getElementById('prStmtToMonth'), document.getElementById('prStmtToYear'), now.getMonth() + 1, now.getFullYear());
             document.getElementById('prStmtSignature').value = window.PR_USER_NAME || '';
             document.getElementById('prStmtAck').value = '';
+            document.getElementById('prStmtSignedOn').value = prToday();
+            document.getElementById('prStmtAckOn').value = prToday();
             prEnsureSigPads(); prSigPads.mgmt.clear(); prSigPads.staff.clear();
             document.getElementById('prStmtMsg').classList.add('hidden');
             prOpenModal('prStmtModal');
@@ -8096,8 +8153,8 @@ PAYROLL_PANEL_JS = """
             prMsg('prStmtMsg', 'Signing...');
             try {
                 const res = await fetchData('/admin/api/payroll/statements', { method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ employee_id: id, from: r.from, to: r.to, signature, signature_image: prSigPads.mgmt.dataUrl(),
-                        staff_ack_name: document.getElementById('prStmtAck').value.trim(), staff_ack_image: prSigPads.staff.dataUrl() }) });
+                    body: JSON.stringify({ employee_id: id, from: r.from, to: r.to, signature, signature_image: prSigPads.mgmt.dataUrl(), signed_on: document.getElementById('prStmtSignedOn').value,
+                        staff_ack_name: document.getElementById('prStmtAck').value.trim(), staff_ack_image: prSigPads.staff.dataUrl(), staff_ack_on: document.getElementById('prStmtAckOn').value }) });
                 prMsg('prStmtMsg', `${res.message}. Reference ${res.statement.reference}.`, true);
                 prLoadStatementHistory(parseInt(id));
                 await prDownloadPdf(res.statement.pdf_url, el);
@@ -8113,7 +8170,7 @@ PAYROLL_PANEL_JS = """
                     <div class="flex items-start justify-between gap-2 bg-gray-900/40 border border-gray-700/60 rounded-lg px-3 py-2">
                         <div class="min-w-0">
                             <p class="text-gray-200 text-xs font-medium">${prEsc(st.reference)} <span class="text-gray-500 font-normal">${prEsc(st.period_label)}</span></p>
-                            <p class="text-[11px] text-gray-400">Signed by ${prEsc(st.signed_by_name)} on ${prEsc((st.signed_at || '').slice(0, 10))}. ${st.staff_ack_name ? 'Acknowledged by ' + prEsc(st.staff_ack_name) + ' on ' + prEsc((st.staff_ack_at || '').slice(0, 10)) + '.' : '<button onclick="prAckStatement(' + st.id + ', ' + st.employee_id + ')" class="text-amber-300 hover:text-amber-200 underline">Add staff acknowledgement</button>'}</p>
+                            <p class="text-[11px] text-gray-400">Signed by ${prEsc(st.signed_by_name)}, ${prEsc(st.signed_at_wat || st.signed_on)}. ${st.staff_ack_name ? 'Acknowledged by ' + prEsc(st.staff_ack_name) + ', ' + prEsc(st.staff_ack_at_wat || st.staff_ack_on) + '.' : '<button onclick="prAckStatement(' + st.id + ', ' + st.employee_id + ')" class="text-amber-300 hover:text-amber-200 underline">Add staff acknowledgement</button>'}</p>
                             <p class="text-[11px] text-gray-500">Paid ${prFmt(st.total_paid)} of ${prFmt(st.total_earned)} earned</p>
                         </div>
                         <div class="flex gap-2 flex-shrink-0">
@@ -8128,6 +8185,7 @@ PAYROLL_PANEL_JS = """
             document.getElementById('prAckStatementId').value = statementId;
             document.getElementById('prAckEmployeeId').value = employeeId;
             document.getElementById('prAckName').value = s ? s.full_name : '';
+            document.getElementById('prAckOn').value = prToday();
             document.getElementById('prAckMsg').classList.add('hidden');
             prEnsureSigPads(); prSigPads.ack.clear();
             prOpenModal('prAckModal');
@@ -8139,7 +8197,7 @@ PAYROLL_PANEL_JS = """
             prMsg('prAckMsg', 'Saving...');
             try {
                 await fetchData('/admin/api/payroll/statements/' + statementId + '/acknowledge', { method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ staff_ack_name: document.getElementById('prAckName').value.trim(), staff_ack_image: prSigPads.ack.dataUrl() }) });
+                    body: JSON.stringify({ staff_ack_name: document.getElementById('prAckName').value.trim(), staff_ack_image: prSigPads.ack.dataUrl(), staff_ack_on: document.getElementById('prAckOn').value }) });
                 prCloseModal('prAckModal');
                 prLoadStatementHistory(employeeId);
             } catch (e) { prMsg('prAckMsg', e.message || 'Could not record acknowledgement', false); }
