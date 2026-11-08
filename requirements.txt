@@ -9,3 +9,4 @@ email-validator==2.2.0
 psycopg2-binary==2.9.10
 Flask-Limiter==3.5.1
 fpdf2
+pypdf>=4.3

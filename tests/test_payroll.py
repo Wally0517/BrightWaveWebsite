@@ -224,6 +224,11 @@ def test_sign_and_acknowledge_statement(client):
     assert st['reference'].startswith('BW-PS-') and st['total_paid'] == 60000 and st['total_earned'] == 60000 and st['staff_ack_name'] is None
     r = client.get(st['pdf_url'])
     assert r.status_code == 200 and r.data.startswith(b'%PDF') and 'Signed-' in r.headers['Content-Disposition']
+    # staff has not signed in the app: the PDF carries fillable signature + date fields
+    from pypdf import PdfReader
+    import io as _io
+    fields = PdfReader(_io.BytesIO(r.data)).get_fields() or {}
+    assert 'staff_signature' in fields and 'staff_date_signed' in fields
     # unsigned draft is clearly marked in the filename
     r = client.get(f'/admin/payroll/statement/{emp_id}')
     assert 'DRAFT' in r.headers['Content-Disposition']
@@ -232,6 +237,7 @@ def test_sign_and_acknowledge_statement(client):
     assert r.status_code == 200 and json.loads(r.data)['statement']['staff_ack_at'] and json.loads(r.data)['statement']['has_staff_image']
     r = client.get(st['pdf_url'])
     assert r.status_code == 200 and r.data.startswith(b'%PDF')
+    assert not (PdfReader(_io.BytesIO(r.data)).get_fields() or {})  # both signed: no fillable fields
     r = client.get(f'/admin/api/payroll/statements?employee_id={emp_id}')
     assert len(json.loads(r.data)['statements']) == 1
     # only the CEO can void

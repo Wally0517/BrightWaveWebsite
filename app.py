@@ -6177,6 +6177,14 @@ def _pdf_signed_block(pdf, F, usable, st):
         pdf.set_line_width(0.35)
         if signed and image:
             draw_image(image, x + 2, y0, half - 4, 18)
+        elif not signed:
+            # Remember the blank signature box and the date slot so fillable form fields can be laid over them.
+            k = 72 / 25.4
+            pdf._fill_fields = {
+                'page': pdf.page_no(),
+                'signature': (x * k, (pdf.h - (y0 + 19)) * k, (x + half * 0.62) * k, (pdf.h - y0) * k),
+                'date': ((x + half * 0.66) * k, (pdf.h - (y0 + 19)) * k, (x + half) * k, (pdf.h - (y0 + 8)) * k),
+            }
         pdf.line(x, y0 + 19, x + half, y0 + 19)
         pdf.set_xy(x, y0 + 20)
         pdf.set_font(F, 'B', 9.5); pdf.set_text_color(*INK)
@@ -6186,7 +6194,9 @@ def _pdf_signed_block(pdf, F, usable, st):
         if signed:
             pdf.cell(half, 4, 'Signed electronically on ' + when, new_x='LEFT', new_y='NEXT')
         else:
-            pdf.cell(half, 4, 'Signature                                   Date', new_x='LEFT', new_y='NEXT')
+            pdf.cell(half * 0.62, 4, 'Signature', new_x='RIGHT', new_y='TOP')
+            pdf.set_x(x + half * 0.66)
+            pdf.cell(half * 0.34, 4, 'Date signed', new_x='LMARGIN', new_y='NEXT')
 
     when_m = _fmt_wat(st.signed_at)
     when_s = _fmt_wat(st.staff_ack_at)
@@ -6198,6 +6208,61 @@ def _pdf_signed_block(pdf, F, usable, st):
     note = f'Ref {st.reference}. Management signature captured electronically in the BrightWave portal, {when_m}.'
     note += (f' Staff acknowledgement captured electronically, {when_s}.') if staff_signed else ' Staff member to sign and date on receipt.'
     pdf.multi_cell(usable, 3.6, note)
+
+
+def _add_fillable_staff_fields(pdf_bytes, fields):
+    """Overlay fillable form fields (signature + date) on the blank staff signature line so the
+    staff member can complete the PDF in any viewer. Falls back to the plain PDF if pypdf is missing."""
+    try:
+        from pypdf import PdfReader, PdfWriter
+        from pypdf.generic import (ArrayObject, BooleanObject, DictionaryObject, FloatObject,
+                                   NameObject, NumberObject, TextStringObject)
+    except ImportError:
+        logger.warning('pypdf not installed; statement PDF issued without fillable fields')
+        return pdf_bytes
+    import io as _io
+    reader = PdfReader(_io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    writer.append(reader)
+    page = writer.pages[fields['page'] - 1]
+    helv = writer._add_object(DictionaryObject({
+        NameObject('/Type'): NameObject('/Font'), NameObject('/Subtype'): NameObject('/Type1'),
+        NameObject('/BaseFont'): NameObject('/Helvetica'), NameObject('/Encoding'): NameObject('/WinAnsiEncoding'),
+    }))
+    acro = DictionaryObject({
+        NameObject('/Fields'): ArrayObject(),
+        NameObject('/NeedAppearances'): BooleanObject(True),
+        NameObject('/DA'): TextStringObject('/Helv 0 Tf 0 g'),
+        NameObject('/DR'): DictionaryObject({NameObject('/Font'): DictionaryObject({NameObject('/Helv'): helv})}),
+    })
+    writer._root_object[NameObject('/AcroForm')] = acro
+    annots = page.get('/Annots')
+    if annots is None:
+        annots = ArrayObject()
+        page[NameObject('/Annots')] = annots
+    else:
+        annots = annots.get_object()
+
+    def add_field(name, rect, font_size, tooltip):
+        f = DictionaryObject({
+            NameObject('/Type'): NameObject('/Annot'), NameObject('/Subtype'): NameObject('/Widget'),
+            NameObject('/FT'): NameObject('/Tx'), NameObject('/T'): TextStringObject(name),
+            NameObject('/TU'): TextStringObject(tooltip),
+            NameObject('/Rect'): ArrayObject([FloatObject(round(v, 2)) for v in rect]),
+            NameObject('/F'): NumberObject(4), NameObject('/Ff'): NumberObject(0),
+            NameObject('/DA'): TextStringObject(f'/Helv {font_size} Tf 0 g'),
+            NameObject('/V'): TextStringObject(''), NameObject('/P'): page.indirect_reference,
+            NameObject('/MK'): DictionaryObject({NameObject('/BG'): ArrayObject([FloatObject(0.985), FloatObject(0.985), FloatObject(0.96)])}),
+        })
+        ref = writer._add_object(f)
+        annots.append(ref)
+        acro['/Fields'].append(ref)
+
+    add_field('staff_signature', fields['signature'], 14, 'Staff member: sign here (type your name or use your PDF app to draw/insert a signature)')
+    add_field('staff_date_signed', fields['date'], 9, 'Date signed (e.g. 25 Nov 2026)')
+    out = _io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 
 @app.route('/admin/payroll/statement/<int:employee_id>')
@@ -6336,6 +6401,8 @@ def admin_payroll_statement_pdf(employee_id):
         else:
             _pdf_signatures(pdf, F, usable, 'Staff member: name, signature and date', 'For BrightWave Habitat Enterprise (Management)')
         pdf_bytes = bytes(pdf.output())
+        if signed and getattr(pdf, '_fill_fields', None):
+            pdf_bytes = _add_fillable_staff_fields(pdf_bytes, pdf._fill_fields)
     except Exception:
         app.logger.exception('Payroll statement PDF failed')
         return make_response('PDF generation failed. Check server logs.', 500)
@@ -7595,10 +7662,10 @@ PAYROLL_PANEL_HTML = """
                 <canvas id="prSigStaff" width="720" height="220" class="w-full h-28 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
                 <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
                     <input id="prStmtAck" type="text" placeholder="Staff member's full name (defaults to their name on record)" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
-                    <input id="prStmtAckOn" type="date" title="Date signed" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
+                    <input id="prStmtAckOn" type="date" title="Date signed (optional, defaults to the signing date)" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white">
                 </div>
             </div>
-            <p class="text-[11px] text-gray-500">Signatures are printed on the PDF in black ink with the date, time and a reference number. If the staff member has not signed here, the PDF leaves a signature line for them. Totals are locked at signing.</p>
+            <p class="text-[11px] text-gray-500">Signatures are printed on the PDF in black ink with the date and a reference number. If the staff member has not signed here, the PDF carries fillable signature and date fields they can complete in any PDF app. Totals are locked at signing.</p>
             <div class="flex gap-2 flex-wrap">
                 <button onclick="prSignStatement(this)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-pen-nib"></i>Sign &amp; Download PDF</button>
                 <button onclick="prDraftStatement(this)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-alt"></i>Unsigned draft</button>
@@ -8130,7 +8197,7 @@ PAYROLL_PANEL_JS = """
             document.getElementById('prStmtSignature').value = window.PR_USER_NAME || '';
             document.getElementById('prStmtAck').value = '';
             document.getElementById('prStmtSignedOn').value = prToday();
-            document.getElementById('prStmtAckOn').value = prToday();
+            document.getElementById('prStmtAckOn').value = '';
             prEnsureSigPads(); prSigPads.mgmt.clear(); prSigPads.staff.clear();
             document.getElementById('prStmtMsg').classList.add('hidden');
             prOpenModal('prStmtModal');
@@ -8185,7 +8252,7 @@ PAYROLL_PANEL_JS = """
             document.getElementById('prAckStatementId').value = statementId;
             document.getElementById('prAckEmployeeId').value = employeeId;
             document.getElementById('prAckName').value = s ? s.full_name : '';
-            document.getElementById('prAckOn').value = prToday();
+            document.getElementById('prAckOn').value = '';
             document.getElementById('prAckMsg').classList.add('hidden');
             prEnsureSigPads(); prSigPads.ack.clear();
             prOpenModal('prAckModal');
