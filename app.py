@@ -401,6 +401,8 @@ class PayrollStatement(db.Model):
     signed_at = db.Column(db.DateTime, default=datetime.utcnow)
     staff_ack_name = db.Column(db.String(120), nullable=True)
     staff_ack_at = db.Column(db.DateTime, nullable=True)
+    signed_by_image = db.Column(db.Text, nullable=True)   # drawn signature, PNG data URI
+    staff_ack_image = db.Column(db.Text, nullable=True)   # drawn signature, PNG data URI
     notes = db.Column(db.Text, nullable=True)
     employee = db.relationship('Employee', foreign_keys=[employee_id])
 
@@ -683,6 +685,11 @@ def ensure_runtime_schema_updates():
         db.session.execute(text('ALTER TABLE employee ADD COLUMN pay_cycle_day INTEGER DEFAULT 1'))
     if employee_columns and 'waive_partial_first_month' not in employee_columns:
         db.session.execute(text('ALTER TABLE employee ADD COLUMN waive_partial_first_month BOOLEAN DEFAULT 0'))
+    stmt_columns = {column['name'] for column in inspector.get_columns('payroll_statement')} if inspector.has_table('payroll_statement') else set()
+    if stmt_columns and 'signed_by_image' not in stmt_columns:
+        db.session.execute(text('ALTER TABLE payroll_statement ADD COLUMN signed_by_image TEXT'))
+    if stmt_columns and 'staff_ack_image' not in stmt_columns:
+        db.session.execute(text('ALTER TABLE payroll_statement ADD COLUMN staff_ack_image TEXT'))
 
     if not inspector.has_table('payroll_payment'):
         db.create_all()
@@ -5404,8 +5411,16 @@ def admin_payroll_summary():
             'outstanding_total': sum(r['outstanding'] for r in rows),
             'staff_count': len(rows),
         }
+        ytd = {'salary_total': 0.0, 'commission_total': 0.0, 'earned_total': 0.0, 'paid_total': 0.0, 'outstanding_total': 0.0}
+        for emp in employees:
+            for m in range(1, month + 1):
+                if not (_employee_active_in_month(emp, year, m) or PayrollPayment.query.filter_by(employee_id=emp.id, period_year=year, period_month=m).first()):
+                    continue
+                d = compute_employee_payroll(emp, year, m)
+                ytd['salary_total'] += d['salary']; ytd['commission_total'] += d['commission_total']
+                ytd['earned_total'] += d['total_earned']; ytd['paid_total'] += d['already_paid']; ytd['outstanding_total'] += d['outstanding']
         actor = get_current_admin()
-        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals,
+        return jsonify({'success': True, 'year': year, 'month': month, 'rows': rows, 'totals': totals, 'ytd': ytd,
                         'can_delete': actor.role == 'CEO'})
     except Exception as e:
         logger.error(f"Error in payroll summary: {str(e)}")
@@ -5924,6 +5939,22 @@ def _parse_ym(value, default):
         raise ValueError('Use YYYY-MM for from/to')
 
 
+def _clean_signature_image(value):
+    """Accept only a small PNG data URI drawn on the signature pad. Returns the data URI or None."""
+    import base64
+    if not value or not isinstance(value, str):
+        return None
+    if not value.startswith('data:image/png;base64,') or len(value) > 400_000:
+        raise ValueError('Signature image must be a PNG under 300 KB')
+    try:
+        raw = base64.b64decode(value.split(',', 1)[1], validate=True)
+    except Exception:
+        raise ValueError('Signature image is not valid')
+    if not raw.startswith(b'\x89PNG'):
+        raise ValueError('Signature image is not a PNG')
+    return value
+
+
 def serialize_statement(st):
     return {
         'id': st.id, 'employee_id': st.employee_id, 'reference': st.reference,
@@ -5933,6 +5964,7 @@ def serialize_statement(st):
         'total_earned': float(st.total_earned or 0), 'total_paid': float(st.total_paid or 0),
         'signed_by_name': st.signed_by_name, 'signed_at': st.signed_at.isoformat() if st.signed_at else None,
         'staff_ack_name': st.staff_ack_name, 'staff_ack_at': st.staff_ack_at.isoformat() if st.staff_ack_at else None,
+        'has_signature_image': bool(st.signed_by_image), 'has_staff_image': bool(st.staff_ack_image),
         'notes': st.notes or '',
         'pdf_url': f"/admin/payroll/statement/{st.employee_id}?statement_id={st.id}",
     }
@@ -5975,7 +6007,14 @@ def admin_payroll_statement_sign():
             return jsonify({"success": False, "message": "Staff member not found"}), 404
         signature = (data.get('signature') or '').strip()
         if len(signature) < 2:
-            return jsonify({"success": False, "message": "Type your full name to sign"}), 400
+            return jsonify({"success": False, "message": "Type your full name under your signature"}), 400
+        try:
+            sig_img = _clean_signature_image(data.get('signature_image'))
+            ack_img = _clean_signature_image(data.get('staff_ack_image'))
+        except ValueError as ve:
+            return jsonify({"success": False, "message": str(ve)}), 400
+        if not sig_img:
+            return jsonify({"success": False, "message": "Draw your signature on the pad to sign"}), 400
         today = date_type.today()
         try:
             default_from = (emp.start_date.year, emp.start_date.month) if emp.start_date else (today.year, 1)
@@ -5992,6 +6031,8 @@ def admin_payroll_statement_sign():
             seq += 1
             ref = f"BW-PS-{today.strftime('%Y%m%d')}-{emp.id:03d}-{seq:04d}"
         ack = (data.get('staff_ack_name') or '').strip()
+        if ack_img and not ack:
+            ack = emp.full_name
         st = PayrollStatement(
             employee_id=emp.id, reference=ref,
             from_year=fy, from_month=fm, to_year=ty, to_month=tm,
@@ -5999,6 +6040,7 @@ def admin_payroll_statement_sign():
             signed_by_name=signature, signed_by_user_id=actor.id if actor else None,
             signed_at=datetime.utcnow(),
             staff_ack_name=ack or None, staff_ack_at=datetime.utcnow() if ack else None,
+            signed_by_image=sig_img, staff_ack_image=ack_img if ack else None,
             notes=(data.get('notes') or '').strip() or None,
         )
         db.session.add(st)
@@ -6020,9 +6062,14 @@ def admin_payroll_statement_ack(statement_id):
         return jsonify({"success": False, "message": "Statement not found"}), 404
     data = request.get_json() or {}
     ack = (data.get('staff_ack_name') or '').strip()
-    if len(ack) < 2:
-        return jsonify({"success": False, "message": "Staff member should type their full name"}), 400
-    st.staff_ack_name = ack
+    try:
+        ack_img = _clean_signature_image(data.get('staff_ack_image'))
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
+    if not ack_img:
+        return jsonify({"success": False, "message": "The staff member should draw their signature on the pad"}), 400
+    st.staff_ack_name = ack if len(ack) >= 2 else (st.employee.full_name if st.employee else ack)
+    st.staff_ack_image = ack_img
     st.staff_ack_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"success": True, "message": "Acknowledgement recorded", "statement": serialize_statement(st)})
@@ -6043,32 +6090,56 @@ def admin_payroll_statement_delete(statement_id):
 
 
 def _pdf_signed_block(pdf, F, usable, st):
-    """Digital signature panel printed in place of the blank signature lines."""
+    """Signature panel: drawn signatures printed in black ink; a blank line is left for a
+    staff member who has not signed in the app, so they can sign the printed copy."""
+    import base64
+    import io as _io
     P = pdf._palette
-    if pdf.get_y() > pdf.h - 58:
+    INK = (17, 24, 39)
+    GREY = (107, 114, 128)
+    block_h = 37
+    if pdf.get_y() > pdf.h - (block_h + 30):
         pdf.add_page()
     pdf.ln(3)
     y0 = pdf.get_y()
-    half = usable / 2 - 4
-    pdf.set_draw_color(*P['RULE'])
-    pdf.set_fill_color(240, 253, 250)
-    pdf.set_line_width(0.3)
-    def panel(x, title, name, when, extra=''):
-        pdf.rect(x, y0, half, 26, style='DF')
-        pdf.set_xy(x + 3, y0 + 2)
-        pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['FAINT'])
-        pdf.cell(half - 6, 4, title.upper(), new_x='LEFT', new_y='NEXT')
-        pdf.set_font(F, 'B', 11); pdf.set_text_color(*P['TEAL'])
-        pdf.cell(half - 6, 7, name if name else 'Not yet acknowledged', new_x='LEFT', new_y='NEXT')
-        pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['SLATE'])
-        pdf.cell(half - 6, 4, (('Digitally signed ' + when) if name else 'Staff member has not acknowledged this statement yet') + extra, new_x='LEFT', new_y='NEXT')
+    half = usable / 2 - 5
+    emp_name = st.employee.full_name if st.employee else ''
+
+    def draw_image(data_uri, x, y, w, h):
+        try:
+            raw = base64.b64decode(data_uri.split(',', 1)[1])
+            pdf.image(_io.BytesIO(raw), x=x, y=y, w=w, h=h, keep_aspect_ratio=True)
+            return True
+        except Exception:
+            return False
+
+    def panel(x, role_title, name, image, when, signed):
+        # signature area
+        pdf.set_draw_color(*INK)
+        pdf.set_line_width(0.35)
+        if signed and image:
+            draw_image(image, x + 2, y0, half - 4, 18)
+        pdf.line(x, y0 + 19, x + half, y0 + 19)
+        pdf.set_xy(x, y0 + 20)
+        pdf.set_font(F, 'B', 9.5); pdf.set_text_color(*INK)
+        pdf.cell(half, 5, name or '', new_x='LEFT', new_y='NEXT')
+        pdf.set_font(F, '', 7.5); pdf.set_text_color(*GREY)
+        pdf.cell(half, 4, role_title, new_x='LEFT', new_y='NEXT')
+        if signed:
+            pdf.cell(half, 4, 'Signed electronically on ' + when, new_x='LEFT', new_y='NEXT')
+        else:
+            pdf.cell(half, 4, 'Signature                                   Date', new_x='LEFT', new_y='NEXT')
+
     when_m = st.signed_at.strftime('%d %b %Y, %H:%M UTC') if st.signed_at else ''
     when_s = st.staff_ack_at.strftime('%d %b %Y, %H:%M UTC') if st.staff_ack_at else ''
-    panel(pdf.l_margin, 'Received and acknowledged by (staff member)', st.staff_ack_name, when_s)
-    panel(pdf.l_margin + usable - half, 'For BrightWave Habitat Enterprise (management)', st.signed_by_name, when_m)
-    pdf.set_xy(pdf.l_margin, y0 + 29)
-    pdf.set_font(F, '', 7.5); pdf.set_text_color(*P['FAINT'])
-    pdf.multi_cell(usable, 4, f'Statement reference {st.reference}. Signatures were captured electronically in the BrightWave management portal and are recorded with the date and time shown; this document is valid without a handwritten signature.')
+    staff_signed = bool(st.staff_ack_image or st.staff_ack_name)
+    panel(pdf.l_margin, 'Staff member: received and acknowledged', st.staff_ack_name or emp_name, st.staff_ack_image, when_s, staff_signed)
+    panel(pdf.l_margin + usable - half, 'For BrightWave Habitat Enterprise (management)', st.signed_by_name, st.signed_by_image, when_m, True)
+    pdf.set_xy(pdf.l_margin, y0 + block_h)
+    pdf.set_font(F, '', 7); pdf.set_text_color(*GREY)
+    note = f'Ref {st.reference}. Management signature captured electronically in the BrightWave portal, {when_m}.'
+    note += (f' Staff acknowledgement captured electronically, {when_s}.') if staff_signed else ' Staff member to sign and date on receipt.'
+    pdf.multi_cell(usable, 3.6, note)
 
 
 @app.route('/admin/payroll/statement/<int:employee_id>')
@@ -7296,11 +7367,11 @@ PAYROLL_PANEL_HTML = """
 </div>
 
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries</p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">-</p></div>
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission</p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">-</p></div>
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned</p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">-</p></div>
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid</p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-200">-</p></div>
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl col-span-2 md:col-span-1"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding</p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">-</p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries <span class="pr-tile-month normal-case"></span></p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">-</p><p id="pr_salYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission <span class="pr-tile-month normal-case"></span></p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">-</p><p id="pr_commYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned <span class="pr-tile-month normal-case"></span></p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">-</p><p id="pr_earnYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid <span class="pr-tile-month normal-case"></span></p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-200">-</p><p id="pr_paidYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl col-span-2 md:col-span-1"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding <span class="pr-tile-month normal-case"></span></p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">-</p><p id="pr_outYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
 </div>
 
 <div class="flex gap-1 border-b border-gray-700 mb-4 overflow-x-auto">
@@ -7453,9 +7524,17 @@ PAYROLL_PANEL_HTML = """
         </div>
         <div class="mt-4 p-3 rounded-lg bg-gray-900/50 border border-gray-700 space-y-3">
             <p class="text-xs font-semibold text-emerald-300 uppercase tracking-wide">Sign &amp; issue</p>
-            <div><label class="block text-xs text-gray-400 mb-1">Management signature: type your full name *</label><input id="prStmtSignature" type="text" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Staff acknowledgement: staff member types their full name (optional, can be added later)</label><input id="prStmtAck" type="text" placeholder="Hand the phone to the staff member" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500"></div>
-            <p class="text-[11px] text-gray-500">Signing records your name, the date and time, and a reference number on the PDF. The totals are locked at signing.</p>
+            <div>
+                <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Management: draw your signature *</label><button type="button" onclick="prSigPads.mgmt.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
+                <canvas id="prSigMgmt" width="720" height="220" class="w-full h-28 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
+                <input id="prStmtSignature" type="text" placeholder="Your full name (printed under the signature)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+            </div>
+            <div>
+                <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Staff member: draw signature (optional, hand them the phone; can be added later)</label><button type="button" onclick="prSigPads.staff.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
+                <canvas id="prSigStaff" width="720" height="220" class="w-full h-28 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
+                <input id="prStmtAck" type="text" placeholder="Staff member's full name (defaults to their name on record)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+            </div>
+            <p class="text-[11px] text-gray-500">Signatures are printed on the PDF in black ink with the date, time and a reference number. If the staff member has not signed here, the PDF leaves a signature line for them. Totals are locked at signing.</p>
             <div class="flex gap-2 flex-wrap">
                 <button onclick="prSignStatement(this)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-pen-nib"></i>Sign &amp; Download PDF</button>
                 <button onclick="prDraftStatement(this)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2"><i class="fas fa-file-alt"></i>Unsigned draft</button>
@@ -7468,6 +7547,23 @@ PAYROLL_PANEL_HTML = """
         </div>
         <div class="flex gap-2 mt-4">
             <button onclick="prCloseModal('prStmtModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- STAFF ACKNOWLEDGEMENT MODAL -->
+<div id="prAckModal" class="hidden fixed inset-0 bg-black/70 z-[80] items-center justify-center p-3" style="display:none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-lg w-full">
+        <h3 class="text-lg font-semibold text-white mb-1">Staff acknowledgement</h3>
+        <p id="prAckWho" class="text-xs text-gray-400 mb-3">Hand the phone to the staff member to sign that they have received the payments on this statement.</p>
+        <input type="hidden" id="prAckStatementId"><input type="hidden" id="prAckEmployeeId">
+        <div class="flex items-center justify-between mb-1"><label class="text-xs text-gray-400">Draw signature *</label><button type="button" onclick="prSigPads.ack.clear()" class="text-[11px] text-gray-400 hover:text-white">Clear</button></div>
+        <canvas id="prSigAck" width="720" height="220" class="w-full h-32 bg-white rounded-lg border border-gray-500" style="touch-action:none"></canvas>
+        <input id="prAckName" type="text" placeholder="Full name (printed under the signature)" class="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500">
+        <p id="prAckMsg" class="text-sm hidden mt-3"></p>
+        <div class="flex gap-2 mt-4">
+            <button onclick="prSubmitAck()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">Save acknowledgement</button>
+            <button onclick="prCloseModal('prAckModal')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg">Cancel</button>
         </div>
     </div>
 </div>
@@ -7568,6 +7664,15 @@ PAYROLL_PANEL_JS = """
                 document.getElementById('pr_earnTotal').textContent = prFmt(t.earned_total);
                 document.getElementById('pr_paidTotal').textContent = prFmt(t.paid_total);
                 document.getElementById('pr_outTotal').textContent = prFmt(t.outstanding_total);
+                const yt = res.ytd || {};
+                const ytdLabel = `${year} to date: `;
+                document.getElementById('pr_salYtd').textContent = ytdLabel + prFmt(yt.salary_total);
+                document.getElementById('pr_commYtd').textContent = ytdLabel + prFmt(yt.commission_total);
+                document.getElementById('pr_earnYtd').textContent = ytdLabel + prFmt(yt.earned_total);
+                document.getElementById('pr_paidYtd').textContent = ytdLabel + prFmt(yt.paid_total);
+                document.getElementById('pr_outYtd').textContent = ytdLabel + prFmt(yt.outstanding_total);
+                document.querySelectorAll('.pr-tile-month').forEach(el => { el.textContent = `(${PR_MONTHS[month - 1]} ${year})`; });
+                const monthTab = document.querySelector('[data-prtab="prTabMonth"]'); if (monthTab) monthTab.textContent = `${PR_MONTHS[month - 1]} ${year}`;
                 const cnt = document.getElementById('prStaffCount');
                 if (cnt) cnt.textContent = '(' + _prStaff.filter(s => s.is_active).length + ')';
                 prRenderMonth();
@@ -7916,6 +8021,31 @@ PAYROLL_PANEL_JS = """
                 if (el) el.innerHTML = oldHtml;
             }
         }
+        // ---- Signature pad (finger or mouse, black ink on white) ----
+        function prMakeSigPad(canvasId) {
+            const c = document.getElementById(canvasId);
+            if (!c) return { clear() {}, isEmpty() { return true; }, dataUrl() { return null; } };
+            const ctx = c.getContext('2d');
+            let drawing = false, dirty = false;
+            const pos = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+            const style = () => { ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111111'; };
+            c.addEventListener('pointerdown', e => { drawing = true; style(); const [x, y] = pos(e); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y + 0.1); ctx.stroke(); dirty = true; c.setPointerCapture(e.pointerId); e.preventDefault(); });
+            c.addEventListener('pointermove', e => { if (!drawing) return; const [x, y] = pos(e); ctx.lineTo(x, y); ctx.stroke(); e.preventDefault(); });
+            const stop = () => { drawing = false; };
+            c.addEventListener('pointerup', stop); c.addEventListener('pointercancel', stop); c.addEventListener('pointerleave', stop);
+            return {
+                clear() { ctx.clearRect(0, 0, c.width, c.height); dirty = false; },
+                isEmpty() { return !dirty; },
+                dataUrl() { return dirty ? c.toDataURL('image/png') : null; }
+            };
+        }
+        const prSigPads = { mgmt: null, staff: null, ack: null };
+        function prEnsureSigPads() {
+            if (!prSigPads.mgmt) prSigPads.mgmt = prMakeSigPad('prSigMgmt');
+            if (!prSigPads.staff) prSigPads.staff = prMakeSigPad('prSigStaff');
+            if (!prSigPads.ack) prSigPads.ack = prMakeSigPad('prSigAck');
+        }
+
         // ---- Signed statements ----
         function prOpenStatementModal(employeeId) {
             const s = _prStaff.find(x => x.id === employeeId);
@@ -7929,6 +8059,7 @@ PAYROLL_PANEL_JS = """
             prFillPeriodSelects(document.getElementById('prStmtToMonth'), document.getElementById('prStmtToYear'), now.getMonth() + 1, now.getFullYear());
             document.getElementById('prStmtSignature').value = window.PR_USER_NAME || '';
             document.getElementById('prStmtAck').value = '';
+            prEnsureSigPads(); prSigPads.mgmt.clear(); prSigPads.staff.clear();
             document.getElementById('prStmtMsg').classList.add('hidden');
             prOpenModal('prStmtModal');
             prLoadStatementHistory(s.id);
@@ -7944,11 +8075,14 @@ PAYROLL_PANEL_JS = """
         async function prSignStatement(el) {
             const id = document.getElementById('prStmtEmployee').value; const r = prStmtRange();
             const signature = document.getElementById('prStmtSignature').value.trim();
-            if (signature.length < 2) { prMsg('prStmtMsg', 'Type your full name to sign', false); return; }
+            prEnsureSigPads();
+            if (prSigPads.mgmt.isEmpty()) { prMsg('prStmtMsg', 'Draw your signature on the pad first', false); return; }
+            if (signature.length < 2) { prMsg('prStmtMsg', 'Type your full name under the signature', false); return; }
             prMsg('prStmtMsg', 'Signing...');
             try {
                 const res = await fetchData('/admin/api/payroll/statements', { method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ employee_id: id, from: r.from, to: r.to, signature, staff_ack_name: document.getElementById('prStmtAck').value.trim() }) });
+                    body: JSON.stringify({ employee_id: id, from: r.from, to: r.to, signature, signature_image: prSigPads.mgmt.dataUrl(),
+                        staff_ack_name: document.getElementById('prStmtAck').value.trim(), staff_ack_image: prSigPads.staff.dataUrl() }) });
                 prMsg('prStmtMsg', `${res.message}. Reference ${res.statement.reference}.`, true);
                 prLoadStatementHistory(parseInt(id));
                 await prDownloadPdf(res.statement.pdf_url, el);
@@ -7974,13 +8108,26 @@ PAYROLL_PANEL_JS = """
                     </div>`).join('');
             } catch (e) { box.innerHTML = `<p class="text-red-400 text-xs">${prEsc(e.message || 'Error')}</p>`; }
         }
-        async function prAckStatement(statementId, employeeId) {
-            const name = prompt('Staff member: please type your full name to acknowledge receipt of the payments on this statement.');
-            if (!name || name.trim().length < 2) return;
+        function prAckStatement(statementId, employeeId) {
+            const s = _prStaff.find(x => x.id === employeeId);
+            document.getElementById('prAckStatementId').value = statementId;
+            document.getElementById('prAckEmployeeId').value = employeeId;
+            document.getElementById('prAckName').value = s ? s.full_name : '';
+            document.getElementById('prAckMsg').classList.add('hidden');
+            prEnsureSigPads(); prSigPads.ack.clear();
+            prOpenModal('prAckModal');
+        }
+        async function prSubmitAck() {
+            const statementId = document.getElementById('prAckStatementId').value, employeeId = parseInt(document.getElementById('prAckEmployeeId').value);
+            prEnsureSigPads();
+            if (prSigPads.ack.isEmpty()) { prMsg('prAckMsg', 'Please draw the signature on the pad', false); return; }
+            prMsg('prAckMsg', 'Saving...');
             try {
-                await fetchData('/admin/api/payroll/statements/' + statementId + '/acknowledge', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ staff_ack_name: name.trim() }) });
+                await fetchData('/admin/api/payroll/statements/' + statementId + '/acknowledge', { method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ staff_ack_name: document.getElementById('prAckName').value.trim(), staff_ack_image: prSigPads.ack.dataUrl() }) });
+                prCloseModal('prAckModal');
                 prLoadStatementHistory(employeeId);
-            } catch (e) { alert(e.message || 'Could not record acknowledgement'); }
+            } catch (e) { prMsg('prAckMsg', e.message || 'Could not record acknowledgement', false); }
         }
         async function prVoidStatement(statementId, employeeId) {
             if (!confirm('Void this issued statement? It will no longer be on record.')) return;

@@ -9,6 +9,10 @@ import app as app_module
 from app import app as flask_app, db, Admin, Employee, PayrollPayment, SalaryHistory
 
 
+# 1x1 transparent PNG, stands in for a drawn signature
+SIG_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+
 def _login_as(client, username, role):
     with flask_app.app_context():
         create_admin(username, role=role)
@@ -208,17 +212,26 @@ def test_sign_and_acknowledge_statement(client):
     # refuse without a signature
     r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': ''}, headers=headers)
     assert r.status_code == 400
+    # a typed name alone is not enough: the signature must be drawn
     r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': 'Walihlah Hamza'}, headers=headers)
+    assert r.status_code == 400
+    r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': 'Walihlah Hamza', 'signature_image': 'data:image/png;base64,notpng'}, headers=headers)
+    assert r.status_code == 400
+    r = client.post('/admin/api/payroll/statements', json={'employee_id': emp_id, 'from': '2026-09', 'to': '2026-10', 'signature': 'Walihlah Hamza', 'signature_image': SIG_PNG}, headers=headers)
     assert r.status_code == 200, r.data
     st = json.loads(r.data)['statement']
+    assert st['has_signature_image'] is True and st['has_staff_image'] is False
     assert st['reference'].startswith('BW-PS-') and st['total_paid'] == 60000 and st['total_earned'] == 60000 and st['staff_ack_name'] is None
     r = client.get(st['pdf_url'])
     assert r.status_code == 200 and r.data.startswith(b'%PDF') and 'Signed-' in r.headers['Content-Disposition']
     # unsigned draft is clearly marked in the filename
     r = client.get(f'/admin/payroll/statement/{emp_id}')
     assert 'DRAFT' in r.headers['Content-Disposition']
-    r = client.post(f"/admin/api/payroll/statements/{st['id']}/acknowledge", json={'staff_ack_name': 'Ayuba Okwonu'}, headers=headers)
-    assert r.status_code == 200 and json.loads(r.data)['statement']['staff_ack_at']
+    assert client.post(f"/admin/api/payroll/statements/{st['id']}/acknowledge", json={'staff_ack_name': 'Ayuba Okwonu'}, headers=headers).status_code == 400
+    r = client.post(f"/admin/api/payroll/statements/{st['id']}/acknowledge", json={'staff_ack_name': 'Ayuba Okwonu', 'staff_ack_image': SIG_PNG}, headers=headers)
+    assert r.status_code == 200 and json.loads(r.data)['statement']['staff_ack_at'] and json.loads(r.data)['statement']['has_staff_image']
+    r = client.get(st['pdf_url'])
+    assert r.status_code == 200 and r.data.startswith(b'%PDF')
     r = client.get(f'/admin/api/payroll/statements?employee_id={emp_id}')
     assert len(json.loads(r.data)['statements']) == 1
     # only the CEO can void
