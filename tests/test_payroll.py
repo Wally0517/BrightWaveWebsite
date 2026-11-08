@@ -223,3 +223,34 @@ def test_sign_and_acknowledge_statement(client):
     assert len(json.loads(r.data)['statements']) == 1
     # only the CEO can void
     assert client.delete(f"/admin/api/payroll/statements/{st['id']}", headers=headers).status_code == 403
+
+
+def test_pay_cycle_from_the_25th_matches_upfront_then_monthly_payments(client):
+    """Ayuba: started 25 Aug, paid 30k upfront for 25 Aug-24 Sep, then 30k in Oct and Nov.
+    With a 25th pay cycle nothing is owed and the next period is not due until 25 Nov."""
+    from unittest.mock import patch
+    from datetime import date as _d
+    headers = _login_as(client, 'mgr_cycle', 'MANAGER')
+    r = client.post('/admin/api/payroll/staff', json={'full_name': 'Ayuba Okwonu', 'monthly_salary': 30000, 'start_date': '2026-08-25', 'pay_cycle_day': 25}, headers=headers)
+    assert r.status_code == 200, r.data
+    emp = json.loads(r.data)['employee']
+    assert emp['pay_cycle_day'] == 25
+    for (y, m, paid_on) in [(2026, 8, '2026-08-25'), (2026, 9, '2026-10-04'), (2026, 10, '2026-11-07')]:
+        r = client.post('/admin/api/payroll/pay', json={'employee_id': emp['id'], 'amount': 30000, 'year': y, 'month': m, 'kind': 'salary', 'paid_on': paid_on}, headers=headers)
+        assert r.status_code == 200
+
+    class FakeDate(_d):
+        @classmethod
+        def today(cls):
+            return _d(2026, 11, 8)
+    with patch('app.date_type', FakeDate):
+        for m in (8, 9, 10):
+            row = next(x for x in json.loads(client.get(f'/admin/api/payroll/summary?year=2026&month={m}').data)['rows'] if x['employee_id'] == emp['id'])
+            assert row['salary'] == 30000 and row['already_paid'] == 30000 and row['outstanding'] == 0, (m, row)
+            assert row['prorated_days'] is None
+        aug = next(x for x in json.loads(client.get('/admin/api/payroll/summary?year=2026&month=8').data)['rows'] if x['employee_id'] == emp['id'])
+        assert aug['period_label'] == '25 Aug to 24 Sep 2026'
+        nov = next(x for x in json.loads(client.get('/admin/api/payroll/summary?year=2026&month=11').data)['rows'] if x['employee_id'] == emp['id'])
+        assert nov['salary'] == 0 and nov['outstanding'] == 0 and nov['period_started'] is False
+        r = client.get(f"/admin/payroll/statement/{emp['id']}")
+        assert r.status_code == 200 and r.data.startswith(b'%PDF')

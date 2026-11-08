@@ -369,6 +369,9 @@ class Employee(db.Model):
     monthly_salary = db.Column(db.Float, default=0.0)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
+    # Day of month the pay period starts. 1 = calendar months. 25 = paid for the 25th to the 24th
+    # (e.g. someone who started on the 25th and is paid month-by-month from that date).
+    pay_cycle_day = db.Column(db.Integer, default=1)
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -671,6 +674,10 @@ def ensure_runtime_schema_updates():
     tenant_columns = {column['name'] for column in inspector.get_columns('tenant')} if inspector.has_table('tenant') else set()
     if tenant_columns and 'serviced_by_id' not in tenant_columns:
         db.session.execute(text('ALTER TABLE tenant ADD COLUMN serviced_by_id INTEGER REFERENCES admin(id)'))
+
+    employee_columns = {column['name'] for column in inspector.get_columns('employee')} if inspector.has_table('employee') else set()
+    if employee_columns and 'pay_cycle_day' not in employee_columns:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN pay_cycle_day INTEGER DEFAULT 1'))
 
     if not inspector.has_table('payroll_payment'):
         db.create_all()
@@ -4970,14 +4977,37 @@ def _user_qualifies_for_commission(user):
     return False
 
 
+def _pay_period_bounds(emp, year, month):
+    """The pay period an employee is paid for under the (year, month) label.
+    Calendar staff: the calendar month. Cycle staff (pay_cycle_day > 1): from that day in
+    (year, month) to the day before the same day next month, e.g. 25 Aug to 24 Sep."""
+    import calendar
+    day = int(getattr(emp, 'pay_cycle_day', 1) or 1)
+    if day <= 1:
+        return _month_bounds(year, month)
+    start = date_type(year, month, min(day, calendar.monthrange(year, month)[1]))
+    ny, nm = (year + 1, 1) if month == 12 else (year, month + 1)
+    end = date_type(ny, nm, min(day, calendar.monthrange(ny, nm)[1])) - timedelta(days=1)
+    return start, end
+
+
+def _period_label(emp, year, month, long=False):
+    start, end = _pay_period_bounds(emp, year, month)
+    if int(getattr(emp, 'pay_cycle_day', 1) or 1) <= 1:
+        return f"{(MONTH_FULL if long else MONTH_ABBR)[month-1]} {year}"
+    return f"{start.day} {MONTH_ABBR[start.month-1]} to {end.day} {MONTH_ABBR[end.month-1]} {end.year}"
+
+
 def _employee_active_in_month(emp, year, month):
-    start_of_month, end_of_month = _month_bounds(year, month)
-    if emp.start_date and emp.start_date > end_of_month:
+    period_start, period_end = _pay_period_bounds(emp, year, month)
+    if emp.start_date and emp.start_date > period_end:
         return False
-    if emp.end_date and emp.end_date < start_of_month:
+    if emp.end_date and emp.end_date < period_start:
         return False
     if not emp.is_active and not emp.end_date:
         return False
+    if period_start > date_type.today():
+        return False  # the period has not started yet, so nothing is due
     return True
 
 
@@ -4990,7 +5020,7 @@ def serialize_payroll_payment(p):
         'user_id': p.user_id,
         'period_year': p.period_year,
         'period_month': p.period_month,
-        'period_label': f"{MONTH_ABBR[p.period_month - 1]} {p.period_year}" if 1 <= (p.period_month or 0) <= 12 else '',
+        'period_label': (_period_label(emp, p.period_year, p.period_month) if emp else f"{MONTH_ABBR[p.period_month - 1]} {p.period_year}") if 1 <= (p.period_month or 0) <= 12 else '',
         'amount': float(p.amount or 0),
         'kind': p.kind,
         'notes': p.notes or '',
@@ -5021,6 +5051,7 @@ def serialize_employee(emp):
         'start_date': emp.start_date.isoformat() if emp.start_date else None,
         'end_date': emp.end_date.isoformat() if emp.end_date else None,
         'is_active': bool(emp.is_active),
+        'pay_cycle_day': int(emp.pay_cycle_day or 1),
         'notes': emp.notes or '',
         'created_at': emp.created_at.isoformat() if emp.created_at else None,
         'created_by': emp.created_by or '',
@@ -5058,15 +5089,15 @@ def compute_employee_payroll(emp, year, month):
     active_in_month = _employee_active_in_month(emp, year, month)
     salary = get_effective_monthly_salary(emp, year, month) if active_in_month else 0.0
     prorated_days = None
+    period_start, period_end = _pay_period_bounds(emp, year, month)
     if active_in_month and salary > 0:
-        start_of_month, end_of_month = _month_bounds(year, month)
-        days_in_month = (end_of_month - start_of_month).days + 1
-        first_day = max(start_of_month, emp.start_date) if emp.start_date else start_of_month
-        last_day = min(end_of_month, emp.end_date) if emp.end_date else end_of_month
+        days_in_period = (period_end - period_start).days + 1
+        first_day = max(period_start, emp.start_date) if emp.start_date else period_start
+        last_day = min(period_end, emp.end_date) if emp.end_date else period_end
         worked = (last_day - first_day).days + 1
-        if 0 < worked < days_in_month:
-            prorated_days = (worked, days_in_month)
-            salary = round(salary * worked / days_in_month)
+        if 0 < worked < days_in_period:
+            prorated_days = (worked, days_in_period)
+            salary = round(salary * worked / days_in_period)
 
     payments_q = (
         PayrollPayment.query
@@ -5086,6 +5117,10 @@ def compute_employee_payroll(emp, year, month):
         'display_name': emp.full_name,
         'role': emp.job_title or (user.role if user else 'Staff'),
         'active_in_month': active_in_month,
+        'period_label': _period_label(emp, year, month),
+        'period_start': period_start.isoformat(),
+        'period_end': period_end.isoformat(),
+        'period_started': period_start <= date_type.today(),
         'prorated_days': prorated_days,
         'commission_lines': commission_lines,
         'commission_total': commission_total,
@@ -5203,8 +5238,15 @@ def admin_payroll_staff():
             if Employee.query.filter_by(user_id=user.id).first():
                 return jsonify({"success": False, "message": "That account is already on the payroll roster"}), 409
 
+        try:
+            pay_cycle_day = int(data.get('pay_cycle_day') or 1)
+            if not (1 <= pay_cycle_day <= 28):
+                raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Pay cycle day must be between 1 and 28"}), 400
         emp = Employee(
             full_name=full_name,
+            pay_cycle_day=pay_cycle_day,
             job_title=(data.get('job_title') or '').strip() or (user.role.title() if user else None),
             phone=(data.get('phone') or '').strip() or None,
             email=(data.get('email') or '').strip().lower() or (user.email if user else None),
@@ -5280,6 +5322,14 @@ def admin_payroll_staff_detail(employee_id):
                 emp.end_date = date_type.today()
             if emp.is_active:
                 emp.end_date = None
+        if 'pay_cycle_day' in data:
+            try:
+                d = int(data.get('pay_cycle_day') or 1)
+                if not (1 <= d <= 28):
+                    raise ValueError
+                emp.pay_cycle_day = d
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "message": "Pay cycle day must be between 1 and 28"}), 400
         if 'user_id' in data:
             uid = data.get('user_id')
             if uid in (None, ''):
@@ -5328,7 +5378,9 @@ def admin_payroll_summary():
                     .filter(PayrollPayment.period_year == year, PayrollPayment.period_month == month).distinct()}
         rows = []
         for emp in employees:
-            if _employee_active_in_month(emp, year, month) or emp.id in paid_ids:
+            period_start, period_end = _pay_period_bounds(emp, year, month)
+            upcoming = (emp.pay_cycle_day or 1) > 1 and period_start > date_type.today() and emp.is_active and (not emp.start_date or emp.start_date <= period_end)
+            if _employee_active_in_month(emp, year, month) or emp.id in paid_ids or upcoming:
                 rows.append(compute_employee_payroll(emp, year, month))
 
         totals = {
@@ -5392,7 +5444,7 @@ def admin_payroll_pay():
             kind=kind,
             source_tenant_id=int(data['source_tenant_id']) if data.get('source_tenant_id') else None,
             notes=(data.get('notes') or '').strip() or None,
-            paid_at=datetime.combine(paid_on, datetime.utcnow().time()) if paid_on != date_type.today() else datetime.utcnow(),
+            paid_at=datetime.combine(paid_on, datetime.utcnow().time()),
             paid_by=_actor_name(actor),
         )
         db.session.add(payment)
@@ -6050,7 +6102,7 @@ def admin_payroll_statement_pdf(employee_id):
             ('Email', emp.email or 'Not provided'),
             ('Start date', emp.start_date.strftime('%d %b %Y') if emp.start_date else '-'),
             ('Status', ('Active' if emp.is_active else 'Left ' + (emp.end_date.strftime('%d %b %Y') if emp.end_date else ''))),
-            ('Current monthly salary', money(emp.monthly_salary)),
+            ('Current monthly salary', money(emp.monthly_salary) + (f"  (paid per cycle from the {emp.pay_cycle_day}th)" if (emp.pay_cycle_day or 1) > 1 else '')),
             ('Statement reference', signed.reference if signed else f"DRAFT-{emp.id:03d}-{today.strftime('%Y%m%d')}"),
         ], cols=2)
         if not signed:
@@ -6088,10 +6140,10 @@ def admin_payroll_statement_pdf(employee_id):
             if not d['active_in_month'] and not d['payment_history']:
                 continue
             bal = d['total_earned'] - d['already_paid']
-            label = f"{MONTH_ABBR[m-1]} {y}"
+            label = d['period_label']
             if d.get('prorated_days'):
                 label += ' *'
-                prorate_notes.append(f"{MONTH_ABBR[m-1]} {y}: {d['prorated_days'][0]} of {d['prorated_days'][1]} days")
+                prorate_notes.append(f"{d['period_label']}: {d['prorated_days'][0]} of {d['prorated_days'][1]} days")
             rows.append([label, money(d['salary']), money(d['commission_total']), money(d['total_earned']),
                          money(d['already_paid']), ('Settled' if abs(bal) < 1 else ('Owed ' + money(bal) if bal > 0 else 'Overpaid ' + money(-bal)))])
             t_sal += d['salary']; t_com += d['commission_total']; t_earn += d['total_earned']; t_paid += d['already_paid']
@@ -6100,7 +6152,7 @@ def admin_payroll_statement_pdf(employee_id):
             rows = [['No activity in this period', '', '', '', '', '']]
         t_bal = t_earn - t_paid
         _pdf_table(pdf, F, usable,
-                   [('Month', 0.16, 'L'), ('Salary', 0.16, 'R'), ('Commission', 0.17, 'R'), ('Total due', 0.17, 'R'), ('Paid', 0.16, 'R'), ('Balance', 0.18, 'R')],
+                   [('Pay period', 0.22, 'L'), ('Salary', 0.15, 'R'), ('Commission', 0.15, 'R'), ('Total due', 0.16, 'R'), ('Paid', 0.15, 'R'), ('Balance', 0.17, 'R')],
                    rows,
                    total_row=['TOTAL', money(t_sal), money(t_com), money(t_earn), money(t_paid),
                               ('Settled' if abs(t_bal) < 1 else ('Owed ' + money(t_bal) if t_bal > 0 else 'Overpaid ' + money(-t_bal)))])
@@ -6118,7 +6170,7 @@ def admin_payroll_statement_pdf(employee_id):
         prow = [[p['period_label'], _pdf_date(p['paid_on']), (p['kind'] or '').title(), money(p['amount']),
                  (p['notes'] or '-'), p['paid_by'] or '-'] for p in all_payments] or [['No payments recorded', '', '', '', '', '']]
         _pdf_table(pdf, F, usable,
-                   [('For month', 0.12, 'L'), ('Date paid', 0.13, 'L'), ('Type', 0.11, 'L'), ('Amount', 0.14, 'R'), ('Notes', 0.29, 'L'), ('Recorded by', 0.21, 'L')],
+                   [('Pay period', 0.19, 'L'), ('Date paid', 0.12, 'L'), ('Type', 0.1, 'L'), ('Amount', 0.13, 'R'), ('Notes', 0.27, 'L'), ('Recorded by', 0.19, 'L')],
                    prow, total_row=['TOTAL PAID', '', '', money(t_paid), '', ''])
 
         pdf.set_font(F, 'B', 9)
@@ -7335,6 +7387,7 @@ PAYROLL_PANEL_HTML = """
             <div><label class="block text-xs text-gray-400 mb-1">Phone</label><input id="prStaffPhone" type="tel" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Monthly salary (NGN) *</label><input id="prStaffSalary" type="number" min="0" step="1000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Start date</label><input id="prStaffStart" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
+            <div class="sm:col-span-2"><label class="block text-xs text-gray-400 mb-1">Pay period</label><select id="prStaffCycle" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="1">Calendar month (1st to end of month)</option></select><p class="text-[11px] text-gray-500 mt-1">Choose a day if the person is paid month-to-month from their start date, e.g. started on the 25th and each payment covers the 25th to the 24th.</p></div>
             <div id="prStaffSalaryFromWrap" class="hidden"><label class="block text-xs text-gray-400 mb-1">New salary effective from</label><input id="prStaffSalaryFrom" type="date" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Email</label><input id="prStaffEmail" type="email" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"></div>
             <div><label class="block text-xs text-gray-400 mb-1">Portal login (optional)</label><select id="prStaffUser" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white"><option value="">No login account</option></select></div>
@@ -7534,12 +7587,13 @@ PAYROLL_PANEL_JS = """
                 const inactive = !r.is_active ? '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400">left</span>' : '';
                 const login = r.has_account ? '<i class="fas fa-user-check text-emerald-500 text-[10px] ml-1" title="Has portal login"></i>' : '';
                 const prorate = r.prorated_days ? `<span class="block text-[10px] text-gray-500">${r.prorated_days[0]}/${r.prorated_days[1]} days</span>` : '';
+                const cycle = r.pay_cycle_day > 1 ? `<span class="block text-[10px] text-gray-500">${r.period_started ? 'Period ' : 'Starts '}${prEsc(r.period_label)}</span>` : '';
                 const salaryCell = r.qualifies_for_commission && !(r.salary > 0)
                     ? '<span class="text-gray-600 text-xs italic">commission</span>'
                     : `<span class="text-blue-300">${prFmt(r.salary)}</span>${prorate}`;
                 return `
                     <tr class="border-b border-gray-700/70">
-                        <td class="py-2 pr-3 text-gray-100 font-medium">${prEsc(r.display_name)}${login}${inactive}</td>
+                        <td class="py-2 pr-3 text-gray-100 font-medium">${prEsc(r.display_name)}${login}${inactive}${cycle}</td>
                         <td class="py-2 pr-3 text-gray-400 text-xs">${prEsc(r.role || '')}</td>
                         <td class="py-2 pr-3 text-right">${salaryCell}</td>
                         <td class="py-2 pr-3 text-right text-amber-400">${r.qualifies_for_commission ? prFmt(r.commission_total) + linesToggle : '<span class="text-gray-600">-</span>'}</td>
@@ -7618,6 +7672,9 @@ PAYROLL_PANEL_JS = """
             document.getElementById('prStaffEmail').value = s ? s.email : '';
             document.getElementById('prStaffSalary').value = s ? s.monthly_salary : '';
             document.getElementById('prStaffStart').value = s ? (s.start_date || '') : prToday();
+            const cyc = document.getElementById('prStaffCycle');
+            if (cyc.options.length < 2) { for (let d = 2; d <= 28; d++) { const o = document.createElement('option'); o.value = d; o.textContent = `From the ${d}${d === 2 ? 'nd' : d === 3 ? 'rd' : d === 21 ? 'st' : d === 22 ? 'nd' : d === 23 ? 'rd' : 'th'} to the ${d - 1}${(d - 1) === 1 ? 'st' : (d - 1) === 2 ? 'nd' : (d - 1) === 3 ? 'rd' : (d - 1) === 21 ? 'st' : (d - 1) === 22 ? 'nd' : (d - 1) === 23 ? 'rd' : 'th'} of next month`; cyc.appendChild(o); } }
+            cyc.value = s ? String(s.pay_cycle_day || 1) : '1';
             document.getElementById('prStaffNotes').value = s ? s.notes : '';
             document.getElementById('prStaffSalaryFrom').value = prToday();
             document.getElementById('prStaffSalaryFromWrap').classList.toggle('hidden', !s);
@@ -7638,6 +7695,7 @@ PAYROLL_PANEL_JS = """
                 email: document.getElementById('prStaffEmail').value.trim(),
                 monthly_salary: document.getElementById('prStaffSalary').value || 0,
                 start_date: document.getElementById('prStaffStart').value || null,
+                pay_cycle_day: document.getElementById('prStaffCycle').value || 1,
                 notes: document.getElementById('prStaffNotes').value.trim(),
                 user_id: document.getElementById('prStaffUser').value || null,
             };
