@@ -7370,7 +7370,7 @@ PAYROLL_PANEL_HTML = """
     <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Salaries <span class="pr-tile-month normal-case"></span></p><p id="pr_salTotal" class="text-lg font-semibold text-blue-400">-</p><p id="pr_salYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
     <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Commission <span class="pr-tile-month normal-case"></span></p><p id="pr_commTotal" class="text-lg font-semibold text-amber-400">-</p><p id="pr_commYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
     <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Total Earned <span class="pr-tile-month normal-case"></span></p><p id="pr_earnTotal" class="text-lg font-semibold text-emerald-400">-</p><p id="pr_earnYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
-    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid <span class="pr-tile-month normal-case"></span></p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-200">-</p><p id="pr_paidYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
+    <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Paid this month <span id="pr_paidMonthLabel" class="normal-case"></span></p><p id="pr_paidTotal" class="text-lg font-semibold text-gray-200">-</p><p id="pr_paidYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
     <div class="bg-gray-800 border border-gray-700/60 p-3 rounded-xl col-span-2 md:col-span-1"><p class="text-[10px] text-gray-500 uppercase tracking-wide">Outstanding <span class="pr-tile-month normal-case"></span></p><p id="pr_outTotal" class="text-lg font-semibold text-red-400">-</p><p id="pr_outYtd" class="text-[11px] text-gray-500 mt-0.5"></p></div>
 </div>
 
@@ -7664,13 +7664,14 @@ PAYROLL_PANEL_JS = """
                 document.getElementById('pr_salTotal').textContent = prFmt(yt.salary_total);
                 document.getElementById('pr_commTotal').textContent = prFmt(yt.commission_total);
                 document.getElementById('pr_earnTotal').textContent = prFmt(yt.earned_total);
-                document.getElementById('pr_paidTotal').textContent = prFmt(yt.paid_total);
+                document.getElementById('pr_paidTotal').textContent = prFmt(t.paid_total);
                 document.getElementById('pr_outTotal').textContent = prFmt(yt.outstanding_total);
                 const mLabel = `${PR_MONTHS[month - 1]} ${year}: `;
                 document.getElementById('pr_salYtd').textContent = mLabel + prFmt(t.salary_total);
                 document.getElementById('pr_commYtd').textContent = mLabel + prFmt(t.commission_total);
                 document.getElementById('pr_earnYtd').textContent = mLabel + prFmt(t.earned_total);
-                document.getElementById('pr_paidYtd').textContent = mLabel + prFmt(t.paid_total);
+                document.getElementById('pr_paidYtd').textContent = `${year} to date: ` + prFmt(yt.paid_total);
+                document.getElementById('pr_paidMonthLabel').textContent = `(${PR_MONTHS[month - 1]} ${year})`;
                 document.getElementById('pr_outYtd').textContent = mLabel + prFmt(t.outstanding_total);
                 document.querySelectorAll('.pr-tile-month').forEach(el => { el.textContent = `(${year} to date)`; });
                 const monthTab = document.querySelector('[data-prtab="prTabMonth"]'); if (monthTab) monthTab.textContent = `${PR_MONTHS[month - 1]} ${year}`;
