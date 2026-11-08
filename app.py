@@ -5685,7 +5685,7 @@ def _payroll_pdf(doc_title, subtitle):
     pdf.set_font(F, '', 9)
     pdf.set_text_color(*SLATE)
     pdf.cell(usable, 5, subtitle, align='C', new_x='LMARGIN', new_y='NEXT')
-    pdf.set_y(pdf.get_y() + 4)
+    pdf.set_y(pdf.get_y() + 2)
     pdf._palette = {'TEAL': TEAL, 'INK': INK, 'SLATE': SLATE, 'FAINT': FAINT, 'RULE': RULE}
     return pdf, F, usable
 
@@ -5723,12 +5723,12 @@ def _pdf_table(pdf, F, usable, columns, rows, total_row=None, zebra=True, font_s
         if fill:
             pdf.set_fill_color(248, 250, 252)
         # Measure tallest cell (notes may wrap)
-        line_h = 5.5
+        line_h = 4.8
         n_lines = 1
         for (label, _, align), w, val in zip(columns, widths, row):
             lines = pdf.multi_cell(w, line_h, str(val), align=align, dry_run=True, output='LINES')
             n_lines = max(n_lines, len(lines))
-        row_h = line_h * n_lines + 1.5
+        row_h = line_h * n_lines + 1.2
         y0 = pdf.get_y()
         x = pdf.l_margin
         for (label, _, align), w, val in zip(columns, widths, row):
@@ -5763,8 +5763,8 @@ def _pdf_kv_block(pdf, F, usable, pairs, cols=2):
             pdf.set_font(F, 'B', 9.5)
             pdf.set_text_color(*P['INK'])
             pdf.cell(col_w, 5, str(value), new_x='LEFT', new_y='NEXT')
-        pdf.set_xy(pdf.l_margin, y0 + 10.5)
-    pdf.ln(2)
+        pdf.set_xy(pdf.l_margin, y0 + 9.5)
+    pdf.ln(1.5)
 
 
 def _pdf_signatures(pdf, F, usable, left_label, right_label):
@@ -6118,7 +6118,7 @@ def admin_payroll_statement_pdf(employee_id):
         prow = [[p['period_label'], _pdf_date(p['paid_on']), (p['kind'] or '').title(), money(p['amount']),
                  (p['notes'] or '-'), p['paid_by'] or '-'] for p in all_payments] or [['No payments recorded', '', '', '', '', '']]
         _pdf_table(pdf, F, usable,
-                   [('For month', 0.14, 'L'), ('Date paid', 0.14, 'L'), ('Type', 0.12, 'L'), ('Amount', 0.16, 'R'), ('Notes', 0.28, 'L'), ('Recorded by', 0.16, 'L')],
+                   [('For month', 0.12, 'L'), ('Date paid', 0.13, 'L'), ('Type', 0.11, 'L'), ('Amount', 0.14, 'R'), ('Notes', 0.29, 'L'), ('Recorded by', 0.21, 'L')],
                    prow, total_row=['TOTAL PAID', '', '', money(t_paid), '', ''])
 
         pdf.set_font(F, 'B', 9)
